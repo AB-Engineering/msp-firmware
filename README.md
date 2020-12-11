@@ -1,4 +1,4 @@
-# Milano Smart Park Firmware
+# Milano Smart Park Firmware for Arduino IDE
 
 A&A Milano Smart Park Project
 
