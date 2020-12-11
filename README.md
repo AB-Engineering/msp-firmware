@@ -5,10 +5,19 @@ Firmware developed with the Arduino IDE by Norman Mulinacci @ 2020
 
 The project runs on Espressif's ESP32-DevkitC with ESP32-WROVER-B module
 
+	Required external libraries (download them through the Arduino IDE):
+	
+		- esp32 package for the Arduino IDE
+		- Bosch's BSEC Software Library
+		- PMS_Extended Library (custom)
+		- MiCS6814-I2C Library (custom)
+		- U8g2 Library
+		- SSLClient Library
 
-      HW: 
-      - ESP32-DevkitC with ESP32-WROVER-B module
-      - 1.3" 128x64 OLED screen SH1106 (IIC interface)
+	Hardware:
+	
+		- ESP32-DevkitC with ESP32-WROVER-B module
+		- 1.3" 128x64 OLED screen SH1106 (IIC interface)
       
                          ____________________
                         |                     |

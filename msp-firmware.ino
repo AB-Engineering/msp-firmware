@@ -1,9 +1,7 @@
 //
-//  MILANO SMART PARK project
+//  Milano Smart Park project
 //  Firmware by Norman Mulinacci
 //  
-//  Required libraries: esp32 package for Arduino IDE, BSEC Software Library, PMS_Extended Library (custom), MiCS6814-I2C Library (custom), U8g2 Library, SSLClient Library
-//
 
 
 //Basic system libraries
