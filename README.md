@@ -16,7 +16,7 @@ The project runs on Espressif's ESP32-DevkitC with ESP32-WROVER-B module
 
 ### Hardware:
 
-		ESP32-DevkitC with ESP32-WROVER-B module
+	### ESP32-DevkitC with ESP32-WROVER-B module:
       
                          ____________________
                         |                     |
