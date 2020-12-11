@@ -5,6 +5,7 @@ Firmware developed with the Arduino IDE by Norman Mulinacci @ 2020
 
 The project runs on Espressif's ESP32-DevkitC with ESP32-WROVER-B module
 
+
 Required external libraries (download them through the Arduino IDE):
 	
 	- [Arduino core for the ESP32](https://github.com/espressif/arduino-esp32)
@@ -19,7 +20,6 @@ Hardware:
 	- ESP32-DevkitC with ESP32-WROVER-B module
 	- 1.3" 128x64 OLED screen SH1106 (IIC interface)
       
-	  
                          ____________________
                         |                     |
                3V3--- o-|-3V3             GND-|-o
