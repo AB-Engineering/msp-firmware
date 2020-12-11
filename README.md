@@ -16,8 +16,7 @@ The project runs on Espressif's ESP32-DevkitC with ESP32-WROVER-B module
 
 ### Hardware:
 
-- ESP32-DevkitC with ESP32-WROVER-B module
-- 1.3" 128x64 OLED screen SH1106 (IIC interface)
+		ESP32-DevkitC with ESP32-WROVER-B module
       
                          ____________________
                         |                     |
@@ -46,3 +45,4 @@ The project runs on Espressif's ESP32-DevkitC with ESP32-WROVER-B module
                         |     |       |       |
                         |_____|       |_______|
                               |_______|
+							  
