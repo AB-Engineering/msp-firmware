@@ -1,9 +1,8 @@
 //
 //  MILANO SMART PARK project
-//  Firmware for ESP32-DevkitC with ESP32-WROVER-B
-//  by Norman Mulinacci
-//
-//  Required libraries: esp32 package for Arduino IDE, BSEC Software Library, PMS_Extended Library (custom), MiCS6814-I2C Library (custom), U8g2 Library
+//  Firmware by Norman Mulinacci
+//  
+//  Required libraries: esp32 package for Arduino IDE, BSEC Software Library, PMS_Extended Library (custom), MiCS6814-I2C Library (custom), U8g2 Library, SSLClient Library
 //
 
 
