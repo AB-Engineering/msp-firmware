@@ -9,6 +9,7 @@ The project runs on Espressif's ESP32-DevkitC with ESP32-WROVER-B module
 ### Required external libraries (you can also download them through the Arduino IDE):
 
 - [Arduino core for the ESP32](https://github.com/espressif/arduino-esp32)
+	+ You need to add the following URLs in File -> Settings -> Additional URL to download the core in the IDE: https://dl.espressif.com/dl/package_esp32_index.json, http://arduino.esp8266.com/stable/package_esp8266com_index.json
 - [U8g2 Arduino library](https://github.com/olikraus/U8g2_Arduino)
 - [SSLClient Library](https://github.com/OPEnSLab-OSU/SSLClient)
 - [BSEC Arduino library](https://github.com/BoschSensortec/BSEC-Arduino-library)
