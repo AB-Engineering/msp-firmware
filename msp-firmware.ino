@@ -3,20 +3,17 @@
 //  Firmware by Norman Mulinacci
 //  
 
-
 //Basic system libraries
 #include <Arduino.h>
 #include <FS.h>
 #include <SD.h>
 #include <Wire.h>
 
-
 String ver = "2.4 beta"; //current firmware version
 
 //++++++++++++++++++++++ DEBUG enable ++++++++++++++++++++++++++++++++
 bool DEBDUG = false;
 //++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-
 
 // WiFi, NTP time management and SSL libraries
 #include <WiFi.h>
@@ -249,7 +246,7 @@ void setup() {
       File filecsv = SD.open(logpath, FILE_WRITE);
       if (filecsv) {
         filecsv.close();
-        String headertext = "File di log della centralina: " + codice + " | Versione firmware N: " + ver + " | MAC: " + macAdr;
+        String headertext = "File di log della centralina: " + codice + " | Versione firmware: " + ver + " | MAC: " + macAdr;
         appendFile(SD, logpath, headertext);
         appendFile(SD, logpath, "Data;Ora;Temp(*C);Hum(%);Pre(hPa);PM10(ug/m3);PM2,5(ug/m3);PM1(ug/m3);NOx(ppm);CO(ppm);O3(ppm);VOC(kOhm);NH3(ppm);C3H8(ppm);C4H10(ppm);CH4(ppm);H2(ppm);C2H5OH(ppm)");
         Serial.println("File di log creato!");
@@ -274,7 +271,7 @@ void setup() {
       File filecsv = SD.open(logpath, FILE_WRITE);
       if (filecsv) {
         filecsv.close();
-        String headertext = "File di log 2 della centralina: " + codice + " | Versione firmware N: " + ver + " | MAC: " + macAdr;
+        String headertext = "File di log 2 della centralina: " + codice + " | Versione firmware: " + ver + " | MAC: " + macAdr;
         appendFile(SD, logpath, headertext);
         appendFile(SD, logpath, "Data;Ora;Temp(*C);Hum(%);Pre(hPa);PM10(ug/m3);PM2,5(ug/m3);PM1(ug/m3);NOx(ug/m3);CO(ug/m3);O3(ug/m3);VOC(kOhm);NH3(ug/m3);C3H8(ug/m3);C4H10(ug/m3);CH4(ug/m3);H2(ug/m3);C2H5OH(ug/m3)");
         Serial.println("File di log 2 creato!");
