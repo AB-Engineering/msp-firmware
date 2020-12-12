@@ -525,17 +525,21 @@ void loop() {
 
   //main average loop
   for (int i = 0; i < avg_measurements; i++) {
-
+    
+    int errcount = 0;
     if (DEBDUG) Serial.println("Attesa delay...\n");
     delay(avg_delay * 1000);
 
     //+++++++++ READING BME680 ++++++++++++
     if (BME680_run) {
-      if (DEBDUG) Serial.println("...campiono BME680...");
+      Serial.println("Campiono il BME680...");
+      errcount = 0;
       while (1) {
-        int errcount = 0;
         if (!iaqSensor.run()) {
-          if (errcount > 2) break;
+          if (errcount > 2) {
+            Serial.println("ERRORE durante misura BME680!");
+            break;
+          }
           delay(1000);
           errcount++;
           continue;
@@ -558,14 +562,17 @@ void loop() {
 
     //+++++++++ READING PMS5003 +++++++++++
     if (PMS_run) {
-      if (DEBDUG) Serial.println("...campiono PMS5003...");
+      Serial.println("Campiono il PMS5003...");
+      errcount = 0;
       while (1) {
         while (pmsSerial.available()) {
           pmsSerial.read(); // Clears buffer (removes potentially old data) before read.
         }
-        int errcount = 0;
         if (!pms.readUntil(data)) {
-          if (errcount > 2) break;
+          if (errcount > 2) {
+            Serial.println("ERRORE durante misura PMS5003!");
+            break;
+          }
           delay(1000);
           errcount++;
           continue;
@@ -586,11 +593,14 @@ void loop() {
 
     //+++++++++ READING MICS6814 ++++++++++++
     if (MICS6814_run) {
-      if (DEBDUG) Serial.println("...campiono MICS6814...");
+      Serial.println("Campiono il MICS6814...");
+      errcount = 0;
       while (1) {
-        int errcount = 0;
         if (gas.measureCO() < 0 || gas.measureNO2() < 0 || gas.measureNH3() < 0) {
-          if (errcount > 2) break;
+          if (errcount > 2) {
+            Serial.println("ERRORE durante misura MICS6814!");
+            break;
+          }
           delay(1000);
           errcount++;
           continue;
@@ -621,7 +631,7 @@ void loop() {
 
     //+++++++++ READING ZE25-O3 ++++++++++++
     if (O3_run) {
-      if (DEBDUG) Serial.println("...campiono ZE25-O3...");
+      Serial.println("Campiono il ZE25-O3...");
       /* OLDCODE
         while (1) {
         while (O3Serial.available()) {
