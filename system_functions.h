@@ -11,11 +11,11 @@ void drawScrHead() { //draws the screen header
   // stato del sistema
   u8g2.setCursor(0, 13); u8g2.print("#" + codice + "#");
 
-  if (dataora_ok) {
-    u8g2.drawXBMP(52, 0, 16, 16, clock_icon16x16);
-  }
   if (SD_ok) {
     u8g2.drawXBMP(72, 0, 16, 16, sd_icon16x16);
+  }
+  if (dataora_ok) {
+    u8g2.drawXBMP(92, 0, 16, 16, clock_icon16x16);
   }
   if (connesso_ok) {
     u8g2.drawXBMP(112, 0, 16, 16, wifi1_icon16x16);
