@@ -11,7 +11,7 @@
 #include <Wire.h>
 
 
-String ver = "2.5 beta"; //current firmware version
+String ver = "2.4 beta"; //current firmware version
 
 //++++++++++++++++++++++ DEBUG enable ++++++++++++++++++++++++++++++++
 bool DEBDUG = false;
