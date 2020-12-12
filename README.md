@@ -15,4 +15,4 @@ The project runs on Espressif's ESP32-DevkitC with ESP32-WROVER-B module
 - [BSEC Arduino library](https://github.com/BoschSensortec/BSEC-Arduino-library)
 	+ In order for the linker to work properly, you need to perform the modifications described in the BSEC page. They work fine in Arduino IDE v1.8.13.
 - [PMS Library](https://github.com/fu-hsi/pms)
-- MiCS6814-I2C Library (custom)
+- [MiCS6814-I2C-Library](https://github.com/eNBeWe/MiCS6814-I2C-Library)
