@@ -1,7 +1,7 @@
 //
 //  Milano Smart Park project
 //  Firmware by Norman Mulinacci
-//  
+//
 
 //Basic system libraries
 #include <Arduino.h>
@@ -77,7 +77,7 @@ U8G2_SH1106_128X64_NONAME_F_HW_I2C u8g2(U8G2_R0, U8X8_PIN_NONE, I2C_SCL_PIN, I2C
 bool SD_ok;
 bool cfg_ok;
 bool ssid_ok;
-bool connesso_ok;
+bool connected_ok;
 bool dataora_ok;
 bool invio_ok;
 String ssid = "";
@@ -120,7 +120,7 @@ String dayStamp = "";
 String timeStamp = "";
 
 // Sensor active variables
-bool BME680_run;
+bool BME_run;
 bool PMS_run;
 bool MICS6814_run;
 bool O3_run;
@@ -313,13 +313,13 @@ void setup() {
       BSEC_OUTPUT_SENSOR_HEAT_COMPENSATED_HUMIDITY,
     };
     iaqSensor.updateSubscription(sensor_list, sizeof(sensor_list) / sizeof(sensor_list[0]), BSEC_SAMPLE_RATE_LP);
-    BME680_run = true;
+    BME_run = true;
     Serial.println();
   } else {
     Serial.println("Sensore BME680 non rilevato.\n");
     u8g2.drawStr(20, 55, "BME680 -> ERR!");
     u8g2.sendBuffer();
-    BME680_run = false;
+    BME_run = false;
   }
   //++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
@@ -436,7 +436,7 @@ void loop() {
   WiFi.disconnect();
   WiFi.mode(WIFI_OFF);
   delay(1000); // Waiting a bit for Wifi mode set
-  connesso_ok = false;
+  connected_ok = false;
   dataora_ok = false;
   u8g2.drawXBMP(52, 0, 16, 16, blank_icon16x16);
   u8g2.drawXBMP(112, 0, 16, 16, nocon_icon16x16);
@@ -449,7 +449,7 @@ void loop() {
     Serial.print("codice: --> "); Serial.println(codice);
     Serial.print("SD_ok: --> "); Serial.println(SD_ok);
     Serial.print("cfg_ok: --> "); Serial.println(cfg_ok);
-    Serial.print("connesso_ok: --> "); Serial.println(connesso_ok);
+    Serial.print("connected_ok: --> "); Serial.println(connected_ok);
     Serial.print("dataora_ok: --> "); Serial.println(dataora_ok);
     Serial.print("invio_ok: --> "); Serial.println(invio_ok);
   }
@@ -495,23 +495,23 @@ void loop() {
   MICS6814_C2H5OH = 0.0;
 
   //Preheating PMS5003 sensor for accurate measurements, 30 seconds is fine, 1 minute for good measure
-
-  if (DEBDUG) Serial.println("Waking up PMS5003 sensor after sleep...");
-  pms.wakeUp();
-
-  for (int i = 60; i > 0; i--) {
-    String output = "";
-    output = String(i / 60) + ":";
-    if (i % 60 >= 0 && i % 60 <= 9) {
-      output += "0";
+  if (PMS_run) {
+    if (DEBDUG) Serial.println("Waking up PMS5003 sensor after sleep...");
+    pms.wakeUp();
+    for (int i = 60; i > 0; i--) {
+      String output = "";
+      output = String(i / 60) + ":";
+      if (i % 60 >= 0 && i % 60 <= 9) {
+        output += "0";
+      }
+      output += String(i % 60);
+      Serial.println("Attendi " + output + " min. per riscaldamento PMS5003");
+      drawScrHead();
+      u8g2.setCursor(5, 35); u8g2.print("Riscaldo PMS5003...");
+      u8g2.setCursor(8, 55); u8g2.print("ATTENDI " + output + " MIN.");
+      u8g2.sendBuffer();
+      delay(1000);
     }
-    output += String(i % 60);
-    Serial.println("Attendi " + output + " min. per riscaldamento PMS5003");
-    drawScrHead();
-    u8g2.setCursor(5, 35); u8g2.print("Riscaldo PMS5003...");
-    u8g2.setCursor(8, 55); u8g2.print("ATTENDI " + output + " MIN.");
-    u8g2.sendBuffer();
-    delay(1000);
   }
 
   //serial
@@ -525,13 +525,13 @@ void loop() {
 
   //main average loop
   for (int i = 0; i < avg_measurements; i++) {
-    
+
     int errcount = 0;
     if (DEBDUG) Serial.println("Attesa delay...\n");
     delay(avg_delay * 1000);
 
     //+++++++++ READING BME680 ++++++++++++
-    if (BME680_run) {
+    if (BME_run) {
       Serial.println("Campiono il BME680...");
       errcount = 0;
       while (1) {
@@ -632,25 +632,21 @@ void loop() {
     //+++++++++ READING ZE25-O3 ++++++++++++
     if (O3_run) {
       Serial.println("Campiono il ZE25-O3...");
-      /* OLDCODE
-        while (1) {
-        while (O3Serial.available()) {
-          O3Serial.read(); // Clears buffer (removes potentially old data) before read.
-        }
-        if (O3sens.readManual() < 0) {
+      errcount = 0;
+      int punti = 0;
+      while (1) {
+        if (isAnalogO3Connected()) {
+          if (errcount > 2) {
+            Serial.println("ERRORE durante misura ZE25-O3!");
+            break;
+          }
           delay(1000);
+          errcount++;
           continue;
         }
-        ozone += O3sens.readManual();
-        ozone -= 0.02; //offset della misura, 20ppb
-        if (DEBDUG) {
-          Serial.printf("Ozono(ppm): %.3f\n", O3sens.readManual() - 0.02);
-          Serial.println();
-        }
+        ozone += analogPpmO3Read(&punti);
         break;
-        } */
-      int punti = 0;
-      ozone += analogPpmO3Read(&punti);
+      }
     }
     //+++++++++++++++++++++++++++++++++++++++++++++++++++++
 
@@ -666,43 +662,50 @@ void loop() {
   pms.sleep();
   delay(1500);
 
-  if (DEBDUG) Serial.println("...media dei sensori...");
+  if (DEBDUG) Serial.println("Performing sensors averages...");
 
-  temp /= avg_measurements;
-  pre /= avg_measurements;
-  hum /= avg_measurements;
-  VOC /= avg_measurements;
-  float b = 0.0;
-  b = PM1 / avg_measurements;
-  if (b - int(b) >= 0.5) {
-    PM1 = int(b) + 1;
-  } else {
-    PM1 = int(b);
+  if (BME_run) {
+    temp /= avg_measurements;
+    pre /= avg_measurements;
+    // Normalizing pressure based on sea level altitude and current temperature
+    pre = (pre * pow(1 - (0.0065 * sealevelalt / (temp + 0.0065 * sealevelalt + 273.15)), -5.257));
+    hum /= avg_measurements;
+    VOC /= avg_measurements;
   }
-  b = PM25 / avg_measurements;
-  if (b - int(b) >= 0.5) {
-    PM25 = int(b) + 1;
-  } else {
-    PM25 = int(b);
+  if (PMS_run) {
+    float b = 0.0;
+    b = PM1 / avg_measurements;
+    if (b - int(b) >= 0.5) {
+      PM1 = int(b) + 1;
+    } else {
+      PM1 = int(b);
+    }
+    b = PM25 / avg_measurements;
+    if (b - int(b) >= 0.5) {
+      PM25 = int(b) + 1;
+    } else {
+      PM25 = int(b);
+    }
+    b = PM10 / avg_measurements;
+    if (b - int(b) >= 0.5) {
+      PM10 = int(b) + 1;
+    } else {
+      PM10 = int(b);
+    }
   }
-  b = PM10 / avg_measurements;
-  if (b - int(b) >= 0.5) {
-    PM10 = int(b) + 1;
-  } else {
-    PM10 = int(b);
+  if (MICS6814_run) {
+    MICS6814_CO /= avg_measurements;
+    MICS6814_NO2 /= avg_measurements;
+    MICS6814_NH3 /= avg_measurements;
+    MICS6814_C3H8 /= avg_measurements;
+    MICS6814_C4H10 /= avg_measurements;
+    MICS6814_CH4 /= avg_measurements;
+    MICS6814_H2 /= avg_measurements;
+    MICS6814_C2H5OH /= avg_measurements;
   }
-  MICS6814_CO /= avg_measurements;
-  MICS6814_NO2 /= avg_measurements;
-  MICS6814_NH3 /= avg_measurements;
-  MICS6814_C3H8 /= avg_measurements;
-  MICS6814_C4H10 /= avg_measurements;
-  MICS6814_CH4 /= avg_measurements;
-  MICS6814_H2 /= avg_measurements;
-  MICS6814_C2H5OH /= avg_measurements;
-  ozone /= avg_measurements;
-
-  // Normalizing pressure based on sea level altitude and current temperature
-  pre = (pre * pow(1 - (0.0065 * sealevelalt / (temp + 0.0065 * sealevelalt + 273.15)), -5.257));
+  if (O3_run) {
+    ozone /= avg_measurements;
+  }
 
   //++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
   //------------------------------------------------------------------------
@@ -718,7 +721,7 @@ void loop() {
   //------------------------------------------------------------------------
   //+++++++++++ RECONNECTING AND UPDATING DATE/TIME +++++++++++++++++++++
   if (cfg_ok) {
-    if (DEBDUG) Serial.println("...riconnessione e aggiornamento ora...");
+    if (DEBDUG) Serial.println("Reconnecting and updating date/time...\n");
     initWifi();
   }
   //++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
@@ -728,24 +731,30 @@ void loop() {
 
   //------------------------------------------------------------------------
   //+++++++++++++ SERIAL LOGGING  +++++++++++++++++++++++
-  if (DEBDUG) Serial.println("...log su seriale...");
-  //++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-  Serial.println("Temperatura: " + floatToComma(temp) + "°C");
-  Serial.println("Umidita': " + floatToComma(hum) + "%");
-  Serial.println("Pressione: " + floatToComma(pre) + "hPa");
-  Serial.println("PM10: " + String(PM10) + "ug/m3");
-  Serial.println("PM2,5: " + String(PM25) + "ug/m3");
-  Serial.println("PM1: " + String(PM1) + "ug/m3");
-  Serial.println("NOx: " + floatToComma(MICS6814_NO2) + "ppm");
-  Serial.println("CO: " + floatToComma(MICS6814_CO) + "ppm");
-  Serial.println("O3: " + floatToComma(ozone) + "ppmn");
-  Serial.println("VOC: " + floatToComma(VOC) + "kOhm");
-  Serial.println("NH3: " + floatToComma(MICS6814_NH3) + "ppm");
-  Serial.println("C3H8: " + floatToComma(MICS6814_C3H8) + "ppm");
-  Serial.println("C4H10: " + floatToComma(MICS6814_C4H10) + "ppm");
-  Serial.println("CH4: " + floatToComma(MICS6814_CH4) + "ppm");
-  Serial.println("H2: " + floatToComma(MICS6814_H2) + "ppm");
-  Serial.println("C2H5OH: " + floatToComma(MICS6814_C2H5OH) + "ppm");
+  if (BME_run) {
+    Serial.println("Temperatura: " + floatToComma(temp) + "°C");
+    Serial.println("Umidita': " + floatToComma(hum) + "%");
+    Serial.println("Pressione: " + floatToComma(pre) + "hPa");
+    Serial.println("VOC: " + floatToComma(VOC) + "kOhm");
+  }
+  if (PMS_run) {
+    Serial.println("PM10: " + String(PM10) + "ug/m3");
+    Serial.println("PM2,5: " + String(PM25) + "ug/m3");
+    Serial.println("PM1: " + String(PM1) + "ug/m3");
+  }
+  if (O3_run) {
+    Serial.println("O3: " + floatToComma(ozone) + "ppm");
+  }
+  if (MICS6814_run) {
+    Serial.println("NOx: " + floatToComma(MICS6814_NO2) + "ppm");
+    Serial.println("CO: " + floatToComma(MICS6814_CO) + "ppm");
+    Serial.println("NH3: " + floatToComma(MICS6814_NH3) + "ppm");
+    Serial.println("C3H8: " + floatToComma(MICS6814_C3H8) + "ppm");
+    Serial.println("C4H10: " + floatToComma(MICS6814_C4H10) + "ppm");
+    Serial.println("CH4: " + floatToComma(MICS6814_CH4) + "ppm");
+    Serial.println("H2: " + floatToComma(MICS6814_H2) + "ppm");
+    Serial.println("C2H5OH: " + floatToComma(MICS6814_C2H5OH) + "ppm");
+  }
   Serial.println();
   //++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
   //------------------------------------------------------------------------
@@ -828,7 +837,7 @@ void loop() {
 
   //------------------------------------------------------------------------
   //++++++  UPDATING SERVER VIA HTTPS ++++++++++++++++++++++++++++++++++++++++++++
-  if (connesso_ok && dataora_ok) { // in only if date and time are ok
+  if (connected_ok && dataora_ok) { // in only if date and time are ok
 
     // time for connection:
     auto start = millis();
@@ -849,7 +858,7 @@ void loop() {
 
       String postStr = "apikey=";
       postStr += codice;
-      if (BME680_run) {
+      if (BME_run) {
         postStr += "&temp=";
         postStr += String(temp, 3);
         postStr += "&hum=";

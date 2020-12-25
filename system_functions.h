@@ -17,7 +17,7 @@ void drawScrHead() { //draws the screen header
   if (dataora_ok) {
     u8g2.drawXBMP(92, 0, 16, 16, clock_icon16x16);
   }
-  if (connesso_ok) {
+  if (connected_ok) {
     u8g2.drawXBMP(112, 0, 16, 16, wifi1_icon16x16);
   } else {
     u8g2.drawXBMP(112, 0, 16, 16, nocon_icon16x16);
@@ -537,7 +537,7 @@ void initWifi() {
         }// fine WHILE esco da loop se wifi connesso... o per timeout
         // aggiorno lo stato se WIFI connesso
         if (WiFi.status() == WL_CONNECTED) {
-          connesso_ok = true;
+          connected_ok = true;
           Serial.println("\nWiFi CONNESSO....");
           drawScrHead();
           u8g2.drawStr(15, 45, "WiFi Connesso");
@@ -546,7 +546,7 @@ void initWifi() {
           //lancio connessione a server orario e sincronizzo l'ora
           syncNTPTime();
         } else {
-          connesso_ok = false;
+          connected_ok = false;
           dataora_ok = false;
           Serial.println("\nWiFi NON Connesso.");
           drawScrHead();
@@ -632,11 +632,15 @@ float analogPpmO3Read(int *points) { //needs an external points variable to stor
 
 //+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
-float convertPpmToUgM3(float ppm, float mm, float temp, float pres) {
+float convertPpmToUgM3(float ppm, float mm, float T, float P) {
 
   // mm is molar mass and must be g/mol
+  if (!BME_run) { //if no BME is connected, assume OSHA standard conditions to perform the conversion
+    T = 25.0;
+    P = 1013.25;
+  }
   const float R = 83.1446261815324; //gas constant (L * hPa * K^−1 * mol^−1)
-  float Vm = (R * (temp + 273.15)) / pres; //molar volume (L * mol^-1)
+  float Vm = (R * (T + 273.15)) / P; //molar volume (L * mol^-1)
   return (ppm * 1000) * (mm / Vm);
 
 }
