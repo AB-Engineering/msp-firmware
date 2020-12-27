@@ -1,7 +1,7 @@
-//
-//  Milano Smart Park project
-//  Firmware by Norman Mulinacci
-//
+/*
+*     Milano Smart Park project
+*     Firmware by Norman Mulinacci
+*/
 
 //Basic system libraries
 #include <Arduino.h>
@@ -15,11 +15,11 @@ String ver = "2.4 beta"; //current firmware version
 bool DEBDUG = false;
 //++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
-// WiFi, NTP time management and SSL libraries
+// WiFi Client, NTP time management and SSL libraries
 #include <WiFi.h>
+#include <time.h>
 #include <SSLClient.h>
 #include "api_smrtprk_ta.h" //Server Trust Anchor
-#include <time.h>
 
 // Sensors management libraries
 //for BME_680
@@ -28,14 +28,10 @@ bool DEBDUG = false;
 #include <PMS.h>
 //for MICS6814
 #include <MiCS6814-I2C.h>
-/* OLDCODE
-  //for ZE25-O3
-  #include "WinsenZE03.h"
-*/
+
 
 // OLED display library
 #include <U8g2lib.h>
-
 
 
 // i2c bus pins
@@ -58,20 +54,19 @@ SSLClient client(base_client, TAs, (size_t)TAs_NUM, rand_pin, 1, SSLClient::SSL_
 
 // Software UART definitions for PMS5003
 // modes (UART0=0; UART1=1; UART2=2)
-// OLDCODE HardwareSerial O3Serial(1);
+// HardwareSerial sim800Serial(1);
 HardwareSerial pmsSerial(2);
 
-// BME680, PMS5003, MICS6814 and ZE25-O3 sensors instances
+
+// BME680, PMS5003 and MICS6814 sensors instances
 Bsec iaqSensor;
 PMS pms(pmsSerial);
 MiCS6814 gas;
-// OLDCODE WinsenZE03 O3sens;
+
 
 // Instance for the OLED 1.3" display with the SH1106 controller
 U8G2_SH1106_128X64_NONAME_F_HW_I2C u8g2(U8G2_R0, U8X8_PIN_NONE, I2C_SCL_PIN, I2C_SDA_PIN);   // ESP32 Thing, HW I2C with pin remapping
 
-//Define conversion factor from micro seconds to minutes
-#define uS_TO_M_FACTOR 60000000
 
 // Network and system setup variables
 bool SD_ok;
@@ -79,7 +74,6 @@ bool cfg_ok;
 bool ssid_ok;
 bool connected_ok;
 bool dataora_ok;
-bool invio_ok;
 String ssid = "";
 String pwd = "";
 String codice = "";
@@ -89,7 +83,7 @@ int attesa = 0;
 int avg_measurements = 0;
 int avg_delay = 0;
 
-// Variables and structures for BME680
+// Variables for BME680
 float hum = 0.0;
 float temp = 0.0;
 float pre = 0.0;
@@ -141,7 +135,6 @@ String macAdr = "";
 void setup() {
 
   // INIT EEPROM, I2C, DISPLAY, SERIAL SENSORS ++++++++++++++++++++++++++++++++++++
-  //EEPROM.begin(BSEC_MAX_STATE_BLOB_SIZE + 1); // 1st address for the length
   Wire.begin(I2C_SDA_PIN, I2C_SCL_PIN);
   u8g2.begin();
   Serial.begin(115200);
@@ -451,7 +444,6 @@ void loop() {
     Serial.print("cfg_ok: --> "); Serial.println(cfg_ok);
     Serial.print("connected_ok: --> "); Serial.println(connected_ok);
     Serial.print("dataora_ok: --> "); Serial.println(dataora_ok);
-    Serial.print("invio_ok: --> "); Serial.println(invio_ok);
   }
 
 
@@ -728,113 +720,6 @@ void loop() {
   //------------------------------------------------------------------------
 
 
-
-  //------------------------------------------------------------------------
-  //+++++++++++++ SERIAL LOGGING  +++++++++++++++++++++++
-  if (BME_run) {
-    Serial.println("Temperatura: " + floatToComma(temp) + "°C");
-    Serial.println("Umidita': " + floatToComma(hum) + "%");
-    Serial.println("Pressione: " + floatToComma(pre) + "hPa");
-    Serial.println("VOC: " + floatToComma(VOC) + "kOhm");
-  }
-  if (PMS_run) {
-    Serial.println("PM10: " + String(PM10) + "ug/m3");
-    Serial.println("PM2,5: " + String(PM25) + "ug/m3");
-    Serial.println("PM1: " + String(PM1) + "ug/m3");
-  }
-  if (O3_run) {
-    Serial.println("O3: " + floatToComma(ozone) + "ppm");
-  }
-  if (MICS6814_run) {
-    Serial.println("NOx: " + floatToComma(MICS6814_NO2) + "ppm");
-    Serial.println("CO: " + floatToComma(MICS6814_CO) + "ppm");
-    Serial.println("NH3: " + floatToComma(MICS6814_NH3) + "ppm");
-    Serial.println("C3H8: " + floatToComma(MICS6814_C3H8) + "ppm");
-    Serial.println("C4H10: " + floatToComma(MICS6814_C4H10) + "ppm");
-    Serial.println("CH4: " + floatToComma(MICS6814_CH4) + "ppm");
-    Serial.println("H2: " + floatToComma(MICS6814_H2) + "ppm");
-    Serial.println("C2H5OH: " + floatToComma(MICS6814_C2H5OH) + "ppm");
-  }
-  Serial.println();
-  //++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-  //------------------------------------------------------------------------
-
-
-
-  //------------------------------------------------------------------------
-  //+++++++++++++ SD CARD LOGGING  ++++++++++++++++++++++++++++++++++++++++++
-
-  if (SD_ok) {
-    if (DEBDUG) Serial.println("...log su scheda SD...");
-    logpath = "/LOG_N_" + codice + "_v" + ver + ".csv";
-    //"Data;Ora;Temp(*C);Hum(%);Pre(hPa);PM10(ug/m3);PM2,5(ug/m3);PM1(ug/m3);NOx(ppm);CO(ppm);O3(ppm);VOC(kOhm);NH3(ppm);C3H8(ppm);C4H10(ppm);CH4(ppm);H2(ppm);C2H5OH(ppm)"
-    String logvalue = "";
-    logvalue += dayStamp; logvalue += ";";
-    logvalue += timeStamp; logvalue += ";";
-    logvalue += floatToComma(temp); logvalue += ";";
-    logvalue += floatToComma(hum); logvalue += ";";
-    logvalue += floatToComma(pre); logvalue += ";";
-    logvalue += String(PM10); logvalue += ";";
-    logvalue += String(PM25); logvalue += ";";
-    logvalue += String(PM1); logvalue += ";";
-    logvalue += floatToComma(MICS6814_NO2); logvalue += ";";
-    logvalue += floatToComma(MICS6814_CO); logvalue += ";";
-    logvalue += floatToComma(ozone); logvalue += ";";
-    logvalue += floatToComma(VOC); logvalue += ";";
-    logvalue += floatToComma(MICS6814_NH3); logvalue += ";";
-    logvalue += floatToComma(MICS6814_C3H8); logvalue += ";";
-    logvalue += floatToComma(MICS6814_C4H10); logvalue += ";";
-    logvalue += floatToComma(MICS6814_CH4); logvalue += ";";
-    logvalue += floatToComma(MICS6814_H2); logvalue += ";";
-    logvalue += floatToComma(MICS6814_C2H5OH);
-    if (addToLog(SD, logpath, logvalue)) {
-      Serial.println("Log su SD aggiornato con successo!\n");
-    } else {
-      Serial.println("ERRORE aggiornamento log su SD!\n");
-    }
-  }
-  //+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-  //------------------------------------------------------------------------
-
-
-
-  //------------------------------------------------------------------------
-  //+++++++++++++ SECOND SD CARD LOG UG/M3 ++++++++++++++++++++++++++++++++++++++++++
-
-  if (SD_ok) {
-    if (DEBDUG) Serial.println("...log 2 su scheda SD...");
-    logpath = "/LOG_N_CONV_" + codice + "_v" + ver + ".csv";
-    //"Data;Ora;Temp(*C);Hum(%);Pre(hPa);PM10(ug/m3);PM2,5(ug/m3);PM1(ug/m3);NOx(ug/m3);CO(ug/m3);O3(ug/m3);VOC(kOhm);NH3(ug/m3);C3H8(ug/m3);C4H10(ug/m3);CH4(ug/m3);H2(ug/m3);C2H5OH(ug/m3)"
-    String logvalue = "";
-    logvalue += dayStamp; logvalue += ";";
-    logvalue += timeStamp; logvalue += ";";
-    logvalue += floatToComma(temp); logvalue += ";";
-    logvalue += floatToComma(hum); logvalue += ";";
-    logvalue += floatToComma(pre); logvalue += ";";
-    logvalue += String(PM10); logvalue += ";";
-    logvalue += String(PM25); logvalue += ";";
-    logvalue += String(PM1); logvalue += ";";
-    logvalue += floatToComma(convertPpmToUgM3(MICS6814_NO2, 46.01, temp, pre)); logvalue += ";";
-    logvalue += floatToComma(convertPpmToUgM3(MICS6814_CO, 28.01, temp, pre)); logvalue += ";";
-    logvalue += floatToComma(convertPpmToUgM3(ozone, 48.00, temp, pre)); logvalue += ";";
-    logvalue += floatToComma(VOC); logvalue += ";";
-    logvalue += floatToComma(convertPpmToUgM3(MICS6814_NH3, 17.03, temp, pre)); logvalue += ";";
-    logvalue += floatToComma(convertPpmToUgM3(MICS6814_C3H8, 44.10, temp, pre)); logvalue += ";";
-    logvalue += floatToComma(convertPpmToUgM3(MICS6814_C4H10, 58.12, temp, pre)); logvalue += ";";
-    logvalue += floatToComma(convertPpmToUgM3(MICS6814_CH4, 16.04, temp, pre)); logvalue += ";";
-    logvalue += floatToComma(convertPpmToUgM3(MICS6814_H2, 2.02, temp, pre)); logvalue += ";";
-    logvalue += floatToComma(convertPpmToUgM3(MICS6814_C2H5OH, 46.07, temp, pre));
-    if (addToLog(SD, logpath, logvalue)) {
-      Serial.println("Log 2 su SD aggiornato con successo!\n");
-    } else {
-      Serial.println("ERRORE aggiornamento log 2 su SD!\n");
-    }
-  }
-  //+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-  //------------------------------------------------------------------------
-
-
-
   //------------------------------------------------------------------------
   //++++++  UPDATING SERVER VIA HTTPS ++++++++++++++++++++++++++++++++++++++++++++
   if (connected_ok && dataora_ok) { // in only if date and time are ok
@@ -856,8 +741,8 @@ void loop() {
 
       // Building the post string:
 
-      String postStr = "apikey=";
-      postStr += codice;
+      String postStr = "apikey=" + codice;
+
       if (BME_run) {
         postStr += "&temp=";
         postStr += String(temp, 3);
@@ -913,8 +798,7 @@ void loop() {
       postStr = "";
 
       while (!client.available()) {
-        delay(10000);
-        break;
+        delay(100);
       };
 
       String response = client.readStringUntil('\r');
@@ -943,6 +827,110 @@ void loop() {
   }
   //++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
   //------------------------------------------------------------------------
+
+
+  //------------------------------------------------------------------------
+  //+++++++++++++ SERIAL LOGGING  +++++++++++++++++++++++
+  if (BME_run) {
+    Serial.println("Temperatura: " + floatToComma(temp) + "°C");
+    Serial.println("Umidita': " + floatToComma(hum) + "%");
+    Serial.println("Pressione: " + floatToComma(pre) + "hPa");
+    Serial.println("VOC: " + floatToComma(VOC) + "kOhm");
+  }
+  if (PMS_run) {
+    Serial.println("PM10: " + String(PM10) + "ug/m3");
+    Serial.println("PM2,5: " + String(PM25) + "ug/m3");
+    Serial.println("PM1: " + String(PM1) + "ug/m3");
+  }
+  if (O3_run) {
+    Serial.println("O3: " + floatToComma(ozone) + "ppm");
+  }
+  if (MICS6814_run) {
+    Serial.println("NOx: " + floatToComma(MICS6814_NO2) + "ppm");
+    Serial.println("CO: " + floatToComma(MICS6814_CO) + "ppm");
+    Serial.println("NH3: " + floatToComma(MICS6814_NH3) + "ppm");
+    Serial.println("C3H8: " + floatToComma(MICS6814_C3H8) + "ppm");
+    Serial.println("C4H10: " + floatToComma(MICS6814_C4H10) + "ppm");
+    Serial.println("CH4: " + floatToComma(MICS6814_CH4) + "ppm");
+    Serial.println("H2: " + floatToComma(MICS6814_H2) + "ppm");
+    Serial.println("C2H5OH: " + floatToComma(MICS6814_C2H5OH) + "ppm");
+  }
+  Serial.println();
+  //++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+  //------------------------------------------------------------------------
+
+
+  //------------------------------------------------------------------------
+  //+++++++++++++ SD CARD LOGGING  ++++++++++++++++++++++++++++++++++++++++++
+
+  if (SD_ok) {
+    if (DEBDUG) Serial.println("...log su scheda SD...");
+    logpath = "/LOG_N_" + codice + "_v" + ver + ".csv";
+    //"Data;Ora;Temp(*C);Hum(%);Pre(hPa);PM10(ug/m3);PM2,5(ug/m3);PM1(ug/m3);NOx(ppm);CO(ppm);O3(ppm);VOC(kOhm);NH3(ppm);C3H8(ppm);C4H10(ppm);CH4(ppm);H2(ppm);C2H5OH(ppm)"
+    String logvalue = "";
+    logvalue += dayStamp; logvalue += ";";
+    logvalue += timeStamp; logvalue += ";";
+    logvalue += floatToComma(temp); logvalue += ";";
+    logvalue += floatToComma(hum); logvalue += ";";
+    logvalue += floatToComma(pre); logvalue += ";";
+    logvalue += String(PM10); logvalue += ";";
+    logvalue += String(PM25); logvalue += ";";
+    logvalue += String(PM1); logvalue += ";";
+    logvalue += floatToComma(MICS6814_NO2); logvalue += ";";
+    logvalue += floatToComma(MICS6814_CO); logvalue += ";";
+    logvalue += floatToComma(ozone); logvalue += ";";
+    logvalue += floatToComma(VOC); logvalue += ";";
+    logvalue += floatToComma(MICS6814_NH3); logvalue += ";";
+    logvalue += floatToComma(MICS6814_C3H8); logvalue += ";";
+    logvalue += floatToComma(MICS6814_C4H10); logvalue += ";";
+    logvalue += floatToComma(MICS6814_CH4); logvalue += ";";
+    logvalue += floatToComma(MICS6814_H2); logvalue += ";";
+    logvalue += floatToComma(MICS6814_C2H5OH);
+    if (addToLog(SD, logpath, logvalue)) {
+      Serial.println("Log su SD aggiornato con successo!\n");
+    } else {
+      Serial.println("ERRORE aggiornamento log su SD!\n");
+    }
+  }
+  //+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+  //------------------------------------------------------------------------
+
+
+  //------------------------------------------------------------------------
+  //+++++++++++++ SECOND SD CARD LOG UG/M3 ++++++++++++++++++++++++++++++++++++++++++
+
+  if (SD_ok) {
+    if (DEBDUG) Serial.println("...log 2 su scheda SD...");
+    logpath = "/LOG_N_CONV_" + codice + "_v" + ver + ".csv";
+    //"Data;Ora;Temp(*C);Hum(%);Pre(hPa);PM10(ug/m3);PM2,5(ug/m3);PM1(ug/m3);NOx(ug/m3);CO(ug/m3);O3(ug/m3);VOC(kOhm);NH3(ug/m3);C3H8(ug/m3);C4H10(ug/m3);CH4(ug/m3);H2(ug/m3);C2H5OH(ug/m3)"
+    String logvalue = "";
+    logvalue += dayStamp; logvalue += ";";
+    logvalue += timeStamp; logvalue += ";";
+    logvalue += floatToComma(temp); logvalue += ";";
+    logvalue += floatToComma(hum); logvalue += ";";
+    logvalue += floatToComma(pre); logvalue += ";";
+    logvalue += String(PM10); logvalue += ";";
+    logvalue += String(PM25); logvalue += ";";
+    logvalue += String(PM1); logvalue += ";";
+    logvalue += floatToComma(convertPpmToUgM3(MICS6814_NO2, 46.01, temp, pre)); logvalue += ";";
+    logvalue += floatToComma(convertPpmToUgM3(MICS6814_CO, 28.01, temp, pre)); logvalue += ";";
+    logvalue += floatToComma(convertPpmToUgM3(ozone, 48.00, temp, pre)); logvalue += ";";
+    logvalue += floatToComma(VOC); logvalue += ";";
+    logvalue += floatToComma(convertPpmToUgM3(MICS6814_NH3, 17.03, temp, pre)); logvalue += ";";
+    logvalue += floatToComma(convertPpmToUgM3(MICS6814_C3H8, 44.10, temp, pre)); logvalue += ";";
+    logvalue += floatToComma(convertPpmToUgM3(MICS6814_C4H10, 58.12, temp, pre)); logvalue += ";";
+    logvalue += floatToComma(convertPpmToUgM3(MICS6814_CH4, 16.04, temp, pre)); logvalue += ";";
+    logvalue += floatToComma(convertPpmToUgM3(MICS6814_H2, 2.02, temp, pre)); logvalue += ";";
+    logvalue += floatToComma(convertPpmToUgM3(MICS6814_C2H5OH, 46.07, temp, pre));
+    if (addToLog(SD, logpath, logvalue)) {
+      Serial.println("Log 2 su SD aggiornato con successo!\n");
+    } else {
+      Serial.println("ERRORE aggiornamento log 2 su SD!\n");
+    }
+  }
+  //+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+  //------------------------------------------------------------------------
+
 
 
 }// end of LOOP
