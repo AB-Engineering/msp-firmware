@@ -1,6 +1,6 @@
 /*
-*     Milano Smart Park project
-*     Firmware by Norman Mulinacci
+      Milano Smart Park project
+      Firmware by Norman Mulinacci
 */
 
 //Basic system libraries
@@ -9,7 +9,7 @@
 #include <SD.h>
 #include <Wire.h>
 
-String ver = "2.4 beta"; //current firmware version
+String ver = "2.4"; //current firmware version
 
 //++++++++++++++++++++++ DEBUG enable ++++++++++++++++++++++++++++++++
 bool DEBDUG = false;
@@ -52,7 +52,7 @@ WiFiClient base_client;
 SSLClient client(base_client, TAs, (size_t)TAs_NUM, rand_pin, 1, SSLClient::SSL_ERROR);
 
 
-// Software UART definitions for PMS5003
+// Software UART definitions
 // modes (UART0=0; UART1=1; UART2=2)
 // HardwareSerial sim800Serial(1);
 HardwareSerial pmsSerial(2);
@@ -145,7 +145,7 @@ void setup() {
   // serial hello
   Serial.println(); Serial.println("CENTRALINA MILANO SMART PARK");
   Serial.print("FIRMWARE v"); Serial.println(ver);
-  Serial.println("by Norman Mulinacci, 2020"); Serial.println();
+  Serial.println("by Norman Mulinacci, 2021"); Serial.println();
   // display hello
   u8g2.firstPage();
   u8g2.clearBuffer();
@@ -158,7 +158,7 @@ void setup() {
   u8g2.clearBuffer();
   u8g2.drawXBM(0, 0, 64, 64, msp_icon64x64);
   u8g2.setFont(u8g2_font_6x13_tf);
-  u8g2.drawStr(74, 23, "by"); u8g2.drawStr(74, 36, "Norman M."); u8g2.drawStr(74, 49, "2020");
+  u8g2.drawStr(74, 23, "by"); u8g2.drawStr(74, 36, "Norman M."); u8g2.drawStr(74, 49, "2021");
   u8g2.sendBuffer();
   delay(2000);
   //+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
@@ -374,20 +374,6 @@ void setup() {
   drawScrHead();
   u8g2.drawStr(8, 35, "Rilevo i sensori...");
   u8g2.sendBuffer();
-  /* OLDCODE
-    O3Serial.begin(9600, SERIAL_8N1, 26, 25); // baud, type, ESP_RX, ESP_TX
-    delay(1500);
-    O3sens.begin(&O3Serial, O3); // begin ozone sensor
-    O3sens.setAs(QA); //set as Q&A mode
-    if (O3sens.readManual() < 0) {
-    Serial.println("Sensore ZE25-O3 non rilevato.");
-    O3_run = false;
-    } else {
-    Serial.println("Sensore ZE25-O3 rilevato, inizializzo...");
-    O3_run = true;
-    if (DEBDUG) Serial.printf("Valore di O3 letto: %.3f\n", O3sens.readManual());
-    }
-  */
   if (!isAnalogO3Connected()) {
     Serial.println("Sensore ZE25-O3 non rilevato.\n");
     u8g2.drawStr(20, 55, "ZE25-O3 -> ERR!");
@@ -487,9 +473,11 @@ void loop() {
   MICS6814_C2H5OH = 0.0;
 
   //Preheating PMS5003 sensor for accurate measurements, 30 seconds is fine, 1 minute for good measure
-  if (PMS_run) {
-    if (DEBDUG) Serial.println("Waking up PMS5003 sensor after sleep...");
+  //Only if avg_delay is less than 1 min.
+  if (PMS_run && avg_delay < 60) {
+    Serial.println("Waking up PMS5003 sensor after sleep...\n");
     pms.wakeUp();
+    Serial.println("Attendi 1:00 min. per riscaldamento PMS5003\n");
     for (int i = 60; i > 0; i--) {
       String output = "";
       output = String(i / 60) + ":";
@@ -497,7 +485,6 @@ void loop() {
         output += "0";
       }
       output += String(i % 60);
-      Serial.println("Attendi " + output + " min. per riscaldamento PMS5003");
       drawScrHead();
       u8g2.setCursor(5, 35); u8g2.print("Riscaldo PMS5003...");
       u8g2.setCursor(8, 55); u8g2.print("ATTENDI " + output + " MIN.");
@@ -506,25 +493,44 @@ void loop() {
     }
   }
 
-  //serial
-  Serial.println();
-  Serial.println("Sto effettuando le misurazioni...\n");
-  //display
-  drawScrHead();
-  u8g2.drawStr(15, 35, "Sto effettuando");
-  u8g2.drawStr(15, 55, "le misurazioni...");
-  u8g2.sendBuffer();
+  //++++++++++++++++ MAIN MEASUREMENTS LOOP ++++++++++++++++++++++++++++++
+  for (int k = 0; k < avg_measurements; k++) {
 
-  //main average loop
-  for (int i = 0; i < avg_measurements; i++) {
+    //+++++++++ NEXT MEASUREMENTS CYCLE DELAY ++++++++++++
+    Serial.printf("Attesa di %d:%d min. per il ciclo %d di %d\n\n", avg_delay / 60, avg_delay % 60, k + 1, avg_measurements);
+    for (int i = avg_delay; i > 0; i--) {
+      if (i % 60 == 0 && i / 60 == 1 && PMS_run) {
+        Serial.println("Waking up PMS5003 sensor after sleep...");
+        pms.wakeUp();
+      }
+      String output = "";
+      output = String(i / 60) + ":";
+      if (i % 60 >= 0 && i % 60 <= 9) {
+        output += "0";
+      }
+      output += String(i % 60);
+      String cyclemsg = "Ciclo " + String(k + 1) + " di " + String(avg_measurements);
+      drawScrHead();
+      u8g2.setCursor(15, 35); u8g2.print(cyclemsg);
+      u8g2.setCursor(8, 55); u8g2.print("ATTENDI " + output + " MIN.");
+      u8g2.sendBuffer();
+      delay(1000);
+    }
+    //+++++++++++++++++++++++++++++++++++++++++++++++++++++
+
+    //serial
+    Serial.println("Sto effettuando le misurazioni...");
+    //display
+    drawScrHead();
+    u8g2.drawStr(15, 35, "Sto effettuando");
+    u8g2.drawStr(15, 55, "le misurazioni...");
+    u8g2.sendBuffer();
 
     int errcount = 0;
-    if (DEBDUG) Serial.println("Attesa delay...\n");
-    delay(avg_delay * 1000);
 
     //+++++++++ READING BME680 ++++++++++++
     if (BME_run) {
-      Serial.println("Campiono il BME680...");
+      Serial.println("Campiono BME680...");
       errcount = 0;
       while (1) {
         if (!iaqSensor.run()) {
@@ -554,7 +560,7 @@ void loop() {
 
     //+++++++++ READING PMS5003 +++++++++++
     if (PMS_run) {
-      Serial.println("Campiono il PMS5003...");
+      Serial.println("Campiono PMS5003...");
       errcount = 0;
       while (1) {
         while (pmsSerial.available()) {
@@ -585,7 +591,7 @@ void loop() {
 
     //+++++++++ READING MICS6814 ++++++++++++
     if (MICS6814_run) {
-      Serial.println("Campiono il MICS6814...");
+      Serial.println("Campiono MICS6814...");
       errcount = 0;
       while (1) {
         if (gas.measureCO() < 0 || gas.measureNO2() < 0 || gas.measureNH3() < 0) {
@@ -623,7 +629,7 @@ void loop() {
 
     //+++++++++ READING ZE25-O3 ++++++++++++
     if (O3_run) {
-      Serial.println("Campiono il ZE25-O3...");
+      Serial.println("Campiono ZE25-O3...");
       errcount = 0;
       int punti = 0;
       while (1) {
@@ -642,19 +648,30 @@ void loop() {
     }
     //+++++++++++++++++++++++++++++++++++++++++++++++++++++
 
+
+    if (PMS_run && avg_delay >= 60) {
+      Serial.println("Putting PMS5003 sensor to sleep...\n");
+      pms.sleep();
+      delay(1500);
+    }
+
   }
   //+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
   //------------------------------------------------------------------------
 
 
+
   //------------------------------------------------------------------------
   //+++++++++++ PERFORMING AVERAGES AND POST MEASUREMENTS TASKS ++++++++++++++++++++++++++++++++++++++++++
+  
+  //Only if avg_delay is less than 1 min.
+  if (PMS_run && avg_delay < 60) {
+    Serial.println("Putting PMS5003 sensor to sleep...\n");
+    pms.sleep();
+    delay(1500);
+  }
 
-  if (DEBDUG) Serial.println("Putting PMS5003 sensor to sleep...");
-  pms.sleep();
-  delay(1500);
-
-  if (DEBDUG) Serial.println("Performing sensors averages...");
+  if (DEBDUG) Serial.println("Performing averages...");
 
   if (BME_run) {
     temp /= avg_measurements;
@@ -699,6 +716,37 @@ void loop() {
     ozone /= avg_measurements;
   }
 
+  //++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+  //------------------------------------------------------------------------
+
+
+  //------------------------------------------------------------------------
+  //+++++++++++++ SERIAL LOGGING  +++++++++++++++++++++++
+  if (BME_run) {
+    Serial.println("Temperatura: " + floatToComma(temp) + "°C");
+    Serial.println("Umidita': " + floatToComma(hum) + "%");
+    Serial.println("Pressione: " + floatToComma(pre) + "hPa");
+    Serial.println("VOC: " + floatToComma(VOC) + "kOhm");
+  }
+  if (PMS_run) {
+    Serial.println("PM10: " + String(PM10) + "ug/m3");
+    Serial.println("PM2,5: " + String(PM25) + "ug/m3");
+    Serial.println("PM1: " + String(PM1) + "ug/m3");
+  }
+  if (MICS6814_run) {
+    Serial.println("NOx: " + floatToComma(MICS6814_NO2) + "ppm");
+    Serial.println("CO: " + floatToComma(MICS6814_CO) + "ppm");
+    Serial.println("NH3: " + floatToComma(MICS6814_NH3) + "ppm");
+    Serial.println("C3H8: " + floatToComma(MICS6814_C3H8) + "ppm");
+    Serial.println("C4H10: " + floatToComma(MICS6814_C4H10) + "ppm");
+    Serial.println("CH4: " + floatToComma(MICS6814_CH4) + "ppm");
+    Serial.println("H2: " + floatToComma(MICS6814_H2) + "ppm");
+    Serial.println("C2H5OH: " + floatToComma(MICS6814_C2H5OH) + "ppm");
+  }
+  if (O3_run) {
+    Serial.println("O3: " + floatToComma(ozone) + "ppm");
+  }
+  Serial.println();
   //++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
   //------------------------------------------------------------------------
 
@@ -795,14 +843,15 @@ void loop() {
       client.print(postStr);
       client.flush();
 
-      postStr = "";
+      Serial.println("Risposta del server:\n");
 
-      while (!client.available()) {
-        delay(100);
-      };
+      start = millis();
 
-      String response = client.readStringUntil('\r');
-      Serial.println("Risposta del server: " + response + "\n");
+      while (client.available()) {
+        Serial.write(client.read());
+        auto timeout = millis() - start;
+        if (timeout > 10000) break;
+      }
 
       client.stop();
 
@@ -812,6 +861,8 @@ void loop() {
       u8g2.setCursor(17, 35); u8g2.print("Dati inviati");
       u8g2.setCursor(15, 55); u8g2.print("con successo!");
       u8g2.sendBuffer();
+
+      postStr = "";
 
     } else {
 
@@ -825,37 +876,6 @@ void loop() {
     }
 
   }
-  //++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-  //------------------------------------------------------------------------
-
-
-  //------------------------------------------------------------------------
-  //+++++++++++++ SERIAL LOGGING  +++++++++++++++++++++++
-  if (BME_run) {
-    Serial.println("Temperatura: " + floatToComma(temp) + "°C");
-    Serial.println("Umidita': " + floatToComma(hum) + "%");
-    Serial.println("Pressione: " + floatToComma(pre) + "hPa");
-    Serial.println("VOC: " + floatToComma(VOC) + "kOhm");
-  }
-  if (PMS_run) {
-    Serial.println("PM10: " + String(PM10) + "ug/m3");
-    Serial.println("PM2,5: " + String(PM25) + "ug/m3");
-    Serial.println("PM1: " + String(PM1) + "ug/m3");
-  }
-  if (O3_run) {
-    Serial.println("O3: " + floatToComma(ozone) + "ppm");
-  }
-  if (MICS6814_run) {
-    Serial.println("NOx: " + floatToComma(MICS6814_NO2) + "ppm");
-    Serial.println("CO: " + floatToComma(MICS6814_CO) + "ppm");
-    Serial.println("NH3: " + floatToComma(MICS6814_NH3) + "ppm");
-    Serial.println("C3H8: " + floatToComma(MICS6814_C3H8) + "ppm");
-    Serial.println("C4H10: " + floatToComma(MICS6814_C4H10) + "ppm");
-    Serial.println("CH4: " + floatToComma(MICS6814_CH4) + "ppm");
-    Serial.println("H2: " + floatToComma(MICS6814_H2) + "ppm");
-    Serial.println("C2H5OH: " + floatToComma(MICS6814_C2H5OH) + "ppm");
-  }
-  Serial.println();
   //++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
   //------------------------------------------------------------------------
 
