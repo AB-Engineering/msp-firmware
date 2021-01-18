@@ -6,6 +6,8 @@ Firmware developed with the Arduino IDE by Norman Mulinacci @ 2020
 
 The project runs on Espressif's ESP32-DevkitC with ESP32-WROVER-B module
 
+## Building and flashing from source (using the Arduino IDE):
+
 ### Required Core (you can also download it through the Arduino IDE):
 
 - [Arduino core for the ESP32](https://github.com/espressif/arduino-esp32)
@@ -20,3 +22,18 @@ The project runs on Espressif's ESP32-DevkitC with ESP32-WROVER-B module
 	+ In order for the linker to work properly, you need to perform the modifications described in the BSEC page. They work fine in Arduino IDE v1.8.13.
 - [PMS Library](https://github.com/fu-hsi/pms)
 - [MiCS6814-I2C-Library](https://github.com/eNBeWe/MiCS6814-I2C-Library)
+
+## Flashing from binary releases (Windows instructions):
+
+1. Connect the ESP32 board to a USB port on your PC. Check that it's been detected correctly:
+   it should appear as "Silicon Labs CP210x USB to UART Bridge (COM<number>)".
+   If not, download the drivers manually: 
+	+ for Windows 10: https://www.silabs.com/documents/public/software/CP210x_Universal_Windows_Driver.zip
+	+ for older Windows versions: https://www.silabs.com/documents/public/software/CP210x_Windows_Drivers.zip
+	
+2. Extract the "esptool_win" folder from the zip file.
+
+3. Run "RUNME.BAT". The script will automatically scan for the right COM port and then erase, flash and verify the board.
+   If it stays on "Connecting..." for too long, try again on a different USB port.
+
+4. If it verifies OK, you are done!
