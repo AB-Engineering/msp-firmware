@@ -26,7 +26,7 @@ The project runs on Espressif's ESP32-DevkitC with ESP32-WROVER-B module
 ## Flashing from binary releases (Windows instructions):
 
 1. Connect the ESP32 board to a USB port on your PC. Check that it's been detected correctly:
-   it should appear as "Silicon Labs CP210x USB to UART Bridge (COM<number>)".
+   it should appear as "Silicon Labs CP210x USB to UART Bridge (COMx)".
    If not, download the drivers manually: 
 	+ for Windows 10: https://www.silabs.com/documents/public/software/CP210x_Universal_Windows_Driver.zip
 	+ for older Windows versions: https://www.silabs.com/documents/public/software/CP210x_Windows_Drivers.zip
