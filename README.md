@@ -23,6 +23,18 @@ The project runs on Espressif's ESP32-DevkitC with ESP32-WROVER-B module
 - [PMS Library](https://github.com/fu-hsi/pms)
 - [MiCS6814-I2C-Library](https://github.com/eNBeWe/MiCS6814-I2C-Library)
 
+### Build settings (under the Tools tab):
+
+- Board: "ESP32 Dev Module" (under ESP32 Arduino)
+- Upload Speed: "921600"
+- CPU Frequency: "240MHz (WiFi/BT)"
+- Flash Frequency: "80MHz"
+- Flash Mode: "QIO"
+- Flash Size: "4MB (32Mb)"
+- Partition Scheme: "Default 4MB with spiffs (1.2MB APP/1.5MB SPIFFS)"
+- Core Debug Level: "None"
+- PSRAM: "Enabled"
+
 ## Flashing from binary releases (Windows instructions):
 
 1. Connect the ESP32 board to a USB port on your PC. Check that it's been detected correctly:
