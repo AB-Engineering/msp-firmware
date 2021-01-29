@@ -9,7 +9,7 @@
 #include <SD.h>
 #include <Wire.h>
 
-String ver = "2.4"; //current firmware version
+String ver = "2.5beta"; //current firmware version
 
 //++++++++++++++++++++++ DEBUG enable ++++++++++++++++++++++++++++++++
 bool DEBDUG = false;
@@ -140,6 +140,16 @@ void setup() {
   Serial.begin(115200);
   delay(2000);// time for serial init
 
+  // SET UNUSED PINS TO OUTPUT ++++++++++++++++++++++++++++++++++++
+  pinMode(33, OUTPUT);
+  pinMode(25, OUTPUT);
+  pinMode(26, OUTPUT);
+  pinMode(27, OUTPUT);
+  pinMode(13, OUTPUT);
+  pinMode(4, OUTPUT);
+  pinMode(0, OUTPUT);
+  pinMode(2, OUTPUT);
+  pinMode(15, OUTPUT);
 
   // FIRST SCREEN ++++++++++++++++++++++++++++++++++++++++++++++++++++++
   // serial hello
