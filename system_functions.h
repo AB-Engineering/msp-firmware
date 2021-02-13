@@ -56,26 +56,26 @@ void displayMeasures() { //prints data on the U8g2 screen, on four pages
   drawScrHead();
   u8g2.setCursor(5, 28); u8g2.print("PM2,5:  " + String(PM25) + "ug/m3");
   u8g2.setCursor(5, 39); u8g2.print("PM1:  " + String(PM1) + "ug/m3");
-  u8g2.setCursor(5, 50); u8g2.print("NOx:  " + floatToComma(MICS6814_NO2) + "ppm");
-  u8g2.setCursor(5, 61); u8g2.print("CO:  " + floatToComma(MICS6814_CO) + "ppm");
+  u8g2.setCursor(5, 50); u8g2.print("NOx:  " + floatToComma(MICS6814_NO2) + "ug/m3");
+  u8g2.setCursor(5, 61); u8g2.print("CO:  " + floatToComma(MICS6814_CO) + "ug/m3");
   u8g2.sendBuffer();
   delay(5000);
 
   // pagina 3
   drawScrHead();
-  u8g2.setCursor(5, 28); u8g2.print("O3:  " + floatToComma(ozone) + "ppm");
+  u8g2.setCursor(5, 28); u8g2.print("O3:  " + floatToComma(ozone) + "ug/m3");
   u8g2.setCursor(5, 39); u8g2.print("VOC:  " + floatToComma(VOC) + "kOhm");
-  u8g2.setCursor(5, 50); u8g2.print("NH3:  " + floatToComma(MICS6814_NH3) + "ppm");
-  u8g2.setCursor(5, 61); u8g2.print("C3H8:  " + floatToComma(MICS6814_C3H8) + "ppm");
+  u8g2.setCursor(5, 50); u8g2.print("NH3:  " + floatToComma(MICS6814_NH3) + "ug/m3");
+  u8g2.setCursor(5, 61); u8g2.print("C3H8:  " + floatToComma(MICS6814_C3H8) + "ug/m3");
   u8g2.sendBuffer();
   delay(5000);
 
   // pagina 4
   drawScrHead();
-  u8g2.setCursor(5, 28); u8g2.print("C4H10:  " + floatToComma(MICS6814_C4H10) + "ppm");
-  u8g2.setCursor(5, 39); u8g2.print("CH4:  " + floatToComma(MICS6814_CH4) + "ppm");
-  u8g2.setCursor(5, 50); u8g2.print("H2:  " + floatToComma(MICS6814_H2) + "ppm");
-  u8g2.setCursor(5, 61); u8g2.print("C2H5OH:  " + floatToComma(MICS6814_C2H5OH) + "ppm");
+  u8g2.setCursor(5, 28); u8g2.print("C4H10:  " + floatToComma(MICS6814_C4H10) + "ug/m3");
+  u8g2.setCursor(5, 39); u8g2.print("CH4:  " + floatToComma(MICS6814_CH4) + "ug/m3");
+  u8g2.setCursor(5, 50); u8g2.print("H2:  " + floatToComma(MICS6814_H2) + "ug/m3");
+  u8g2.setCursor(5, 61); u8g2.print("C2H5OH:  " + floatToComma(MICS6814_C2H5OH) + "ug/m3");
   u8g2.sendBuffer();
   delay(5000);
 
