@@ -741,17 +741,17 @@ void loop() {
     Serial.println("PM1: " + String(PM1) + "ug/m3");
   }
   if (MICS6814_run) {
-    Serial.println("NOx: " + floatToComma(MICS6814_NO2) + "ppm");
-    Serial.println("CO: " + floatToComma(MICS6814_CO) + "ppm");
-    Serial.println("NH3: " + floatToComma(MICS6814_NH3) + "ppm");
-    Serial.println("C3H8: " + floatToComma(MICS6814_C3H8) + "ppm");
-    Serial.println("C4H10: " + floatToComma(MICS6814_C4H10) + "ppm");
-    Serial.println("CH4: " + floatToComma(MICS6814_CH4) + "ppm");
-    Serial.println("H2: " + floatToComma(MICS6814_H2) + "ppm");
-    Serial.println("C2H5OH: " + floatToComma(MICS6814_C2H5OH) + "ppm");
+    Serial.println("NOx: " + floatToComma(MICS6814_NO2) + "ug/m3");
+    Serial.println("CO: " + floatToComma(MICS6814_CO) + "ug/m3");
+    Serial.println("NH3: " + floatToComma(MICS6814_NH3) + "ug/m3");
+    Serial.println("C3H8: " + floatToComma(MICS6814_C3H8) + "ug/m3");
+    Serial.println("C4H10: " + floatToComma(MICS6814_C4H10) + "ug/m3");
+    Serial.println("CH4: " + floatToComma(MICS6814_CH4) + "ug/m3");
+    Serial.println("H2: " + floatToComma(MICS6814_H2) + "ug/m3");
+    Serial.println("C2H5OH: " + floatToComma(MICS6814_C2H5OH) + "ug/m3");
   }
   if (O3_run) {
-    Serial.println("O3: " + floatToComma(ozone) + "ppm");
+    Serial.println("O3: " + floatToComma(ozone) + "ug/m3");
   }
   Serial.println();
   //++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
