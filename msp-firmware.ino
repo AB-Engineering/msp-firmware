@@ -255,7 +255,7 @@ void setup() {
   //+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
 
-  // CHECK LOGFILE EXISTANCE +++++++++++++++++++++++++++++++++++++
+  // SET logpath AND CHECK LOGFILE EXISTANCE +++++++++++++++++++++++++++++++++++++
   if (SD_ok == true) {
     logpath = "/LOG_N_" + codice + "_v" + ver + ".csv";
     if (!SD.exists(logpath)) {
@@ -265,7 +265,7 @@ void setup() {
         filecsv.close();
         String headertext = "File di log della centralina: " + codice + " | Versione firmware: " + ver + " | MAC: " + macAdr;
         appendFile(SD, logpath, headertext);
-        appendFile(SD, logpath, "Data;Ora;Temp(*C);Hum(%);Pre(hPa);PM10(ug/m3);PM2,5(ug/m3);PM1(ug/m3);NOx(ppm);CO(ppm);O3(ppm);VOC(kOhm);NH3(ppm);C3H8(ppm);C4H10(ppm);CH4(ppm);H2(ppm);C2H5OH(ppm)");
+        appendFile(SD, logpath, "Data;Ora;Temp(*C);Hum(%);Pre(hPa);PM10(ug/m3);PM2,5(ug/m3);PM1(ug/m3);NOx(ug/m3);CO(ug/m3);O3(ug/m3);VOC(kOhm);NH3(ug/m3);C3H8(ug/m3);C4H10(ug/m3);CH4(ug/m3);H2(ug/m3);C2H5OH(ug/m3)");
         Serial.println("File di log creato!");
         Serial.println();
       } else {
@@ -280,33 +280,7 @@ void setup() {
   //+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
 
-  // CHECK SECOND LOGFILE (for UG/M3) +++++++++++++++++++++++++++++++++++++
-  if (SD_ok == true) {
-    logpath = "/LOG_N_CONV_" + codice + "_v" + ver + ".csv";
-    if (!SD.exists(logpath)) {
-      Serial.println("File di log 2 non presente, lo creo...");
-      File filecsv = SD.open(logpath, FILE_WRITE);
-      if (filecsv) {
-        filecsv.close();
-        String headertext = "File di log 2 della centralina: " + codice + " | Versione firmware: " + ver + " | MAC: " + macAdr;
-        appendFile(SD, logpath, headertext);
-        appendFile(SD, logpath, "Data;Ora;Temp(*C);Hum(%);Pre(hPa);PM10(ug/m3);PM2,5(ug/m3);PM1(ug/m3);NOx(ug/m3);CO(ug/m3);O3(ug/m3);VOC(kOhm);NH3(ug/m3);C3H8(ug/m3);C4H10(ug/m3);CH4(ug/m3);H2(ug/m3);C2H5OH(ug/m3)");
-        Serial.println("File di log 2 creato!");
-        Serial.println();
-      } else {
-        Serial.println("Errore nel creare il file di log 2!");
-        Serial.println();
-      }
-    } else {
-      Serial.println("File di log 2 presente!");
-      Serial.println();
-    }
-  }
-  //+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-
-
   // +++++++ DETECT AND INIT SENSORS +++++++++++++++
-
   Serial.println("Rilevamento sensori in corso...\n");
 
 
@@ -695,7 +669,7 @@ void loop() {
     delay(1500);
   }
 
-  if (DEBDUG) Serial.println("Performing averages...");
+  if (DEBDUG) Serial.println("Performing averages and converting to ug/m3...");
 
   if (BME_run) {
     temp /= avg_measurements;
@@ -728,16 +702,25 @@ void loop() {
   }
   if (MICS6814_run) {
     MICS6814_CO /= avg_measurements;
+    MICS6814_CO = convertPpmToUgM3(MICS6814_CO, 28.01, temp, pre);
     MICS6814_NO2 /= avg_measurements;
+    MICS6814_NO2 = convertPpmToUgM3(MICS6814_NO2, 46.01, temp, pre);
     MICS6814_NH3 /= avg_measurements;
+    MICS6814_NH3 = convertPpmToUgM3(MICS6814_NH3, 17.03, temp, pre);
     MICS6814_C3H8 /= avg_measurements;
+    MICS6814_C3H8 = convertPpmToUgM3(MICS6814_C3H8, 44.10, temp, pre);
     MICS6814_C4H10 /= avg_measurements;
+    MICS6814_C4H10 = convertPpmToUgM3(MICS6814_C4H10, 58.12, temp, pre);
     MICS6814_CH4 /= avg_measurements;
+    MICS6814_CH4 = convertPpmToUgM3(MICS6814_CH4, 16.04, temp, pre);
     MICS6814_H2 /= avg_measurements;
+    MICS6814_H2 = convertPpmToUgM3(MICS6814_H2, 2.02, temp, pre);
     MICS6814_C2H5OH /= avg_measurements;
+    MICS6814_C2H5OH = convertPpmToUgM3(MICS6814_C2H5OH, 46.07, temp, pre);
   }
   if (O3_run) {
     ozone /= avg_measurements;
+    ozone = convertPpmToUgM3(ozone, 48.00, temp, pre)
   }
 
   //++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
@@ -912,11 +895,9 @@ void loop() {
 
   //------------------------------------------------------------------------
   //+++++++++++++ SD CARD LOGGING  ++++++++++++++++++++++++++++++++++++++++++
-
   if (SD_ok) {
     if (DEBDUG) Serial.println("...log su scheda SD...");
-    logpath = "/LOG_N_" + codice + "_v" + ver + ".csv";
-    //"Data;Ora;Temp(*C);Hum(%);Pre(hPa);PM10(ug/m3);PM2,5(ug/m3);PM1(ug/m3);NOx(ppm);CO(ppm);O3(ppm);VOC(kOhm);NH3(ppm);C3H8(ppm);C4H10(ppm);CH4(ppm);H2(ppm);C2H5OH(ppm)"
+    //"Data;Ora;Temp(*C);Hum(%);Pre(hPa);PM10(ug/m3);PM2,5(ug/m3);PM1(ug/m3);NOx(ug/m3);CO(ug/m3);O3(ug/m3);VOC(kOhm);NH3(ug/m3);C3H8(ug/m3);C4H10(ug/m3);CH4(ug/m3);H2(ug/m3);C2H5OH(ug/m3)"
     String logvalue = "";
     logvalue += dayStamp; logvalue += ";";
     logvalue += timeStamp; logvalue += ";";
@@ -944,43 +925,6 @@ void loop() {
   }
   //+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
   //------------------------------------------------------------------------
-
-
-  //------------------------------------------------------------------------
-  //+++++++++++++ SECOND SD CARD LOG UG/M3 ++++++++++++++++++++++++++++++++++++++++++
-
-  if (SD_ok) {
-    if (DEBDUG) Serial.println("...log 2 su scheda SD...");
-    logpath = "/LOG_N_CONV_" + codice + "_v" + ver + ".csv";
-    //"Data;Ora;Temp(*C);Hum(%);Pre(hPa);PM10(ug/m3);PM2,5(ug/m3);PM1(ug/m3);NOx(ug/m3);CO(ug/m3);O3(ug/m3);VOC(kOhm);NH3(ug/m3);C3H8(ug/m3);C4H10(ug/m3);CH4(ug/m3);H2(ug/m3);C2H5OH(ug/m3)"
-    String logvalue = "";
-    logvalue += dayStamp; logvalue += ";";
-    logvalue += timeStamp; logvalue += ";";
-    logvalue += floatToComma(temp); logvalue += ";";
-    logvalue += floatToComma(hum); logvalue += ";";
-    logvalue += floatToComma(pre); logvalue += ";";
-    logvalue += String(PM10); logvalue += ";";
-    logvalue += String(PM25); logvalue += ";";
-    logvalue += String(PM1); logvalue += ";";
-    logvalue += floatToComma(convertPpmToUgM3(MICS6814_NO2, 46.01, temp, pre)); logvalue += ";";
-    logvalue += floatToComma(convertPpmToUgM3(MICS6814_CO, 28.01, temp, pre)); logvalue += ";";
-    logvalue += floatToComma(convertPpmToUgM3(ozone, 48.00, temp, pre)); logvalue += ";";
-    logvalue += floatToComma(VOC); logvalue += ";";
-    logvalue += floatToComma(convertPpmToUgM3(MICS6814_NH3, 17.03, temp, pre)); logvalue += ";";
-    logvalue += floatToComma(convertPpmToUgM3(MICS6814_C3H8, 44.10, temp, pre)); logvalue += ";";
-    logvalue += floatToComma(convertPpmToUgM3(MICS6814_C4H10, 58.12, temp, pre)); logvalue += ";";
-    logvalue += floatToComma(convertPpmToUgM3(MICS6814_CH4, 16.04, temp, pre)); logvalue += ";";
-    logvalue += floatToComma(convertPpmToUgM3(MICS6814_H2, 2.02, temp, pre)); logvalue += ";";
-    logvalue += floatToComma(convertPpmToUgM3(MICS6814_C2H5OH, 46.07, temp, pre));
-    if (addToLog(SD, logpath, logvalue)) {
-      Serial.println("Log 2 su SD aggiornato con successo!\n");
-    } else {
-      Serial.println("ERRORE aggiornamento log 2 su SD!\n");
-    }
-  }
-  //+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-  //------------------------------------------------------------------------
-
 
 
 }// end of LOOP
