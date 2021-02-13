@@ -631,7 +631,7 @@ void loop() {
       errcount = 0;
       int punti = 0;
       while (1) {
-        if (isAnalogO3Connected()) {
+        if (!isAnalogO3Connected()) {
           if (errcount > 2) {
             Serial.println("ERRORE durante misura ZE25-O3!");
             break;
@@ -720,7 +720,7 @@ void loop() {
   }
   if (O3_run) {
     ozone /= avg_measurements;
-    ozone = convertPpmToUgM3(ozone, 48.00, temp, pre)
+    ozone = convertPpmToUgM3(ozone, 48.00, temp, pre);
   }
 
   //++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
@@ -868,7 +868,7 @@ void loop() {
 
       client.stop();
 
-      Serial.println("Dati al server inviati con successo!\n");
+      Serial.println("\nDati al server inviati con successo!\n");
 
       drawScrHead();
       u8g2.setCursor(17, 35); u8g2.print("Dati inviati");
