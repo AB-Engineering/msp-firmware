@@ -12,7 +12,7 @@
 #ifdef VERSION_STRING
 String ver = VERSION_STRING;
 #else
-String ver = "2.5beta"; //current firmware version
+String ver = "3.0rc2"; //current firmware version
 #endif
 
 
@@ -24,7 +24,7 @@ bool DEBDUG = false;
 #include <WiFi.h>
 #include <time.h>
 #include <SSLClient.h>
-#include "api_smrtprk_ta.h" //Server Trust Anchor
+#include "trust_anchor.h" //Server Trust Anchor
 
 // Sensors management libraries
 //for BME_680
@@ -130,7 +130,7 @@ String timeStamp = "";
 // Sensor active variables
 bool BME_run;
 bool PMS_run;
-bool MICS6814_run;
+bool MICS_run;
 bool O3_run;
 
 //String to store the MAC Address
@@ -348,7 +348,7 @@ void setup() {
     Serial.println("Sensore MICS6814 rilevato, inizializzo...\n");
     u8g2.drawStr(20, 55, "MICS6814 -> OK!");
     u8g2.sendBuffer();
-    MICS6814_run = true;
+    MICS_run = true;
     // turn on heating element and led
     gas.powerOn();
     gas.ledOn();
@@ -362,7 +362,7 @@ void setup() {
     Serial.println("Sensore MICS6814 non rilevato.\n");
     u8g2.drawStr(20, 55, "MICS6814 -> ERR!");
     u8g2.sendBuffer();
-    MICS6814_run = false;
+    MICS_run = false;
   }
   delay(1500);
   //++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
@@ -470,8 +470,7 @@ void loop() {
   MICS6814_H2 = 0.0;
   MICS6814_C2H5OH = 0.0;
 
-  //Preheating PMS5003 sensor for accurate measurements, 30 seconds is fine, 1 minute for good measure
-  //Only if avg_delay is less than 1 min.
+  //Preheating PMS5003 sensor for accurate measurements, 30 seconds is fine, 1 minute is better
   if (PMS_run && avg_delay < 60) {
     Serial.println("Waking up PMS5003 sensor after sleep...\n");
     pms.wakeUp();
@@ -497,7 +496,7 @@ void loop() {
     //+++++++++ NEXT MEASUREMENTS CYCLE DELAY ++++++++++++
     Serial.printf("Attesa di %d:%d min. per il ciclo %d di %d\n\n", avg_delay / 60, avg_delay % 60, k + 1, avg_measurements);
     for (int i = avg_delay; i > 0; i--) {
-      if (i % 60 == 0 && i / 60 == 1 && PMS_run) {
+      if (PMS_run && avg_delay >= 60 && i == 60) {
         Serial.println("Waking up PMS5003 sensor after sleep...");
         pms.wakeUp();
       }
@@ -588,7 +587,7 @@ void loop() {
     //+++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
     //+++++++++ READING MICS6814 ++++++++++++
-    if (MICS6814_run) {
+    if (MICS_run) {
       Serial.println("Campiono MICS6814...");
       errcount = 0;
       while (1) {
@@ -661,7 +660,7 @@ void loop() {
 
   //------------------------------------------------------------------------
   //+++++++++++ PERFORMING AVERAGES AND POST MEASUREMENTS TASKS ++++++++++++++++++++++++++++++++++++++++++
-  
+
   //Only if avg_delay is less than 1 min.
   if (PMS_run && avg_delay < 60) {
     Serial.println("Putting PMS5003 sensor to sleep...\n");
@@ -700,27 +699,27 @@ void loop() {
       PM10 = int(b);
     }
   }
-  if (MICS6814_run) {
+  if (MICS_run) {
     MICS6814_CO /= avg_measurements;
-    MICS6814_CO = convertPpmToUgM3(MICS6814_CO, 28.01, temp, pre);
+    MICS6814_CO = convertPpmToUgM3(MICS6814_CO, 28.01);
     MICS6814_NO2 /= avg_measurements;
-    MICS6814_NO2 = convertPpmToUgM3(MICS6814_NO2, 46.01, temp, pre);
+    MICS6814_NO2 = convertPpmToUgM3(MICS6814_NO2, 46.01);
     MICS6814_NH3 /= avg_measurements;
-    MICS6814_NH3 = convertPpmToUgM3(MICS6814_NH3, 17.03, temp, pre);
+    MICS6814_NH3 = convertPpmToUgM3(MICS6814_NH3, 17.03);
     MICS6814_C3H8 /= avg_measurements;
-    MICS6814_C3H8 = convertPpmToUgM3(MICS6814_C3H8, 44.10, temp, pre);
+    MICS6814_C3H8 = convertPpmToUgM3(MICS6814_C3H8, 44.10);
     MICS6814_C4H10 /= avg_measurements;
-    MICS6814_C4H10 = convertPpmToUgM3(MICS6814_C4H10, 58.12, temp, pre);
+    MICS6814_C4H10 = convertPpmToUgM3(MICS6814_C4H10, 58.12);
     MICS6814_CH4 /= avg_measurements;
-    MICS6814_CH4 = convertPpmToUgM3(MICS6814_CH4, 16.04, temp, pre);
+    MICS6814_CH4 = convertPpmToUgM3(MICS6814_CH4, 16.04);
     MICS6814_H2 /= avg_measurements;
-    MICS6814_H2 = convertPpmToUgM3(MICS6814_H2, 2.02, temp, pre);
+    MICS6814_H2 = convertPpmToUgM3(MICS6814_H2, 2.02);
     MICS6814_C2H5OH /= avg_measurements;
-    MICS6814_C2H5OH = convertPpmToUgM3(MICS6814_C2H5OH, 46.07, temp, pre);
+    MICS6814_C2H5OH = convertPpmToUgM3(MICS6814_C2H5OH, 46.07);
   }
   if (O3_run) {
     ozone /= avg_measurements;
-    ozone = convertPpmToUgM3(ozone, 48.00, temp, pre);
+    ozone = convertPpmToUgM3(ozone, 48.00);
   }
 
   //++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
@@ -740,7 +739,7 @@ void loop() {
     Serial.println("PM2,5: " + String(PM25) + "ug/m3");
     Serial.println("PM1: " + String(PM1) + "ug/m3");
   }
-  if (MICS6814_run) {
+  if (MICS_run) {
     Serial.println("NOx: " + floatToComma(MICS6814_NO2) + "ug/m3");
     Serial.println("CO: " + floatToComma(MICS6814_CO) + "ug/m3");
     Serial.println("NH3: " + floatToComma(MICS6814_NH3) + "ug/m3");
@@ -789,103 +788,121 @@ void loop() {
     u8g2.setCursor(15, 55); u8g2.print("al server...");
     u8g2.sendBuffer();
 
-    if (client.connect(server, 443)) {
+    short retries = 0;
+    while (retries < 3) {
 
-      auto contime = millis() - start;
-      Serial.println("Connessione al server effettuata! Tempo: " + String(contime) + "\n");
+      if (client.connect(server, 443)) {
 
-      // Building the post string:
+        auto contime = millis() - start;
+        Serial.println("Connessione al server effettuata! Tempo: " + String(contime) + "\n");
 
-      String postStr = "";
-      String postLine = "";
+        // Building the post string:
 
-      if (BME_run) {
-        postStr += "&temp=";
-        postStr += String(temp, 3);
-        postStr += "&hum=";
-        postStr += String(hum, 3);
-        postStr += "&pre=";
-        postStr += String(pre, 3);
-        postStr += "&voc=";
-        postStr += String(VOC, 3);
+        String postStr = "";
+        String postLine = "";
+
+        if (BME_run) {
+          postStr += "&temp=";
+          postStr += String(temp, 3);
+          postStr += "&hum=";
+          postStr += String(hum, 3);
+          postStr += "&pre=";
+          postStr += String(pre, 3);
+          postStr += "&voc=";
+          postStr += String(VOC, 3);
+        }
+        if (MICS_run) {
+          postStr += "&cox=";
+          postStr += String(MICS6814_CO, 3);
+          postStr += "&nox=";
+          postStr += String(MICS6814_NO2, 3);
+          postStr += "&nh3=";
+          postStr += String(MICS6814_NH3, 3);
+        }
+        if (PMS_run) {
+          postStr += "&pm1=";
+          postStr += String(PM1);
+          postStr += "&pm25=";
+          postStr += String(PM25);
+          postStr += "&pm10=";
+          postStr += String(PM10);
+        }
+        if (O3_run) {
+          postStr += "&o3=";
+          postStr += String(ozone, 3);
+        }
+        postStr += "&mac=";
+        postStr += macAdr;
+        postStr += "&data=";
+        postStr += dayStamp;
+        postStr += "&ora=";
+        postStr += timeStamp;
+        postStr += "&recordedAt=";
+        postStr += String(time(NULL));
+
+        if (DEBDUG) Serial.println("POST STRING: " + postStr + "\n");
+
+        // Sending client requests
+
+        client.println("POST /api/v1/records HTTP/1.1");
+        postLine = "Host: " + String(server);
+        client.println(postLine);
+        postLine = "Authorization: Bearer " + api_secret_salt + ":" + codice;
+        client.println(postLine);
+        client.println("Connection: close");
+        client.println("User-Agent: MilanoSmartPark");
+        client.println("Content-Type: application/x-www-form-urlencoded");
+        postLine = "Content-Length: " + String(postStr.length());
+        client.println(postLine);
+        client.println();
+        client.print(postStr);
+        client.flush();
+
+        Serial.println("Risposta del server:\n");
+
+        start = millis();
+
+        while (client.available()) {
+          Serial.write(client.read());
+          auto timeout = millis() - start;
+          if (timeout > 10000) break;
+        }
+
+        client.stop();
+
+        Serial.println("\nDati al server inviati con successo!\n");
+
+        drawScrHead();
+        u8g2.setCursor(17, 35); u8g2.print("Dati inviati");
+        u8g2.setCursor(15, 55); u8g2.print("con successo!");
+        u8g2.sendBuffer();
+
+        postStr = "";
+
+        break;
+
+      } else {
+
+        Serial.println("ERRORE durante la connessione al server!\n");
+        if (retries == 2) {
+          Serial.println("INVIO non effettuato!\n");
+        } else {
+          Serial.println("Riprovo...\n");
+        }
+
+        drawScrHead();
+        u8g2.setCursor(10, 35); u8g2.print("ERRORE INVIO!");
+        if (retries == 2) {
+          u8g2.setCursor(5, 55); u8g2.print("DATI NON INVIATI!");
+        } else {
+          u8g2.setCursor(12, 55); u8g2.print("Riprovo...");
+        }
+        u8g2.sendBuffer();
+
+        delay(2000);
+
       }
-      if (MICS6814_run) {
-        postStr += "&cox=";
-        postStr += String(MICS6814_CO, 3);
-        postStr += "&nox=";
-        postStr += String(MICS6814_NO2, 3);
-        postStr += "&nh3=";
-        postStr += String(MICS6814_NH3, 3);
-      }
-      if (PMS_run) {
-        postStr += "&pm1=";
-        postStr += String(PM1);
-        postStr += "&pm25=";
-        postStr += String(PM25);
-        postStr += "&pm10=";
-        postStr += String(PM10);
-      }
-      if (O3_run) {
-        postStr += "&o3=";
-        postStr += String(ozone, 3);
-      }
-      postStr += "&mac=";
-      postStr += macAdr;
-      postStr += "&data=";
-      postStr += dayStamp;
-      postStr += "&ora=";
-      postStr += timeStamp;
-      postStr += "&recordedAt=";
-      postStr += String(time(NULL));
-
-      if (DEBDUG) Serial.println("POST STRING: " + postStr + "\n");
-
-      // Sending client requests
-
-      client.println("POST /api/v1/records HTTP/1.1");
-      postLine = "Host: " + String(server);
-      client.println(postLine);
-      postLine = "Authorization: Bearer " + api_secret_salt + ":" + codice;
-      client.println(postLine);
-      client.println("Connection: close");
-      client.println("User-Agent: MilanoSmartPark");
-      client.println("Content-Type: application/x-www-form-urlencoded");
-      postLine = "Content-Length: " + String(postStr.length());
-      client.println(postLine);
-      client.println();
-      client.print(postStr);
-      client.flush();
-
-      Serial.println("Risposta del server:\n");
-
-      start = millis();
-
-      while (client.available()) {
-        Serial.write(client.read());
-        auto timeout = millis() - start;
-        if (timeout > 10000) break;
-      }
-
-      client.stop();
-
-      Serial.println("\nDati al server inviati con successo!\n");
-
-      drawScrHead();
-      u8g2.setCursor(17, 35); u8g2.print("Dati inviati");
-      u8g2.setCursor(15, 55); u8g2.print("con successo!");
-      u8g2.sendBuffer();
-
-      postStr = "";
-
-    } else {
-
-      Serial.println("ERRORE durante la connessione al server. Invio non effettuato!\n");
-
-      drawScrHead();
-      u8g2.setCursor(15, 35); u8g2.print("ERRORE durante");
-      u8g2.setCursor(12, 55); u8g2.print("l'invio dei dati!");
-      u8g2.sendBuffer();
-
+      
     }
 
   }
@@ -901,22 +918,22 @@ void loop() {
     String logvalue = "";
     logvalue += dayStamp; logvalue += ";";
     logvalue += timeStamp; logvalue += ";";
-    logvalue += floatToComma(temp); logvalue += ";";
-    logvalue += floatToComma(hum); logvalue += ";";
-    logvalue += floatToComma(pre); logvalue += ";";
-    logvalue += String(PM10); logvalue += ";";
-    logvalue += String(PM25); logvalue += ";";
-    logvalue += String(PM1); logvalue += ";";
-    logvalue += floatToComma(MICS6814_NO2); logvalue += ";";
-    logvalue += floatToComma(MICS6814_CO); logvalue += ";";
-    logvalue += floatToComma(ozone); logvalue += ";";
-    logvalue += floatToComma(VOC); logvalue += ";";
-    logvalue += floatToComma(MICS6814_NH3); logvalue += ";";
-    logvalue += floatToComma(MICS6814_C3H8); logvalue += ";";
-    logvalue += floatToComma(MICS6814_C4H10); logvalue += ";";
-    logvalue += floatToComma(MICS6814_CH4); logvalue += ";";
-    logvalue += floatToComma(MICS6814_H2); logvalue += ";";
-    logvalue += floatToComma(MICS6814_C2H5OH);
+    if (BME_run) {logvalue += floatToComma(temp);} logvalue += ";";
+    if (BME_run) {logvalue += floatToComma(hum);} logvalue += ";";
+    if (BME_run) {logvalue += floatToComma(pre);} logvalue += ";";
+    if (PMS_run) {logvalue += String(PM10);} logvalue += ";";
+    if (PMS_run) {logvalue += String(PM25);} logvalue += ";";
+    if (PMS_run) {logvalue += String(PM1);} logvalue += ";";
+    if (MICS_run) {logvalue += floatToComma(MICS6814_NO2);} logvalue += ";";
+    if (MICS_run) {logvalue += floatToComma(MICS6814_CO);} logvalue += ";";
+    if (O3_run) {logvalue += floatToComma(ozone);} logvalue += ";";
+    if (BME_run) {logvalue += floatToComma(VOC);} logvalue += ";";
+    if (MICS_run) {logvalue += floatToComma(MICS6814_NH3);} logvalue += ";";
+    if (MICS_run) {logvalue += floatToComma(MICS6814_C3H8);} logvalue += ";";
+    if (MICS_run) {logvalue += floatToComma(MICS6814_C4H10);} logvalue += ";";
+    if (MICS_run) {logvalue += floatToComma(MICS6814_CH4);} logvalue += ";";
+    if (MICS_run) {logvalue += floatToComma(MICS6814_H2);} logvalue += ";";
+    if (MICS_run) {logvalue += floatToComma(MICS6814_C2H5OH);}
     if (addToLog(SD, logpath, logvalue)) {
       Serial.println("Log su SD aggiornato con successo!\n");
     } else {

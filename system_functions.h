@@ -320,8 +320,8 @@ bool parseConfig(File fl) { //parses the configuration file on the SD card
     attesa = temp.toInt();
     Serial.printf("attesa = *%d*\n", attesa);
   } else {
-    Serial.println("PARSECFG: Errore! Comando attesa non riconosciuto. Fallback a 20 minuti.");
-    attesa = 20;
+    Serial.println("PARSECFG: Errore! Comando attesa non riconosciuto. Fallback a 0 minuti.");
+    attesa = 0;
   }
   //avg_measurements
   if (command[5].startsWith("numero_misurazioni_media", 0)) {
@@ -330,8 +330,8 @@ bool parseConfig(File fl) { //parses the configuration file on the SD card
     avg_measurements = temp.toInt();
     Serial.printf("avg_measurements = *%d*\n", avg_measurements);
   } else {
-    Serial.println("PARSECFG: Errore! Comando avg_measurements non riconosciuto. Fallback a 5 misurazioni.");
-    avg_measurements = 5;
+    Serial.println("PARSECFG: Errore! Comando avg_measurements non riconosciuto. Fallback a 6 misurazioni.");
+    avg_measurements = 6;
   }
   //avg_delay
   if (command[6].startsWith("ritardo_media(secondi)", 0)) {
@@ -340,8 +340,8 @@ bool parseConfig(File fl) { //parses the configuration file on the SD card
     avg_delay = temp.toInt();
     Serial.printf("avg_delay = *%d*\n", avg_delay);
   } else {
-    Serial.println("PARSECFG: Errore! Comando avg_delay non riconosciuto. Fallback a 6 secondi.");
-    avg_delay = 6;
+    Serial.println("PARSECFG: Errore! Comando avg_delay non riconosciuto. Fallback a 273 secondi.");
+    avg_delay = 273;
   }
   //MQ7_run
   /*
@@ -396,9 +396,9 @@ bool parseConfig(File fl) { //parses the configuration file on the SD card
 void setDefaults() {
 
   wifipow = WIFI_POWER_19_5dBm;
-  attesa = 20;
-  avg_measurements = 5;
-  avg_delay = 6;
+  attesa = 0;
+  avg_measurements = 6;
+  avg_delay = 273;
   //MQ7_run = false;
   //iaqon = true;
 
@@ -632,13 +632,13 @@ float analogPpmO3Read(int *points) { //needs an external points variable to stor
 
 //+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
-float convertPpmToUgM3(float ppm, float mm, float T, float P) {
+float convertPpmToUgM3(float ppm, float mm/*, float T, float P*/) {
 
   // mm is molar mass and must be g/mol
-  if (!BME_run) { //if no BME is connected, assume OSHA standard conditions to perform the conversion
-    T = 25.0;
-    P = 1013.25;
-  }
+  //if (!BME_run) { //if no BME is connected, assume OSHA standard conditions to perform the conversion
+  float T = 25.0;
+  float P = 1013.25;
+  //}
   const float R = 83.1446261815324; //gas constant (L * hPa * K^−1 * mol^−1)
   float Vm = (R * (T + 273.15)) / P; //molar volume (L * mol^-1)
   return (ppm * 1000) * (mm / Vm);
