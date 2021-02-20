@@ -37,8 +37,10 @@ If you already have the official or any another version of the MiCS6814-I2C-Libr
 - Flash Mode: "QIO"
 - Flash Size: "4MB (32Mb)"
 - Partition Scheme: "Default 4MB with spiffs (1.2MB APP/1.5MB SPIFFS)"
-- Core Debug Level: "None"
+- Core Debug Level: "Error"
 - PSRAM: "Enabled"
+
+N.B: When building, Core Debug Level can be set from "None" to "Verbose" to have a less or a more detailed serial output.
 
 ## Building from source (using `Makefile`):
 
