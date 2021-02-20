@@ -12,7 +12,6 @@ extern "C"
  * Index:    0
  * Label:    DST Root CA X3
  * Subject:  CN=DST Root CA X3,O=Digital Signature Trust Co.
- * Domain(s):
  */
 
 #define TAs_NUM 1
