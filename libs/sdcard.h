@@ -208,8 +208,8 @@ bool parseConfig(File fl) { // parses the configuration file on the SD Card
   if (command[10].startsWith("upload_server", 0)) {
     temp = "";
     temp = command[10].substring(command[10].indexOf("upload_server") + 14, command[10].length());
-	if (temp.length() > 0) {
-      server = temp;
+    if (temp.length() > 0) {
+          server = temp;
 	  server_ok = true;
 	  log_i("server = *%s*\n", server.c_str());
     } else {
