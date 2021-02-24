@@ -22,10 +22,10 @@ bool syncNTPTime(String *date, String *timeT) { // stores date&time in a conveni
   struct tm timeinfo;
   short retries = 0;
   while (!getLocalTime(&timeinfo)) {
-	if (retries > 1) {
+    if (retries > 1) {
       return false;
-	}
-	retries++;
+    }
+    retries++;
   }
   char Date[11], Time[9];
   strftime(Date, 11, "%d/%m/%Y", &timeinfo);
@@ -84,7 +84,7 @@ bool connectWiFi() { // sets WiFi mode and tx power (var wifipow), performs conn
 
         WiFi.begin(ssid.c_str(), passw.c_str()); // Attempting connection
         short conntries = 0;
-		String dots = "";
+        String dots = "";
         while (WiFi.status() != WL_CONNECTED) {
           if (conntries > 5) {
             log_e("Can't connect to network!\n");
@@ -101,10 +101,10 @@ bool connectWiFi() { // sets WiFi mode and tx power (var wifipow), performs conn
           conntries++;
           delay(1000);
         }
-		log_i("%s\n", dots.c_str());
+        log_i("%s\n", dots.c_str());
 
         if (WiFi.status() == WL_CONNECTED) { // Connection successful
-		
+
           return true;
         }
       } else {
@@ -135,6 +135,34 @@ bool connectWiFi() { // sets WiFi mode and tx power (var wifipow), performs conn
   }
 
   return false;
+
+}
+
+//+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
+void connAndGetTime() { // lame function to set global vars
+
+  Serial.println("Connecting to WiFi...\n");
+  connected_ok = connectWiFi();
+  if (connected_ok) {
+    Serial.println("Connection with " + ssid + " made successfully! Retrieving date&time from NTP server...");
+    drawScrHead();
+    u8g2.drawStr(15, 45, "WiFi connected!");
+    u8g2.sendBuffer();
+    delay(2000);
+    datetime_ok = syncNTPTime(&dayStamp, &timeStamp); // Connecting with NTP server and retrieving date&time
+    drawScrHead();
+    if (datetime_ok) {
+      Serial.println("Done! Current date&time: " + dayStamp + " " + timeStamp);
+      u8g2.drawStr(15, 45, "Date & time ok!");
+    } else {
+      log_e("Failed to obtain date&time!");
+      u8g2.drawStr(15, 45, "Date & time err!");
+    }
+    Serial.println();
+    u8g2.sendBuffer();
+    delay(2000);
+  }
 
 }
 

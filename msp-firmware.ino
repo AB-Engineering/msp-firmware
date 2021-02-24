@@ -294,27 +294,7 @@ void setup() {
 
   // CONNECT TO WIFI AND GET DATE&TIME +++++++++++++++++++++++++++++++++++++++++++++++++++
   if (cfg_ok) {
-    Serial.println("Connecting to WiFi...\n");
-    connected_ok = connectWiFi();
-    if (connected_ok) {
-      Serial.println("Connection with %s made successfully! Retrieving date&time from NTP server...", ssid.c_str());
-      drawScrHead();
-      u8g2.drawStr(15, 45, "WiFi connected!");
-      u8g2.sendBuffer();
-      delay(2000);
-      datetime_ok = syncNTPTime(&dayStamp, &timeStamp); // Connecting with NTP server and retrieving date&time
-      drawScrHead();
-      if (datetime_ok) {
-        Serial.println("Done! Current date&time: %s %s", dayStamp.c_str(), timeStamp.c_str());
-        u8g2.drawStr(15, 45, "Date & time ok!");
-      } else {
-        log_e("Failed to obtain date&time!");
-        u8g2.drawStr(15, 45, "Date & time err!");
-      }
-      Serial.println();
-      u8g2.sendBuffer();
-      delay(2000);
-    }
+    connAndGetTime();
   }
   //+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
@@ -665,27 +645,7 @@ void loop() {
 
   //+++++++++++ RECONNECTING AND UPDATING DATE/TIME +++++++++++++++++++++
   if (cfg_ok) {
-    Serial.println("Reconnecting to WiFi...\n");
-    connected_ok = connectWiFi();
-    if (connected_ok) {
-      Serial.println("Connection with %s made successfully! Updating date&time from NTP server...", ssid.c_str());
-      drawScrHead();
-      u8g2.drawStr(15, 45, "WiFi connected!");
-      u8g2.sendBuffer();
-      delay(2000);
-      datetime_ok = syncNTPTime(&dayStamp, &timeStamp); // Connecting with NTP server and retrieving date&time
-      drawScrHead();
-      if (datetime_ok) {
-        Serial.println("Done! Current date&time: %s %s", dayStamp.c_str(), timeStamp.c_str());
-        u8g2.drawStr(15, 45, "Date & time ok!");
-      } else {
-        log_e("Failed to obtain date&time!");
-        u8g2.drawStr(15, 45, "Date & time err!");
-      }
-      Serial.println();
-      u8g2.sendBuffer();
-      delay(2000);
-    }
+    connAndGetTime();
   }
   //++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 

@@ -128,40 +128,40 @@ bool parseConfig(File fl) { // parses the configuration file on the SD Card
     temp = command[3].substring(command[3].indexOf("potenza_wifi") + 13, command[3].length());
     if (temp.indexOf("19.5dBm") == 0) {
       wifipow = WIFI_POWER_19_5dBm;
-	  log_i("wifipow = *WIFI_POWER_19_5dBm*");
+      log_i("wifipow = *WIFI_POWER_19_5dBm*");
     } else if (temp.indexOf("19dBm") == 0) {
       wifipow = WIFI_POWER_19dBm;
-	  log_i("wifipow = *WIFI_POWER_19dBm*");
+      log_i("wifipow = *WIFI_POWER_19dBm*");
     } else if (temp.indexOf("18.5dBm") == 0) {
       wifipow = WIFI_POWER_18_5dBm;
-	  log_i("wifipow = *WIFI_POWER_18_5dBm*");
+      log_i("wifipow = *WIFI_POWER_18_5dBm*");
     } else if (temp.indexOf("17dBm") == 0) {
       wifipow = WIFI_POWER_17dBm;
-	  log_i("wifipow = *WIFI_POWER_17dBm*");
+      log_i("wifipow = *WIFI_POWER_17dBm*");
     } else if (temp.indexOf("15dBm") == 0) {
       wifipow = WIFI_POWER_15dBm;
-	  log_i("wifipow = *WIFI_POWER_15dBm*");
+      log_i("wifipow = *WIFI_POWER_15dBm*");
     } else if (temp.indexOf("13dBm") == 0) {
       wifipow = WIFI_POWER_13dBm;
-	  log_i("wifipow = *WIFI_POWER_13dBm*");
+      log_i("wifipow = *WIFI_POWER_13dBm*");
     } else if (temp.indexOf("11dBm") == 0) {
       wifipow = WIFI_POWER_11dBm;
-	  log_i("wifipow = *WIFI_POWER_11dBm*");
+      log_i("wifipow = *WIFI_POWER_11dBm*");
     } else if (temp.indexOf("8.5dBm") == 0) {
       wifipow = WIFI_POWER_8_5dBm;
-	  log_i("wifipow = *WIFI_POWER_8_5dBm*");
+      log_i("wifipow = *WIFI_POWER_8_5dBm*");
     } else if (temp.indexOf("7dBm") == 0) {
       wifipow = WIFI_POWER_7dBm;
-	  log_i("wifipow = *WIFI_POWER_7dBm*");
+      log_i("wifipow = *WIFI_POWER_7dBm*");
     } else if (temp.indexOf("5dBm") == 0) {
       wifipow = WIFI_POWER_5dBm;
-	  log_i("wifipow = *WIFI_POWER_5dBm*");
+      log_i("wifipow = *WIFI_POWER_5dBm*");
     } else if (temp.indexOf("2dBm") == 0) {
       wifipow = WIFI_POWER_2dBm;
-	  log_i("wifipow = *WIFI_POWER_2dBm*");
+      log_i("wifipow = *WIFI_POWER_2dBm*");
     } else if (temp.indexOf("-1dBm") == 0) {
       wifipow = WIFI_POWER_MINUS_1dBm;
-	  log_i("wifipow = *WIFI_POWER_MINUS_1dBm*");
+      log_i("wifipow = *WIFI_POWER_MINUS_1dBm*");
     } else {
       log_e("Invalid WIFIPOW value. Falling back to default value");
     }
@@ -209,22 +209,22 @@ bool parseConfig(File fl) { // parses the configuration file on the SD Card
     temp = "";
     temp = command[10].substring(command[10].indexOf("upload_server") + 14, command[10].length());
     if (temp.length() > 0) {
-          server = temp;
-	  server_ok = true;
-	  log_i("server = *%s*\n", server.c_str());
+      server = temp;
+      server_ok = true;
+      log_i("server = *%s*\n", server.c_str());
     } else {
-	  #ifdef API_SERVER
-	  log_e("SERVER value is empty. Falling back to value defined at compile time\n");
-	  #else
-	  log_e("SERVER value is empty!\n");
-	  #endif
+#ifdef API_SERVER
+      log_e("SERVER value is empty. Falling back to value defined at compile time\n");
+#else
+      log_e("SERVER value is empty!\n");
+#endif
     }
   } else {
-	#ifdef API_SERVER
-	log_e("Error parsing SERVER line. Falling back to value defined at compile time\n");
-	#else
-	log_e("Error parsing SERVER line!\n");
-	#endif
+#ifdef API_SERVER
+    log_e("Error parsing SERVER line. Falling back to value defined at compile time\n");
+#else
+    log_e("Error parsing SERVER line!\n");
+#endif
   }
 
   return outcome;
@@ -261,7 +261,7 @@ bool checkConfig() { // verifies the existance of the configuration file, create
     } else {
       log_e("Error writing to SD Card!\n");
     }
- 
+
     return false;
   }
 
@@ -283,7 +283,7 @@ void checkLogFile() { // verifies the existance of the csv log using the logpath
       log_i("Log file created!\n");
       return;
     }
-    
+
     log_e("Error creating log file!\n");
     return;
   }
