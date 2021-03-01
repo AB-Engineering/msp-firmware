@@ -13,23 +13,22 @@
 
 //+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
-bool syncNTPTime(String *date, String *timeT) { // stores date&time in a convenient format
+bool syncNTPTime(String *timeFormat, String *date, String *timeT) { // stores date&time in a convenient format
 
-  *date = "";
-  *timeT = "";
-  //configTime(gmtOffset_sec, daylightOffset_sec, ntpServer), Italy is GMT+1, DST is +1hour
-  configTime(3600, 3600, "pool.ntp.org");
+  configTime(0, 0, "pool.ntp.org"); //configTime(gmtOffset_sec, daylightOffset_sec, ntpServer)
   struct tm timeinfo;
   short retries = 0;
   while (!getLocalTime(&timeinfo)) {
-    if (retries > 1) {
+    if (retries > 4) {
       return false;
     }
-    retries++;
+	retries++;
   }
-  char Date[11], Time[9];
+  char Format[29], Date[11], Time[9];
+  strftime(Format, 29, "%Y-%m-%dT%T.000Z", &timeinfo);
   strftime(Date, 11, "%d/%m/%Y", &timeinfo);
   strftime(Time, 9, "%T", &timeinfo);
+  *timeFormat = String(Format);
   *date = String(Date);
   *timeT = String(Time);
   return true;
@@ -150,18 +149,20 @@ void connAndGetTime() { // lame function to set global vars
     u8g2.drawStr(15, 45, "WiFi connected!");
     u8g2.sendBuffer();
     delay(2000);
-    datetime_ok = syncNTPTime(&dayStamp, &timeStamp); // Connecting with NTP server and retrieving date&time
+    datetime_ok = syncNTPTime(&recordedAt, &dayStamp, &timeStamp); // Connecting with NTP server and retrieving date&time
     drawScrHead();
     if (datetime_ok) {
-      Serial.println("Done! Current date&time: " + dayStamp + " " + timeStamp);
-      u8g2.drawStr(15, 45, "Date & time ok!");
+	  String tempT = dayStamp + " " + timeStamp;
+      Serial.println("Done! Current date&time: " + tempT);
+      drawTwoLines(27, "Date & Time:", 8, tempT.c_str(), 0);
+	  log_d("recordedAt string is: *%s*", recordedAt.c_str());
     } else {
       log_e("Failed to obtain date&time!");
-      u8g2.drawStr(15, 45, "Date & time err!");
+      u8g2.drawStr(15, 45, "Date & Time err!");
     }
     Serial.println();
     u8g2.sendBuffer();
-    delay(2000);
+    delay(3000);
   }
 
 }

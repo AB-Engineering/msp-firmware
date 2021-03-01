@@ -18,7 +18,7 @@
 #ifdef VERSION_STRING
 String ver = VERSION_STRING;
 #else
-String ver = "3.0rc4"; //current firmware version
+String ver = "3.0rc5"; //current firmware version
 #endif
 
 // WiFi Client, NTP time management and SSL libraries
@@ -92,13 +92,13 @@ wifi_power_t wifipow = WIFI_POWER_19_5dBm;
 int waittime = 0;
 int avg_measurements = 6;
 int avg_delay = 273;
-float sealevelalt = 122.0; //default value in Milan, Italy
 
 // Variables for BME680
 float hum = 0.0;
 float temp = 0.0;
 float pre = 0.0;
 float VOC = 0.0;
+float sealevelalt = 122.0; // sea level altitude in meters, defaults to Milan, Italy
 
 // Variables and structure for PMS5003
 PMS::DATA data;
@@ -119,7 +119,8 @@ float MICS_C2H5OH = 0.0;
 // Variables for ZE25-O3
 float ozone = 0.0;
 
-// Server time management vars
+// Date and time vars
+String recordedAt = "";
 String dayStamp = "";
 String timeStamp = "";
 
@@ -691,14 +692,10 @@ void loop() {
         }
         postStr += "&mac=";
         postStr += macAdr;
-        postStr += "&data=";
-        postStr += dayStamp;
-        postStr += "&ora=";
-        postStr += timeStamp;
         postStr += "&recordedAt=";
-        postStr += String(time(NULL));
+        postStr += recordedAt;
 
-        log_v("Post string: %s\n", postStr.c_str());
+        log_d("Post string: %s\n", postStr.c_str());
 
         String postLine = ""; // Sending client requests
         client.println("POST /api/v1/records HTTP/1.1");
@@ -735,15 +732,18 @@ void loop() {
       } else {
         log_e("Error while connecting to server!");
 
-        if (retries == 2) log_e("Data not uploaded!\n");
-        else log_i("Trying again, %d retries left...\n", 3 - retries);
-
         String mesg = "";
-        if (retries == 3) mesg = "Data not sent!";
-        else mesg = String(3 - retries) + " retries left...";
+        if (retries == 3) {
+          log_e("Data not uploaded!\n");
+          mesg = "Data not sent!";
+        } else {
+          log_i("Trying again, %d retries left...\n", 3 - retries);
+          mesg = String(3 - retries) + " retries left...";
+        }
         drawTwoLines(25, "Upload error!", 20, mesg.c_str(), 5);
 
         retries++;
+        
       }
 
     }

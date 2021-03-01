@@ -211,21 +211,21 @@ bool parseConfig(File fl) { // parses the configuration file on the SD Card
     if (temp.length() > 0) {
       server = temp;
       server_ok = true;
-      log_i("server = *%s*\n", server.c_str());
     } else {
 #ifdef API_SERVER
-      log_e("SERVER value is empty. Falling back to value defined at compile time\n");
+      log_e("SERVER value is empty. Falling back to value defined at compile time");
 #else
-      log_e("SERVER value is empty!\n");
+      log_e("SERVER value is empty!");
 #endif
     }
   } else {
 #ifdef API_SERVER
-    log_e("Error parsing SERVER line. Falling back to value defined at compile time\n");
+    log_e("Error parsing SERVER line. Falling back to value defined at compile time");
 #else
-    log_e("Error parsing SERVER line!\n");
+    log_e("Error parsing SERVER line!");
 #endif
   }
+  log_i("server = *%s*\n", server.c_str());
 
   return outcome;
 
@@ -279,7 +279,7 @@ void checkLogFile() { // verifies the existance of the csv log using the logpath
       filecsv.close();
       String headertext = "Log file of device " + deviceid + " | Firmware v" + ver + " | MAC Address: " + macAdr;
       appendFile(SD, logpath.c_str(), headertext.c_str());
-      appendFile(SD, logpath.c_str(), "date;time;temp;hum;PM1;PM2_5;PM10;pres;radiation;nox;co;nh3;o3;voc;methane;propane;butane;hydrogen;ethanol");
+      appendFile(SD, logpath.c_str(), "recordedAt;date;time;temp;hum;PM1;PM2_5;PM10;pres;radiation;nox;co;nh3;o3;voc;methane;propane;butane;hydrogen;ethanol");
       log_i("Log file created!\n");
       return;
     }
@@ -313,7 +313,7 @@ bool addToLog(fs::FS &fs, const char path[], String *message) { // adds new line
   while (logfile.available()) { // copies entire log file into temp log
     temp = logfile.readStringUntil('\r'); //reads until carriage return character
     tempfile.print(temp);
-    tempfile.print('_'); // uses underscore to separate lines
+    tempfile.print('~'); // uses ~ to separate lines
     temp = logfile.readStringUntil('\n'); //discarding line feed character
   }
   logfile.close();
@@ -330,12 +330,12 @@ bool addToLog(fs::FS &fs, const char path[], String *message) { // adds new line
     return false;
   }
   for (int i = 0; i < 2; i++) { // copying the header lines from tempfile
-    temp = tempfile.readStringUntil('_');
+    temp = tempfile.readStringUntil('~');
     logfile.println(temp);
   }
   logfile.println(*message); // printing the new line
   while (tempfile.available()) { // copying the remaining strings
-    temp = tempfile.readStringUntil('_');
+    temp = tempfile.readStringUntil('~');
     logfile.println(temp);
   }
   tempfile.close();
@@ -355,8 +355,9 @@ void logToSD() { // builds a new logfile line and calls addToLog() (using logpat
   String logvalue = "";
 
   // Data is layed out as follows:
-  // "date;time;temp;hum;PM1;PM2_5;PM10;pres;radiation;nox;co;nh3;o3;voc;methane;propane;butane;hydrogen;ethanol"
+  // "recordedAt;date;time;temp;hum;PM1;PM2_5;PM10;pres;radiation;nox;co;nh3;o3;voc;methane;propane;butane;hydrogen;ethanol"
 
+  logvalue += recordedAt; logvalue += ";";
   logvalue += dayStamp; logvalue += ";";
   logvalue += timeStamp; logvalue += ";";
   if (BME_run) {
