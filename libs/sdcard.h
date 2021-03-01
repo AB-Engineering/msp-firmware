@@ -279,7 +279,7 @@ void checkLogFile() { // verifies the existance of the csv log using the logpath
       filecsv.close();
       String headertext = "Log file of device " + deviceid + " | Firmware v" + ver + " | MAC Address: " + macAdr;
       appendFile(SD, logpath.c_str(), headertext.c_str());
-      appendFile(SD, logpath.c_str(), "Date;Time;Temp(*C);Hum(%);Pre(hPa);PM10(ug/m3);PM2,5(ug/m3);PM1(ug/m3);NOx(ug/m3);CO(ug/m3);O3(ug/m3);VOC(kOhm);NH3(ug/m3);C3H8(ug/m3);C4H10(ug/m3);CH4(ug/m3);H2(ug/m3);C2H5OH(ug/m3)");
+      appendFile(SD, logpath.c_str(), "date;time;temp;hum;PM1;PM2_5;PM10;pres;radiation;nox;co;nh3;o3;voc;methane;propane;butane;hydrogen;ethanol");
       log_i("Log file created!\n");
       return;
     }
@@ -355,7 +355,7 @@ void logToSD() { // builds a new logfile line and calls addToLog() (using logpat
   String logvalue = "";
 
   // Data is layed out as follows:
-  // "Date;Time;Temp(*C);Hum(%);Pre(hPa);PM10(ug/m3);PM2,5(ug/m3);PM1(ug/m3);NOx(ug/m3);CO(ug/m3);O3(ug/m3);VOC(kOhm);NH3(ug/m3);C3H8(ug/m3);C4H10(ug/m3);CH4(ug/m3);H2(ug/m3);C2H5OH(ug/m3)"
+  // "date;time;temp;hum;PM1;PM2_5;PM10;pres;radiation;nox;co;nh3;o3;voc;methane;propane;butane;hydrogen;ethanol"
 
   logvalue += dayStamp; logvalue += ";";
   logvalue += timeStamp; logvalue += ";";
@@ -365,23 +365,27 @@ void logToSD() { // builds a new logfile line and calls addToLog() (using logpat
   if (BME_run) {
     logvalue += floatToComma(hum);
   } logvalue += ";";
-  if (BME_run) {
-    logvalue += floatToComma(pre);
-  } logvalue += ";";
   if (PMS_run) {
-    logvalue += String(PM10);
+    logvalue += String(PM1);
   } logvalue += ";";
   if (PMS_run) {
     logvalue += String(PM25);
   } logvalue += ";";
   if (PMS_run) {
-    logvalue += String(PM1);
+    logvalue += String(PM10);
   } logvalue += ";";
+  if (BME_run) {
+    logvalue += floatToComma(pre);
+  } logvalue += ";";
+  logvalue += ";"; // for "radiation"
   if (MICS_run) {
     logvalue += floatToComma(MICS_NO2);
   } logvalue += ";";
   if (MICS_run) {
     logvalue += floatToComma(MICS_CO);
+  } logvalue += ";";
+  if (MICS_run) {
+    logvalue += floatToComma(MICS_NH3);
   } logvalue += ";";
   if (O3_run) {
     logvalue += floatToComma(ozone);
@@ -390,16 +394,13 @@ void logToSD() { // builds a new logfile line and calls addToLog() (using logpat
     logvalue += floatToComma(VOC);
   } logvalue += ";";
   if (MICS_run) {
-    logvalue += floatToComma(MICS_NH3);
+    logvalue += floatToComma(MICS_CH4);
   } logvalue += ";";
   if (MICS_run) {
     logvalue += floatToComma(MICS_C3H8);
   } logvalue += ";";
   if (MICS_run) {
     logvalue += floatToComma(MICS_C4H10);
-  } logvalue += ";";
-  if (MICS_run) {
-    logvalue += floatToComma(MICS_CH4);
   } logvalue += ";";
   if (MICS_run) {
     logvalue += floatToComma(MICS_H2);
