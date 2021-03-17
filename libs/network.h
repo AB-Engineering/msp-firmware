@@ -19,13 +19,14 @@ bool syncNTPTime(String *timeFormat, String *date, String *timeT) { // stores da
   struct tm timeinfo;
   short retries = 0;
   while (!getLocalTime(&timeinfo)) {
-    if (retries > 4) {
+    if (retries > 3) {
       *timeFormat = "ERROR_DATETIME";
       *date = "";
       *timeT = "";
       return false;
     }
     retries++;
+    delay(5000);
   }
   char Format[29], Date[11], Time[9];
   strftime(Format, 29, "%Y-%m-%dT%T.000Z", &timeinfo);

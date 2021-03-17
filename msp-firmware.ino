@@ -709,8 +709,8 @@ void loop() {
           postStr += "&o3=";
           postStr += String(ozone, 3);
         }
-//        postStr += "&msp=";
-//        postStr += String(MSP);
+        postStr += "&msp=";
+        postStr += String(MSP);
         postStr += "&mac=";
         postStr += macAdr;
         postStr += "&recordedAt=";
