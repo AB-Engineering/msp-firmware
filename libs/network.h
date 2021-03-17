@@ -20,9 +20,12 @@ bool syncNTPTime(String *timeFormat, String *date, String *timeT) { // stores da
   short retries = 0;
   while (!getLocalTime(&timeinfo)) {
     if (retries > 4) {
+      *timeFormat = "ERROR_DATETIME";
+      *date = "";
+      *timeT = "";
       return false;
     }
-	retries++;
+    retries++;
   }
   char Format[29], Date[11], Time[9];
   strftime(Format, 29, "%Y-%m-%dT%T.000Z", &timeinfo);
@@ -152,11 +155,11 @@ void connAndGetTime() { // lame function to set global vars
     datetime_ok = syncNTPTime(&recordedAt, &dayStamp, &timeStamp); // Connecting with NTP server and retrieving date&time
     drawScrHead();
     if (datetime_ok) {
-	  String tempT = dayStamp + " " + timeStamp;
+      String tempT = dayStamp + " " + timeStamp;
       Serial.println("Done!");
-	  log_i("Current date&time: %s", tempT.c_str());
+      log_i("Current date&time: %s", tempT.c_str());
       drawTwoLines(27, "Date & Time:", 8, tempT.c_str(), 0);
-	  log_d("recordedAt string is: *%s*", recordedAt.c_str());
+      log_d("recordedAt string is: *%s*", recordedAt.c_str());
     } else {
       log_e("Failed to obtain date&time!");
       u8g2.drawStr(15, 45, "Date & Time err!");

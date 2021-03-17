@@ -18,7 +18,7 @@
 #ifdef VERSION_STRING
 String ver = VERSION_STRING;
 #else
-String ver = "3.0rc6"; //current firmware version
+String ver = "3.0rc7"; //current firmware version
 #endif
 
 // WiFi Client, NTP time management and SSL libraries
@@ -135,6 +135,9 @@ String macAdr = "";
 
 // Var for MSP# evaluation
 short MSP = -1; // set to -1 to distinguish from grey (0)
+
+// Sending data to server was successful?
+bool sent_ok = 0;
 
 // Include system functions ordered on dependencies
 #include "libs/sensors.h"
@@ -333,6 +336,7 @@ void loop() {
   //++++++++++++++++ READING SENSORS FOR AVERAGE ++++++++++++++++++++++++++++++
 
   // Zeroing out the variables
+  sent_ok = 0;
   int errcount = 0;
   short BMEfails = 0;
   temp = 0.0;
@@ -548,12 +552,15 @@ void loop() {
 
 
   //+++++++++++ PERFORMING AVERAGES AND POST MEASUREMENTS TASKS ++++++++++++++++++++++++++++++++++++++++++
+  
   if (PMS_run && avg_delay < 60) { //Only if avg_delay is less than 1 min.
     log_i("Putting PMS5003 sensor to sleep...\n");
     pms.sleep();
     delay(1500);
   }
+  
   log_i("Performing averages and converting to ug/m3...\n");
+  
   short runs = avg_measurements - BMEfails;
   if (BME_run && runs > 0) {
     temp /= runs;
@@ -563,6 +570,7 @@ void loop() {
     hum /= runs;
     VOC /= runs;
   }
+  
   runs = avg_measurements - PMSfails;
   if (PMS_run && runs > 0) {
     float b = 0.0;
@@ -585,6 +593,7 @@ void loop() {
       PM10 = int(b);
     }
   }
+  
   runs = avg_measurements - MICSfails;
   if (MICS_run && runs > 0) {
     MICS_CO /= runs;
@@ -604,11 +613,16 @@ void loop() {
     MICS_C2H5OH /= runs;
     MICS_C2H5OH = convertPpmToUgM3(MICS_C2H5OH, 46.07);
   }
+  
   runs = avg_measurements - O3fails;
   if (O3_run && runs > 0) {
     ozone /= runs;
     ozone = convertPpmToUgM3(ozone, 48.00);
   }
+  
+  // MSP# Index evaluation
+  MSP = evaluateMSPIndex(PM25, MICS_NO2, ozone); // implicitly casting PM25 as float for MSP evaluation only
+  
   //++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
   //+++++++++++ RECONNECTING AND UPDATING DATE/TIME +++++++++++++++++++++
@@ -695,8 +709,8 @@ void loop() {
           postStr += "&o3=";
           postStr += String(ozone, 3);
         }
-        postStr += "&msp=";
-        postStr += String(MSP = evaluateMSPIndex(PM25, MICS_NO2, ozone)); // implicitly casting PM25 as float for MSP evaluation only
+//        postStr += "&msp=";
+//        postStr += String(MSP);
         postStr += "&mac=";
         postStr += macAdr;
         postStr += "&recordedAt=";
@@ -719,7 +733,7 @@ void loop() {
         client.print(postStr);
         client.flush();
 
-        log_v("Printing server answer:"); // Get answer
+        log_d("Printing server answer:"); // Get answer
         start = millis();
         String answLine = "";
         while (client.available()) {
@@ -728,12 +742,13 @@ void loop() {
           auto timeout = millis() - start;
           if (timeout > 10000) break;
         }
-        log_v("\n\n%s\n", answLine.c_str());
+        log_d("\n\n%s\n", answLine.c_str());
 
         client.stop(); // Stopping the client
 
         log_i("Data uploaded successfully!\n"); // messages
         drawTwoLines(25, "Data uploaded", 27, "successfully!", 2);
+        sent_ok = 1;
 
         break; // exit
       } else {
@@ -743,6 +758,7 @@ void loop() {
         if (retries == 3) {
           log_e("Data not uploaded!\n");
           mesg = "Data not sent!";
+          sent_ok = 0;
         } else {
           log_i("Trying again, %d retries left...\n", 3 - retries);
           mesg = String(3 - retries) + " retries left...";
