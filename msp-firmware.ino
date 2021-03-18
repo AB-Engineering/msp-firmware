@@ -90,8 +90,8 @@ String deviceid = "";
 String logpath = "";
 wifi_power_t wifipow = WIFI_POWER_19_5dBm;
 int waittime = 0;
-int avg_measurements = 6;
-int avg_delay = 273;
+int avg_measurements = 30;
+int avg_delay = 55;
 
 // Variables for BME680
 float hum = 0.0;
@@ -360,14 +360,6 @@ void loop() {
   ozone = 0.0;
   MSP = -1; // reset to -1 to distinguish from grey (0)
 
-  //++++++++++++++++ PREHEAT PMS5003 (IF AVG_DELAY < 60 SEC.) +++++
-  if (PMS_run && avg_delay < 60) {
-    log_i("Waking up PMS5003 sensor after sleep...\n");
-    pms.wakeUp();
-    Serial.println("Wait 1 min. for PMS5003 sensor preheat\n");
-    drawCountdown(60, 2, "Preheating PMS5003..."); //30 seconds is fine, 1 minute is better
-  }
-  //+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
   //++++++++++++++++ MAIN MEASUREMENTS LOOP ++++++++++++++++++++++++++++++
   for (int k = 0; k < avg_measurements; k++) {
@@ -375,16 +367,15 @@ void loop() {
     //+++++++++ NEXT MEASUREMENTS CYCLE DELAY ++++++++++++
     Serial.printf("Wait %d min. and %d sec. for measurement cycle %d of %d\n\n", avg_delay / 60, avg_delay % 60, k + 1, avg_measurements);
     String cyclemsg = "Cycle " + String(k + 1) + " of " + String(avg_measurements);
-    int cdown = avg_delay;
-    if (PMS_run && avg_delay >= 60) {
-      cdown -= 60;
-      drawCountdown(cdown, 25, cyclemsg.c_str());
+    drawCountdown(avg_delay, 25, cyclemsg.c_str());
+    //+++++++++++++++++++++++++++++++++++++++++++++++++++++
+
+    // Wake up PMS5003
+    if (PMS_run) {
       log_i("Waking up PMS5003 sensor after sleep...");
       pms.wakeUp();
-      cdown = 60;
+      delay(1500);
     }
-    drawCountdown(cdown, 25, cyclemsg.c_str());
-    //+++++++++++++++++++++++++++++++++++++++++++++++++++++
 
     //+++++++++ MEASUREMENTS MESSAGE ++++++++++++
     log_i("Measurements in progress...\n");
@@ -540,7 +531,8 @@ void loop() {
     }
     //+++++++++++++++++++++++++++++++++++++++++++++++++++++
 
-    if (PMS_run && avg_delay >= 60) {
+    // Put PMS5003 to sleep
+    if (PMS_run) {
       log_i("Putting PMS5003 sensor to sleep...\n");
       pms.sleep();
       delay(1500);
@@ -552,12 +544,6 @@ void loop() {
 
 
   //+++++++++++ PERFORMING AVERAGES AND POST MEASUREMENTS TASKS ++++++++++++++++++++++++++++++++++++++++++
-
-  if (PMS_run && avg_delay < 60) { //Only if avg_delay is less than 1 min.
-    log_i("Putting PMS5003 sensor to sleep...\n");
-    pms.sleep();
-    delay(1500);
-  }
 
   log_i("Performing averages and converting to ug/m3...\n");
 
