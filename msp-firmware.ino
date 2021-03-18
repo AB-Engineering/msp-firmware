@@ -192,6 +192,11 @@ void setup() {
       log_e("No server URL defined. Can't upload data!\n");
       drawTwoLines(20, "No URL defined!", 35, "No upload!", 6);
     }
+    if (avg_delay < 50) {
+      log_e("AVG_DELAY should be at least 50 seconds! Setting to 50...\n");
+      drawTwoLines(5, "AVG_DELAY less than 50!", 15, "Setting to 50...", 5);
+      avg_delay = 50; // must be at least 45 for PMS5003 compensation routine, 5 seconds extra for reading cycle messages
+    }
   }
   // +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
@@ -335,6 +340,7 @@ void loop() {
   //------------------------------------------------------------------------
   //++++++++++++++++ READING SENSORS FOR AVERAGE ++++++++++++++++++++++++++++++
 
+
   // Zeroing out the variables
   sent_ok = 0;
   int errcount = 0;
@@ -364,18 +370,26 @@ void loop() {
   //++++++++++++++++ MAIN MEASUREMENTS LOOP ++++++++++++++++++++++++++++++
   for (int k = 0; k < avg_measurements; k++) {
 
+    int curdelay = 0;
+    if (PMS_run) {
+      curdelay = avg_delay - 45; // 45 seconds compensation for PMS5003
+    } else {
+      curdelay = avg_delay;
+    }
+
     //+++++++++ NEXT MEASUREMENTS CYCLE DELAY ++++++++++++
-    Serial.printf("Wait %d min. and %d sec. for measurement cycle %d of %d\n\n", avg_delay / 60, avg_delay % 60, k + 1, avg_measurements);
+    Serial.printf("Wait %d min. and %d sec. for measurement cycle %d of %d\n\n", curdelay / 60, curdelay % 60, k + 1, avg_measurements);
     String cyclemsg = "Cycle " + String(k + 1) + " of " + String(avg_measurements);
-    drawCountdown(avg_delay, 25, cyclemsg.c_str());
+    drawCountdown(curdelay, 25, cyclemsg.c_str());
     //+++++++++++++++++++++++++++++++++++++++++++++++++++++
 
-    // Wake up PMS5003
+    //+++++++++ WAKE UP AND PREHEAT PMS5003 ++++++++++++
     if (PMS_run) {
-      log_i("Waking up PMS5003 sensor after sleep...");
+      log_i("Waking up and preheating PMS5003 sensor for 45 seconds...");
       pms.wakeUp();
-      delay(1500);
+      drawCountdown(45, 2, "Preheating PMS5003...");
     }
+    //++++++++++++++++++++++++++++++++++++++++++++++++
 
     //+++++++++ MEASUREMENTS MESSAGE ++++++++++++
     log_i("Measurements in progress...\n");
@@ -469,15 +483,15 @@ void loop() {
           continue;
         }
         micsread = gas.measureCO();
-        log_v("Carbon Monoxide(ppm): %.3f", micsread);
+        log_v("CO(ppm): %.3f", micsread);
         MICS_CO += micsread;
 
         micsread = gas.measureNO2();
-        log_v("Nitrogen Dioxide(ppm): %.3f", micsread);
+        log_v("NO2(ppm): %.3f", micsread);
         MICS_NO2 += micsread;
 
         micsread = gas.measureNH3();
-        log_v("Ammonia(ppm): %.3f", micsread);
+        log_v("NH3(ppm): %.3f", micsread);
         MICS_NH3 += micsread;
 
         micsread = gas.measureC3H8();
@@ -522,7 +536,7 @@ void loop() {
           continue;
         }
         o3read = analogPpmO3Read();
-        log_v("Ozone(ppm): %.3f", o3read);
+        log_v("O3(ppm): %.3f", o3read);
         ozone += o3read;
 
         break;
@@ -531,12 +545,13 @@ void loop() {
     }
     //+++++++++++++++++++++++++++++++++++++++++++++++++++++
 
-    // Put PMS5003 to sleep
+    //+++++++++ PUT PMS5003 TO SLEEP ++++++++++++
     if (PMS_run) {
       log_i("Putting PMS5003 sensor to sleep...\n");
       pms.sleep();
       delay(1500);
     }
+    //++++++++++++++++++++++++++++++++++++++++++++
 
   }
   //+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
