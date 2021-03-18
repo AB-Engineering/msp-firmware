@@ -148,11 +148,14 @@ void connAndGetTime() { // lame function to set global vars
   Serial.println("Connecting to WiFi...\n");
   connected_ok = connectWiFi();
   if (connected_ok) {
-    Serial.println("Connection with " + ssid + " made successfully! Retrieving date&time from NTP server...");
+    Serial.println("Connection with " + ssid + " made successfully!");
     drawScrHead();
     u8g2.drawStr(15, 45, "WiFi connected!");
     u8g2.sendBuffer();
     delay(2000);
+    Serial.println("Waiting a bit before retrieving date&time...");
+    drawCountdown(10, 2, "Wait before conn...");
+    Serial.println("Retrieving date&time from NTP...");
     datetime_ok = syncNTPTime(&recordedAt, &dayStamp, &timeStamp); // Connecting with NTP server and retrieving date&time
     drawScrHead();
     if (datetime_ok) {

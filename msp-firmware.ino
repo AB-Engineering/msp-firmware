@@ -23,7 +23,7 @@ String ver = "3.0rc7"; //current firmware version
 
 // WiFi Client, NTP time management and SSL libraries
 #include <WiFi.h>
-#include <time.h>
+#include "time.h"
 #include <SSLClient.h>
 #include "libs/trust_anchor.h" //Server Trust Anchor
 
@@ -552,15 +552,15 @@ void loop() {
 
 
   //+++++++++++ PERFORMING AVERAGES AND POST MEASUREMENTS TASKS ++++++++++++++++++++++++++++++++++++++++++
-  
+
   if (PMS_run && avg_delay < 60) { //Only if avg_delay is less than 1 min.
     log_i("Putting PMS5003 sensor to sleep...\n");
     pms.sleep();
     delay(1500);
   }
-  
+
   log_i("Performing averages and converting to ug/m3...\n");
-  
+
   short runs = avg_measurements - BMEfails;
   if (BME_run && runs > 0) {
     temp /= runs;
@@ -569,8 +569,13 @@ void loop() {
     pre = (pre * pow(1 - (0.0065 * sealevelalt / (temp + 0.0065 * sealevelalt + 273.15)), -5.257));
     hum /= runs;
     VOC /= runs;
+  } else if (BME_run && runs == 0) {
+    temp = -1;
+    pre = -1;
+    hum = -1;
+    VOC = -1;
   }
-  
+
   runs = avg_measurements - PMSfails;
   if (PMS_run && runs > 0) {
     float b = 0.0;
@@ -592,8 +597,12 @@ void loop() {
     } else {
       PM10 = int(b);
     }
+  } else if (PMS_run && runs == 0) {
+    PM1 = -1;
+    PM25 = -1;
+    PM10 = -1;
   }
-  
+
   runs = avg_measurements - MICSfails;
   if (MICS_run && runs > 0) {
     MICS_CO /= runs;
@@ -612,17 +621,30 @@ void loop() {
     MICS_H2 = convertPpmToUgM3(MICS_H2, 2.02);
     MICS_C2H5OH /= runs;
     MICS_C2H5OH = convertPpmToUgM3(MICS_C2H5OH, 46.07);
+  } else if (MICS_run && runs == 0) {
+    MICS_CO = -1;
+    MICS_NO2 = -1;
+    MICS_NH3 = -1;
+    MICS_C3H8 = -1;
+    MICS_C4H10 = -1;
+    MICS_CH4 = -1;
+    MICS_H2 = -1;
+    MICS_C2H5OH = -1;
   }
-  
+
   runs = avg_measurements - O3fails;
   if (O3_run && runs > 0) {
     ozone /= runs;
     ozone = convertPpmToUgM3(ozone, 48.00);
+  } else if (O3_run && runs == 0) {
+    ozone = -1;
   }
-  
+
   // MSP# Index evaluation
-  MSP = evaluateMSPIndex(PM25, MICS_NO2, ozone); // implicitly casting PM25 as float for MSP evaluation only
-  
+  if (PM25 >= 0 && MICS_NO2 >= 0 && ozone >= 0) {
+    MSP = evaluateMSPIndex(PM25, MICS_NO2, ozone); // implicitly casting PM25 as float for MSP evaluation only
+  }
+
   //++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
   //+++++++++++ RECONNECTING AND UPDATING DATE/TIME +++++++++++++++++++++
@@ -645,18 +667,18 @@ void loop() {
     Serial.println("PM2,5: " + String(PM25) + "ug/m3");
     Serial.println("PM1: " + String(PM1) + "ug/m3");
   }
+  if (O3_run) {
+    Serial.println("O3: " + floatToComma(ozone) + "ug/m3");
+  }
   if (MICS_run) {
-    Serial.println("Nitrogen Dioxide: " + floatToComma(MICS_NO2) + "ug/m3");
-    Serial.println("Carbon Monoxide: " + floatToComma(MICS_CO) + "ug/m3");
-    Serial.println("Ammonia: " + floatToComma(MICS_NH3) + "ug/m3");
+    Serial.println("NO2: " + floatToComma(MICS_NO2) + "ug/m3");
+    Serial.println("CO: " + floatToComma(MICS_CO) + "ug/m3");
+    Serial.println("NH3: " + floatToComma(MICS_NH3) + "ug/m3");
     Serial.println("Propane: " + floatToComma(MICS_C3H8) + "ug/m3");
     Serial.println("Butane: " + floatToComma(MICS_C4H10) + "ug/m3");
     Serial.println("Methane: " + floatToComma(MICS_CH4) + "ug/m3");
     Serial.println("Hydrogen: " + floatToComma(MICS_H2) + "ug/m3");
     Serial.println("Ethanol: " + floatToComma(MICS_C2H5OH) + "ug/m3");
-  }
-  if (O3_run) {
-    Serial.println("Ozone: " + floatToComma(ozone) + "ug/m3");
   }
   Serial.println();
   //++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
@@ -665,20 +687,28 @@ void loop() {
   drawMeasurements();
   //++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
+
   //++++++  UPDATING SERVER VIA HTTPS ++++++++++++++++++++++++++++++++++++++++++++
+
   if (server_ok && connected_ok && datetime_ok) {
-    auto start = millis(); // time for connection:
+
+    auto start = millis(); // time for connection
+
     Serial.println("Uploading data to " + server + " through HTTPS in progress...\n");
     drawTwoLines(15, "Uploading data to", 15, server.c_str(), 0);
+
     short retries = 0;
 
     while (retries < 4) {
-
       if (client.connect(server.c_str(), 443)) {
+
         auto contime = millis() - start;
         log_i("Connection to server made! Time: %d\n", contime);
 
-        String postStr = ""; // Building the post string:
+        // Building the post string:
+
+        String postStr = "";
+
         if (BME_run) {
           postStr += "&temp=";
           postStr += String(temp, 3);
@@ -716,24 +746,19 @@ void loop() {
         postStr += "&recordedAt=";
         postStr += recordedAt;
 
+        // Sending client requests
+
+        String postLine = "POST /api/v1/records HTTP/1.1\nHost: " + server + "\nAuthorization: Bearer " + api_secret_salt + ":" + deviceid + "\n";
+        postLine += "Connection: close\nUser-Agent: MilanoSmartPark\nContent-Type: application/x-www-form-urlencoded\nContent-Length: " + String(postStr.length());
+
+        log_d("Post line:\n%s\n", postLine.c_str());
         log_d("Post string: %s\n", postStr.c_str());
 
-        String postLine = ""; // Sending client requests
-        client.println("POST /api/v1/records HTTP/1.1");
-        postLine = "Host: " + server;
-        client.println(postLine);
-        postLine = "Authorization: Bearer " + api_secret_salt + ":" + deviceid;
-        client.println(postLine);
-        client.println("Connection: close");
-        client.println("User-Agent: MilanoSmartPark");
-        client.println("Content-Type: application/x-www-form-urlencoded");
-        postLine = "Content-Length: " + String(postStr.length());
-        client.println(postLine);
-        client.println();
-        client.print(postStr);
+        client.print(postLine + "\n\n" + postStr);
         client.flush();
 
-        log_d("Printing server answer:"); // Get answer
+        // Get answer from server
+
         start = millis();
         String answLine = "";
         while (client.available()) {
@@ -742,16 +767,27 @@ void loop() {
           auto timeout = millis() - start;
           if (timeout > 10000) break;
         }
-        log_d("\n\n%s\n", answLine.c_str());
 
         client.stop(); // Stopping the client
 
-        log_i("Data uploaded successfully!\n"); // messages
-        drawTwoLines(25, "Data uploaded", 27, "successfully!", 2);
-        sent_ok = 1;
+        log_d("Printing server answer:\n\n%s\n", answLine.c_str());
+
+        // Checking server answer
+
+        if (answLine.startsWith("HTTP/1.1 201 Created", 0)) {
+          log_i("Data uploaded successfully!\n");
+          drawTwoLines(25, "Data uploaded", 27, "successfully!", 2);
+          sent_ok = 1;
+        } else {
+          log_e("Error while writing data to server! Data not uploaded!\n");
+          drawTwoLines(25, "Server error!", 25, "Data not sent!", 5);
+          sent_ok = 0;
+        }
 
         break; // exit
+
       } else {
+
         log_e("Error while connecting to server!");
 
         String mesg = "";
@@ -763,16 +799,16 @@ void loop() {
           log_i("Trying again, %d retries left...\n", 3 - retries);
           mesg = String(3 - retries) + " retries left...";
         }
-        drawTwoLines(25, "Upload error!", 20, mesg.c_str(), 5);
+        drawTwoLines(25, "Connect. error!", 20, mesg.c_str(), 5);
 
         retries++;
 
       }
-
     }
-
   }
+
   //++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
 
   //+++++++++++++ SD CARD LOGGING  ++++++++++++++++++++++++++++++++++++++++++
   if (SD_ok) {

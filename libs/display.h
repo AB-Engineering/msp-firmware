@@ -77,7 +77,7 @@ void drawTwoLines(short offset1, const char message1[], short offset2, const cha
 
 void drawCountdown(int startsec, short offset, const char message[]) { // draws a countdown on the U8G2 display
 
-  for (int i = startsec; i > 0; i--) {
+  for (int i = startsec; i >= 0; i--) {
     String output = "";
     output = String(i / 60) + ":";
     if (i % 60 >= 0 && i % 60 <= 9) {
