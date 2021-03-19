@@ -21,8 +21,8 @@ bool syncNTPTime(String *timeFormat, String *date, String *timeT) { // stores da
   while (!getLocalTime(&timeinfo)) {
     if (retries > 3) {
       *timeFormat = "ERROR_DATETIME";
-      *date = "";
-      *timeT = "";
+      *date = "ERROR";
+      *timeT = "ERROR";
       return false;
     }
     retries++;
@@ -44,7 +44,7 @@ bool syncNTPTime(String *timeFormat, String *date, String *timeT) { // stores da
 bool connectWiFi() { // sets WiFi mode and tx power (var wifipow), performs connection to WiFi network (vars ssid, passw)
 
   WiFi.mode(WIFI_STA); // Set WiFi to station mode
-  delay(1000); // Waiting a bit for Wifi mode set
+  delay(1500); // Waiting a bit for Wifi mode to set
 
   WiFi.setTxPower(wifipow); // Set WiFi transmission power
   log_i("WIFIPOW set to %d", wifipow);

@@ -137,7 +137,7 @@ String macAdr = "";
 short MSP = -1; // set to -1 to distinguish from grey (0)
 
 // Sending data to server was successful?
-bool sent_ok = 0;
+bool sent_ok = false;
 
 // Include system functions ordered on dependencies
 #include "libs/sensors.h"
@@ -325,24 +325,15 @@ void loop() {
   WiFi.disconnect();
   WiFi.mode(WIFI_OFF);
   delay(1000); // Waiting a bit for Wifi mode set
-  connected_ok = false;
-  datetime_ok = false;
   //++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
-  // WAIT BEFORE MEASURING +++++++++++++++++++++++++++++++++++++++++++
-  if (waittime > 0) {
-    Serial.printf("Wait %d min. to begin measuring\n\n", waittime);
-    drawCountdown(waittime * 60, 5, "Pre-wait time...");
-  }
-  //+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-
-
-  //------------------------------------------------------------------------
-  //++++++++++++++++ READING SENSORS FOR AVERAGE ++++++++++++++++++++++++++++++
-
-
-  // Zeroing out the variables
-  sent_ok = 0;
+  // ZEROING OUT VARIABLES +++++++++++++++++++++++++++++++++++++
+  connected_ok = false;
+  datetime_ok = false;
+  sent_ok = false;
+  recordedAt = "";
+  dayStamp = "";
+  timeStamp = "";
   int errcount = 0;
   short BMEfails = 0;
   temp = 0.0;
@@ -365,6 +356,18 @@ void loop() {
   short O3fails = 0;
   ozone = 0.0;
   MSP = -1; // reset to -1 to distinguish from grey (0)
+  //++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
+  // WAIT BEFORE MEASURING +++++++++++++++++++++++++++++++++++++++++++
+  if (waittime > 0) {
+    Serial.printf("Wait %d min. to begin measuring\n\n", waittime);
+    drawCountdown(waittime * 60, 5, "Pre-wait time...");
+  }
+  //+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
+
+  //------------------------------------------------------------------------
+  //++++++++++++++++ READING SENSORS FOR AVERAGE ++++++++++++++++++++++++++++++
 
 
   //++++++++++++++++ MAIN MEASUREMENTS LOOP ++++++++++++++++++++++++++++++
@@ -778,11 +781,11 @@ void loop() {
         if (answLine.startsWith("HTTP/1.1 201 Created", 0)) {
           log_i("Data uploaded successfully!\n");
           drawTwoLines(25, "Data uploaded", 27, "successfully!", 2);
-          sent_ok = 1;
+          sent_ok = true;
         } else {
           log_e("Error while writing data to server! Data not uploaded!\n");
           drawTwoLines(25, "Server error!", 25, "Data not sent!", 5);
-          sent_ok = 0;
+          sent_ok = false;
         }
 
         break; // exit
@@ -795,7 +798,7 @@ void loop() {
         if (retries == 3) {
           log_e("Data not uploaded!\n");
           mesg = "Data not sent!";
-          sent_ok = 0;
+          sent_ok = false;
         } else {
           log_i("Trying again, %d retries left...\n", 3 - retries);
           mesg = String(3 - retries) + " retries left...";
