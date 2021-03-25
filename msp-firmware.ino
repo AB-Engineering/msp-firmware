@@ -15,9 +15,6 @@
 #include <SD.h>
 #include <Wire.h>
 
-#define API_SECRET_SALT "secret_salt"
-#define API_SERVER "fcub.fluidware.it"
-
 #ifdef VERSION_STRING
 String ver = VERSION_STRING;
 #else
