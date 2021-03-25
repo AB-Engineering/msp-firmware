@@ -15,15 +15,18 @@
 #include <SD.h>
 #include <Wire.h>
 
+#define API_SECRET_SALT "secret_salt"
+#define API_SERVER "fcub.fluidware.it"
+
 #ifdef VERSION_STRING
 String ver = VERSION_STRING;
 #else
-String ver = "3.0rc7"; //current firmware version
+String ver = "3.0test"; //current firmware version
 #endif
 
 // WiFi Client, NTP time management and SSL libraries
 #include <WiFi.h>
-#include "time.h"
+#include <time.h>
 #include <SSLClient.h>
 #include "libs/trust_anchor.h" //Server Trust Anchor
 
@@ -93,6 +96,12 @@ int waittime = 0;
 int avg_measurements = 30;
 int avg_delay = 55;
 
+// Sensor active variables
+bool BME_run;
+bool PMS_run;
+bool MICS_run;
+bool O3_run;
+
 // Variables for BME680
 float hum = 0.0;
 float temp = 0.0;
@@ -107,14 +116,9 @@ int PM10 = 0;
 int PM25 = 0;
 
 // Variables for MICS6814
-float MICS_NH3   = 0.0;
-float MICS_CO   = 0.0;
-float MICS_NO2   = 0.0;
-float MICS_C3H8  = 0.0;
-float MICS_C4H10 = 0.0;
-float MICS_CH4   = 0.0;
-float MICS_H2    = 0.0;
-float MICS_C2H5OH = 0.0;
+float MICS_CO = 0.0;
+float MICS_NO2 = 0.0;
+float MICS_NH3 = 0.0;
 
 // Variables for ZE25-O3
 float ozone = 0.0;
@@ -123,12 +127,6 @@ float ozone = 0.0;
 String recordedAt = "";
 String dayStamp = "";
 String timeStamp = "";
-
-// Sensor active variables
-bool BME_run;
-bool PMS_run;
-bool MICS_run;
-bool O3_run;
 
 // String to store the MAC Address
 String macAdr = "";
@@ -168,11 +166,21 @@ void setup() {
   pinMode(2, OUTPUT);
   pinMode(15, OUTPUT);
 
-  // BOOT SCREEN ++++++++++++++++++++++++++++++++++++++++++++++++++++++
+  // BOOT STRINGS ++++++++++++++++++++++++++++++++++++++++++++++++++++++
   short buildyear = 2021;
   Serial.println("\nMILANO SMART PARK");
   Serial.println("FIRMWARE v" + ver);
   Serial.printf("by Norman Mulinacci, %d\n\n", buildyear);
+#ifdef VERSION_STRING
+  log_d("ver was defined at compile time.\n");
+#else
+  log_d("ver is the default.\n");
+#endif
+#ifdef API_SECRET_SALT
+  log_d("api_secret_salt is *%s* and was defined at compile time.\n", api_secret_salt.c_str());
+#else
+  log_d("api_secret_salt is the default *%s*.\n", api_secret_salt.c_str());
+#endif
   drawBoot(&ver, buildyear);
   //+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
@@ -348,11 +356,6 @@ void loop() {
   MICS_CO = 0.0;
   MICS_NO2 = 0.0;
   MICS_NH3 = 0.0;
-  MICS_C3H8 = 0.0;
-  MICS_C4H10 = 0.0;
-  MICS_CH4 = 0.0;
-  MICS_H2 = 0.0;
-  MICS_C2H5OH = 0.0;
   short O3fails = 0;
   ozone = 0.0;
   MSP = -1; // reset to -1 to distinguish from grey (0)
@@ -471,51 +474,35 @@ void loop() {
 
     //+++++++++ READING MICS6814 ++++++++++++
     if (MICS_run) {
-      float micsread = 0.0; // temporary read var
       log_i("Sampling MICS6814 sensor...");
       errcount = 0;
       while (1) {
-        if (gas.measureCO() < 0 || gas.measureCO() > 100) {
+
+        float micsread[3]; // array for temporary readings
+
+        micsread[0] = gas.measureCO();
+        micsread[1] = gas.measureNO2();
+        micsread[2] = gas.measureNH3();
+
+        if (micsread[0] < 0 || micsread[0] > 50 || micsread[1] < 0 || micsread[1] > 0.6 || micsread[2] < 0 || micsread[2] > 50) {
           if (errcount > 2) {
             log_e("Error while sampling MICS6814 sensor!");
             MICSfails++;
             break;
           }
-          delay(1000);
           errcount++;
+          delay(1000);
           continue;
         }
-        micsread = gas.measureCO();
-        log_v("CO(ppm): %.3f", micsread);
-        MICS_CO += micsread;
 
-        micsread = gas.measureNO2();
-        log_v("NO2(ppm): %.3f", micsread);
-        MICS_NO2 += micsread;
+        log_v("CO(ppm): %.3f", micsread[0]);
+        MICS_CO += micsread[0];
 
-        micsread = gas.measureNH3();
-        log_v("NH3(ppm): %.3f", micsread);
-        MICS_NH3 += micsread;
+        log_v("NOx(ppm): %.3f", micsread[1]);
+        MICS_NO2 += micsread[1];
 
-        micsread = gas.measureC3H8();
-        log_v("Propane(ppm): %.3f", micsread);
-        MICS_C3H8 += micsread;
-
-        micsread = gas.measureC4H10();
-        log_v("Butane(ppm): %.3f", micsread);
-        MICS_C4H10 += micsread;
-
-        micsread = gas.measureCH4();
-        log_v("Methane(ppm): %.3f", micsread);
-        MICS_CH4 += micsread;
-
-        micsread = gas.measureH2();
-        log_v("Hydrogen(ppm): %.3f", micsread);
-        MICS_H2 += micsread;
-
-        micsread = gas.measureC2H5OH();
-        log_v("Ethanol(ppm): %.3f\n", micsread);
-        MICS_C2H5OH += micsread;
+        log_v("NH3(ppm): %.3f\n", micsread[2]);
+        MICS_NH3 += micsread[2];
 
         break;
       }
@@ -573,7 +560,7 @@ void loop() {
     pre = (pre * pow(1 - (0.0065 * sealevelalt / (temp + 0.0065 * sealevelalt + 273.15)), -5.257));
     hum /= runs;
     VOC /= runs;
-  } else if (BME_run && runs == 0) {
+  } else if (BME_run) {
     temp = -1;
     pre = -1;
     hum = -1;
@@ -601,7 +588,7 @@ void loop() {
     } else {
       PM10 = int(b);
     }
-  } else if (PMS_run && runs == 0) {
+  } else if (PMS_run) {
     PM1 = -1;
     PM25 = -1;
     PM10 = -1;
@@ -615,32 +602,17 @@ void loop() {
     MICS_NO2 = convertPpmToUgM3(MICS_NO2, 46.01);
     MICS_NH3 /= runs;
     MICS_NH3 = convertPpmToUgM3(MICS_NH3, 17.03);
-    MICS_C3H8 /= runs;
-    MICS_C3H8 = convertPpmToUgM3(MICS_C3H8, 44.10);
-    MICS_C4H10 /= runs;
-    MICS_C4H10 = convertPpmToUgM3(MICS_C4H10, 58.12);
-    MICS_CH4 /= runs;
-    MICS_CH4 = convertPpmToUgM3(MICS_CH4, 16.04);
-    MICS_H2 /= runs;
-    MICS_H2 = convertPpmToUgM3(MICS_H2, 2.02);
-    MICS_C2H5OH /= runs;
-    MICS_C2H5OH = convertPpmToUgM3(MICS_C2H5OH, 46.07);
-  } else if (MICS_run && runs == 0) {
+  } else if (MICS_run) {
     MICS_CO = -1;
     MICS_NO2 = -1;
     MICS_NH3 = -1;
-    MICS_C3H8 = -1;
-    MICS_C4H10 = -1;
-    MICS_CH4 = -1;
-    MICS_H2 = -1;
-    MICS_C2H5OH = -1;
   }
 
   runs = avg_measurements - O3fails;
   if (O3_run && runs > 0) {
     ozone /= runs;
     ozone = convertPpmToUgM3(ozone, 48.00);
-  } else if (O3_run && runs == 0) {
+  } else if (O3_run) {
     ozone = -1;
   }
 
@@ -675,14 +647,9 @@ void loop() {
     Serial.println("O3: " + floatToComma(ozone) + "ug/m3");
   }
   if (MICS_run) {
-    Serial.println("NO2: " + floatToComma(MICS_NO2) + "ug/m3");
+    Serial.println("NOx: " + floatToComma(MICS_NO2) + "ug/m3");
     Serial.println("CO: " + floatToComma(MICS_CO) + "ug/m3");
     Serial.println("NH3: " + floatToComma(MICS_NH3) + "ug/m3");
-    Serial.println("Propane: " + floatToComma(MICS_C3H8) + "ug/m3");
-    Serial.println("Butane: " + floatToComma(MICS_C4H10) + "ug/m3");
-    Serial.println("Methane: " + floatToComma(MICS_CH4) + "ug/m3");
-    Serial.println("Hydrogen: " + floatToComma(MICS_H2) + "ug/m3");
-    Serial.println("Ethanol: " + floatToComma(MICS_C2H5OH) + "ug/m3");
   }
   Serial.println();
   //++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++

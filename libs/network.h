@@ -20,9 +20,6 @@ bool syncNTPTime(String *timeFormat, String *date, String *timeT) { // stores da
   short retries = 0;
   while (!getLocalTime(&timeinfo)) {
     if (retries > 3) {
-      *timeFormat = "ERROR_DATETIME";
-      *date = "ERROR";
-      *timeT = "ERROR";
       return false;
     }
     retries++;

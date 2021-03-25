@@ -92,46 +92,41 @@ void drawCountdown(int startsec, short offset, const char message[]) { // draws 
 
 //+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
-void drawMeasurements() { // draws measurements on the U8g2 display, on four pages
+void drawMeasurements() { // draws measurements on the U8g2 display
 
   log_v("Printing measurements on display...");
 
   // page 1
   drawScrHead();
-  u8g2.setCursor(5, 28); u8g2.print("Temp:  " + floatToComma(temp) + "*C");
-  u8g2.setCursor(5, 39); u8g2.print("Hum:  " + floatToComma(hum) + "%");
-  u8g2.setCursor(5, 50); u8g2.print("Pre:  " + floatToComma(pre) + "hPa");
-  u8g2.setCursor(5, 61); u8g2.print("PM10:  " + String(PM10) + "ug/m3");
+  u8g2.setCursor(5, 28); u8g2.print("Temp:  " + ((BME_run) ? (floatToComma(temp) + "*C") : ""));
+  u8g2.setCursor(5, 39); u8g2.print("Hum:  " + ((BME_run) ? (floatToComma(hum) + "%" ) : ""));
+  u8g2.setCursor(5, 50); u8g2.print("Pre:  " + ((BME_run) ? (floatToComma(pre) + "hPa") : ""));
+  u8g2.setCursor(5, 61); u8g2.print("VOC:  " + ((BME_run) ? (floatToComma(VOC) + "kOhm") : ""));
   u8g2.sendBuffer();
-  delay(5000);
+  delay(7000);
 
   // page 2
   drawScrHead();
-  u8g2.setCursor(5, 28); u8g2.print("PM2,5:  " + String(PM25) + "ug/m3");
-  u8g2.setCursor(5, 39); u8g2.print("PM1:  " + String(PM1) + "ug/m3");
-  u8g2.setCursor(5, 50); u8g2.print("NOx:  " + floatToComma(MICS_NO2) + "ug/m3");
-  u8g2.setCursor(5, 61); u8g2.print("CO:  " + floatToComma(MICS_CO) + "ug/m3");
+  u8g2.setCursor(5, 28); u8g2.print("PM1:  " + ((PMS_run) ? (String(PM1) + "ug/m3") : ""));
+  u8g2.setCursor(5, 39); u8g2.print("PM2,5:  " + ((PMS_run) ? (String(PM25) + "ug/m3") : ""));
+  u8g2.setCursor(5, 50); u8g2.print("PM10:  " + ((PMS_run) ? (String(PM10) + "ug/m3") : ""));
   u8g2.sendBuffer();
   delay(5000);
 
   // page 3
   drawScrHead();
-  u8g2.setCursor(5, 28); u8g2.print("O3:  " + floatToComma(ozone) + "ug/m3");
-  u8g2.setCursor(5, 39); u8g2.print("VOC:  " + floatToComma(VOC) + "kOhm");
-  u8g2.setCursor(5, 50); u8g2.print("NH3:  " + floatToComma(MICS_NH3) + "ug/m3");
-  u8g2.setCursor(5, 61); u8g2.print("C3H8:  " + floatToComma(MICS_C3H8) + "ug/m3");
+  u8g2.setCursor(5, 28); u8g2.print("CO:  " + ((MICS_run) ? (floatToComma(MICS_CO) + "ug/m3") : ""));
+  u8g2.setCursor(5, 39); u8g2.print("NOx:  " + ((MICS_run) ? (floatToComma(MICS_NO2) + "ug/m3") : ""));
+  u8g2.setCursor(5, 50); u8g2.print("NH3:  " + ((MICS_run) ? (floatToComma(MICS_NH3) + "ug/m3") : ""));
   u8g2.sendBuffer();
   delay(5000);
 
   // page 4
   drawScrHead();
-  u8g2.setCursor(5, 28); u8g2.print("C4H10:  " + floatToComma(MICS_C4H10) + "ug/m3");
-  u8g2.setCursor(5, 39); u8g2.print("CH4:  " + floatToComma(MICS_CH4) + "ug/m3");
-  u8g2.setCursor(5, 50); u8g2.print("H2:  " + floatToComma(MICS_H2) + "ug/m3");
-  u8g2.setCursor(5, 61); u8g2.print("C2H5OH:  " + floatToComma(MICS_C2H5OH) + "ug/m3");
+  u8g2.setCursor(5, 39); u8g2.print("O3:  " + ((O3_run) ? (floatToComma(ozone) + "ug/m3") : ""));
   u8g2.sendBuffer();
-  delay(5000);
-
+  delay(3000);
+  
 }
 
 //+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
