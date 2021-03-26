@@ -740,16 +740,15 @@ void loop() {
 
         log_d("Printing server answer:\n\n%s\n", answLine.c_str());
 
-        // Checking server answer
+        // Check server answer
 
         if (answLine.startsWith("HTTP/1.1 201 Created", 0)) {
-          log_i("Data uploaded successfully!\n");
+          log_i("Server answer ok! Data uploaded successfully!\n");
           drawTwoLines(25, "Data uploaded", 27, "successfully!", 2);
           sent_ok = true;
         } else {
-          log_e("Error while writing data to server! Data not uploaded!\n");
-          drawTwoLines(25, "Server error!", 25, "Data not sent!", 5);
-          sent_ok = false;
+          log_e("Server answered with an error! Data not uploaded!\n");
+          drawTwoLines(25, "Serv answ error!", 25, "Data not sent!", 10);
         }
 
         break; // exit
@@ -762,12 +761,11 @@ void loop() {
         if (retries == 3) {
           log_e("Data not uploaded!\n");
           mesg = "Data not sent!";
-          sent_ok = false;
         } else {
           log_i("Trying again, %d retries left...\n", 3 - retries);
           mesg = String(3 - retries) + " retries left...";
         }
-        drawTwoLines(25, "Connect. error!", 20, mesg.c_str(), 5);
+        drawTwoLines(25, "Serv conn error!", 20, mesg.c_str(), 10);
 
         retries++;
 
