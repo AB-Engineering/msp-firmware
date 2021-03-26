@@ -92,6 +92,11 @@ short evaluateMSPIndex(float pm25, float nox, float o3) { // evaluates the MPS# 
   // possible returned values are: 0 -> n.d.(grey); 1 -> good(green); 2 -> acceptable(yellow); 3 -> bad(red); 4 -> really bad(black)
   log_i("Evaluating MSP# index...\n");
 
+  if (pm25 < 0 || nox < 0 || o3 < 0) {
+    log_e("One or more input values are negative!\n");
+    return 0;
+  }
+
   short msp[3] = {0, 0, 0}; // msp[0] is for pm2.5, msp[1] is for nox, msp[2] is for o3
 
   if (PMS_run) {
@@ -121,7 +126,7 @@ short evaluateMSPIndex(float pm25, float nox, float o3) { // evaluates the MPS# 
     else if (msp[1] > msp[2]) return  msp[1];
     else return msp[2];
   }
-  
+
 }
 
 //+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++

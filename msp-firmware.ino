@@ -18,7 +18,7 @@
 #ifdef VERSION_STRING
 String ver = VERSION_STRING;
 #else
-String ver = "3.0test"; //current firmware version
+String ver = "3.0"; //current firmware version
 #endif
 
 // WiFi Client, NTP time management and SSL libraries
@@ -614,9 +614,7 @@ void loop() {
   }
 
   // MSP# Index evaluation
-  if (PM25 >= 0 && MICS_NO2 >= 0 && ozone >= 0) {
-    MSP = evaluateMSPIndex(PM25, MICS_NO2, ozone); // implicitly casting PM25 as float for MSP evaluation only
-  }
+  MSP = evaluateMSPIndex(PM25, MICS_NO2, ozone); // implicitly casting PM25 as float for MSP evaluation only
 
   //++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 

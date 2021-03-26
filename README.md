@@ -21,7 +21,7 @@ Libraries listed below can be installed through the Arduino IDE Library Manager:
 - [SSLClient Library](https://github.com/OPEnSLab-OSU/SSLClient)
 - [BSEC Arduino library](https://github.com/BoschSensortec/BSEC-Arduino-library)
 	+ In order for the linker to work properly, you need to copy the included "platform.local.txt" to your [...]/Arduino15/packages/esp32/hardware/esp32/<version_of_the_package>/ subdirectory.
-	+ This subdirectory is found in different locations depending on your OS. e.g. in Windows is under /Users/<username>/AppData/Local 
+	+ This subdirectory is found in different locations depending on your OS. e.g. in Windows is under /Users/"your_username"/AppData/Local 
 - [PMS Library](https://github.com/fu-hsi/pms)
 
 You will also need to install a modified version of [MiCS6814-I2C-MOD-Library](https://github.com/eNBeWe/MiCS6814-I2C-Library/network) which is not available through the Arduino Library Manager and [must be imported manually](https://www.arduino.cc/en/Guide/Libraries#importing-a-zip-library):
