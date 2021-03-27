@@ -22,7 +22,7 @@ void drawBoot(String *fwver, short veryear) { // draws the boot screen on the U8
   u8g2.drawXBM(0, 0, 64, 64, msp_icon64x64);
   u8g2.setFont(u8g2_font_6x13_tf);
   u8g2.drawStr(74, 10, "Milano"); u8g2.drawStr(74, 23, "Smart"); u8g2.drawStr(74, 36, "Park");
-  u8g2.setCursor(74, 62); u8g2.print("v" + *fwver);
+  u8g2.setCursor(74, 62); u8g2.print(*fwver);
   u8g2.sendBuffer();
   delay(3000);
   u8g2.clearBuffer(); // page 2

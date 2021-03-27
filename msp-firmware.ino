@@ -18,7 +18,7 @@
 #ifdef VERSION_STRING
 String ver = VERSION_STRING;
 #else
-String ver = "3.0"; //current firmware version
+String ver = "v3.0"; //current firmware version
 #endif
 
 // WiFi Client, NTP time management and SSL libraries
@@ -166,7 +166,7 @@ void setup() {
   // BOOT STRINGS ++++++++++++++++++++++++++++++++++++++++++++++++++++++
   short buildyear = 2021;
   Serial.println("\nMILANO SMART PARK");
-  Serial.println("FIRMWARE v" + ver);
+  Serial.println("FIRMWARE " + ver);
   Serial.printf("by Norman Mulinacci, %d\n\n", buildyear);
 #ifdef VERSION_STRING
   log_d("ver was defined at compile time.\n");
