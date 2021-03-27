@@ -235,7 +235,7 @@ void setup() {
     bme680.updateSubscription(sensor_list, sizeof(sensor_list) / sizeof(sensor_list[0]), BSEC_SAMPLE_RATE_LP);
     BME_run = true;
   } else {
-    log_i("BME680 sensor not detected!\n");
+    log_e("BME680 sensor not detected!\n");
     u8g2.drawStr(20, 55, "BME680 -> Err!");
     u8g2.sendBuffer();
     BME_run = false;
@@ -258,7 +258,7 @@ void setup() {
     PMS_run = true;
     pms.sleep(); // Putting sensor to sleep
   } else {
-    log_i("PMS5003 sensor not detected!\n");
+    log_e("PMS5003 sensor not detected!\n");
     u8g2.drawStr(20, 55, "PMS5003 -> Err!");
     u8g2.sendBuffer();
     PMS_run = false;
@@ -280,7 +280,7 @@ void setup() {
     log_v("MICS6814 stored base resistance values:");
     log_v("OX: %d | RED: %d | NH3: %d\n", gas.getBaseResistance(CH_OX), gas.getBaseResistance(CH_RED), gas.getBaseResistance(CH_NH3));
   } else {
-    log_i("MICS6814 sensor not detected!\n");
+    log_e("MICS6814 sensor not detected!\n");
     u8g2.drawStr(20, 55, "MICS6814 -> Err!");
     u8g2.sendBuffer();
     MICS_run = false;
@@ -293,7 +293,7 @@ void setup() {
   u8g2.drawStr(5, 35, "Detecting sensors...");
   u8g2.sendBuffer();
   if (!isAnalogO3Connected()) {
-    log_i("ZE25-O3 sensor not detected!\n");
+    log_e("ZE25-O3 sensor not detected!\n");
     u8g2.drawStr(20, 55, "ZE25-O3 -> Err!");
     u8g2.sendBuffer();
     O3_run = false;
