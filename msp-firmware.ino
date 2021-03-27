@@ -174,9 +174,9 @@ void setup() {
   log_d("ver is the default.\n");
 #endif
 #ifdef API_SECRET_SALT
-  log_d("api_secret_salt is *%s* and was defined at compile time.\n", api_secret_salt.c_str());
+  log_d("api_secret_salt was defined at compile time.\n");
 #else
-  log_d("api_secret_salt is the default *%s*.\n", api_secret_salt.c_str());
+  log_d("api_secret_salt is the default.\n");
 #endif
   drawBoot(&ver, buildyear);
   //+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
