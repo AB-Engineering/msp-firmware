@@ -277,8 +277,16 @@ void setup() {
     MICS_run = true;
     gas.powerOn(); // turn on heating element and led
     gas.ledOn();
-    log_v("MICS6814 stored base resistance values:");
-    log_v("OX: %d | RED: %d | NH3: %d\n", gas.getBaseResistance(CH_OX), gas.getBaseResistance(CH_RED), gas.getBaseResistance(CH_NH3));
+    delay(1500);
+    log_d("MICS6814 stored base resistance values:");
+    log_d("OX: %d | RED: %d | NH3: %d\n", gas.getBaseResistance(CH_OX), gas.getBaseResistance(CH_RED), gas.getBaseResistance(CH_NH3));
+    drawScrHead();
+    u8g2.setCursor(2, 28); u8g2.print("MICS6814 Res0 values:");
+    u8g2.setCursor(30, 39); u8g2.print("OX: " + String(gas.getBaseResistance(CH_OX)));
+    u8g2.setCursor(30, 50); u8g2.print("RED: " + String(gas.getBaseResistance(CH_RED)));
+    u8g2.setCursor(30, 61); u8g2.print("NH3: " + String(gas.getBaseResistance(CH_NH3)));
+    u8g2.sendBuffer();
+    delay(4000);
   } else {
     log_e("MICS6814 sensor not detected!\n");
     u8g2.drawStr(20, 55, "MICS6814 -> Err!");
