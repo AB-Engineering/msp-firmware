@@ -207,7 +207,7 @@ void setup() {
 
   // SET logpath AND CHECK LOGFILE EXISTANCE +++++++++++++++++++++++++++++++++++++
   if (SD_ok) {
-    logpath = "/log_" + deviceid + "_v" + ver + ".csv";
+    logpath = "/log_" + deviceid + "_" + ver + ".csv";
     checkLogFile();
   }
   //+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
