@@ -668,8 +668,8 @@ void loop() {
 
     auto start = millis(); // time for connection
 
-    Serial.println("Uploading data to " + server + " through HTTPS in progress...\n");
-    drawTwoLines(15, "Uploading data to", 15, server.c_str(), 0);
+    Serial.println("Uploading data to server through HTTPS in progress...\n");
+    drawTwoLines(15, "Uploading data", 15, "to server...", 0);
 
     short retries = 0;
 

@@ -277,7 +277,7 @@ void checkLogFile() { // verifies the existance of the csv log using the logpath
 
     if (filecsv) {
       filecsv.close();
-      String headertext = "Log file of device " + deviceid + " | Firmware v" + ver + " | MAC Address: " + macAdr;
+      String headertext = "Log file of device " + deviceid + " | Firmware " + ver + " | MAC Address: " + macAdr;
       appendFile(SD, logpath.c_str(), headertext.c_str());
       appendFile(SD, logpath.c_str(), "recordedAt;date;time;temp;hum;PM1;PM2_5;PM10;pres;radiation;nox;co;nh3;o3;voc;MSP#;SENT_OK?");
       log_i("Log file created!\n");
@@ -350,7 +350,7 @@ bool addToLog(fs::FS &fs, const char path[], String *message) { // adds new line
 
 void logToSD() { // builds a new logfile line and calls addToLog() (using logpath global var) to add it
 
-  log_v("Logging data to the .csv on the SD Card...");
+  log_i("Logging data to the .csv on the SD Card...");
 
   String logvalue = "";
 

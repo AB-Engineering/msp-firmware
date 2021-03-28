@@ -94,7 +94,7 @@ void drawCountdown(int startsec, short offset, const char message[]) { // draws 
 
 void drawMeasurements() { // draws measurements on the U8g2 display
 
-  log_v("Printing measurements on display...");
+  log_i("Printing measurements on display...");
 
   // page 1
   drawScrHead();
