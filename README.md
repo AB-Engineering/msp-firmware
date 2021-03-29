@@ -81,6 +81,7 @@ on your build system, along with the
 2. Extract the "esptool_win" folder from the zip file.
 
 3. Run "RUNME.BAT". The script will automatically scan for the right COM port and then erase, flash and verify the board.
-   If it stays on "Connecting..." for too long, try again on a different USB port.
+   If it stays on "Connecting..." for too long, hold the "BOOT" button of the ESP32 board and try again.
+   If it still doesn't work, try on a different USB port.
 
 4. If it verifies OK, you are done!
