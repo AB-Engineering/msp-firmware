@@ -395,9 +395,7 @@ void logToSD() { // builds a new logfile line and calls addToLog() (using logpat
     logvalue += floatToComma(VOC);
   } logvalue += ";";
   logvalue += String(MSP); logvalue += ";";
-  if (MICS_run) {
-    logvalue += (sent_ok) ? "OK" : "ERROR";
-  }
+  logvalue += (sent_ok) ? "OK" : "ERROR";
 
   if (addToLog(SD, logpath.c_str(), &logvalue)) {
     log_i("SD Card log file updated successfully!\n");
