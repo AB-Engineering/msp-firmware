@@ -15,17 +15,17 @@
 #include <SD.h>
 #include <Wire.h>
 
-#ifdef VERSION_STRING
+#ifdef VERSION_STRING // current firmware version
 String ver = VERSION_STRING;
 #else
-String ver = "v3.0"; //current firmware version
+String ver = "v3.0.1";
 #endif
 
 // WiFi Client, NTP time management and SSL libraries
 #include <WiFi.h>
 #include <time.h>
 #include <SSLClient.h>
-#include "libs/trust_anchor.h" //Server Trust Anchor
+#include "libs/trust_anchor.h" // Server Trust Anchor
 
 // Sensors management libraries
 //for BME_680
