@@ -18,7 +18,7 @@
 #ifdef VERSION_STRING // current firmware version
 String ver = VERSION_STRING;
 #else
-String ver = "v3.1.0";
+String ver = "test";
 #endif
 
 // WiFi Client, NTP time management and SSL libraries
@@ -77,6 +77,7 @@ MiCS6814 gas;
 
 // Instance for the OLED 1.3" display with the SH1106 controller
 U8G2_SH1106_128X64_NONAME_F_HW_I2C u8g2(U8G2_R0, U8X8_PIN_NONE, I2C_SCL_PIN, I2C_SDA_PIN);   // ESP32 Thing, HW I2C with pin remapping
+
 
 
 // Global network and system setup variables defaults
@@ -372,6 +373,7 @@ void loop() {
   short O3fails = 0;
   ozone = 0.0;
   MSP = -1; // reset to -1 to distinguish from grey (0)
+  bool senserrs[4] = {false, false, false, false};
   //++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
 
@@ -569,10 +571,8 @@ void loop() {
     hum /= runs;
     VOC /= runs;
   } else if (BME_run) {
-    temp = -1;
-    pre = -1;
-    hum = -1;
-    VOC = -1;
+    BME_run = false;
+    senserrs[0] = true;
   }
 
   runs = avg_measurements - PMSfails;
@@ -597,9 +597,8 @@ void loop() {
       PM10 = int(b);
     }
   } else if (PMS_run) {
-    PM1 = -1;
-    PM25 = -1;
-    PM10 = -1;
+    PMS_run = false;
+    senserrs[1] = true;
   }
 
   runs = avg_measurements - MICSfails;
@@ -611,16 +610,16 @@ void loop() {
     MICS_NH3 /= runs;
     MICS_NH3 = convertPpmToUgM3(MICS_NH3, 17.03);
   } else if (MICS_run) {
-    MICS_CO = -1;
-    MICS_NO2 = -1;
-    MICS_NH3 = -1;
+    MICS_run = false;
+    senserrs[2] = true;
   }
 
   runs = avg_measurements - O3fails;
   if (O3_run && runs > 0) {
     ozone /= runs;
   } else if (O3_run) {
-    ozone = -1;
+    O3_run = false;
+    senserrs[3] = true;
   }
 
   // MSP# Index evaluation
@@ -781,10 +780,34 @@ void loop() {
   //++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
 
-  //+++++++++++++ SD CARD LOGGING  ++++++++++++++++++++++++++++++++++++++++++
+  //+++++++++++++ SD CARD LOGGING ++++++++++++++++++++++++++++++++++++++++++
   if (SD_ok) {
     logToSD();
   }
-  //+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+  //++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
+
+  //+++++++++++++ RESTORE SENSOR FROM ERROR ++++++++++++++++++++++++++++++++++++++++++
+  for (short i = 0; i < 4; i++) {
+    if (senserrs[i] == true) {
+      switch (i) {
+        case 0:
+          BME_run = true;
+          break;
+        case 1:
+          PMS_run = true;
+          break;
+        case 2:
+          MICS_run = true;
+          break;
+        case 3:
+          O3_run = true;
+          break;
+      }
+    }
+  }
+  //++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
+
 
 }// end of LOOP
