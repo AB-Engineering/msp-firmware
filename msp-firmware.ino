@@ -504,7 +504,7 @@ void loop() {
           continue;
         }
 
-        if (BME_run) micsread[0] = micsread[0] + ((0.04 * (currtemp - 25.0)) * micsread[0]); // compensation based on the current measured temperature
+        // if (BME_run) micsread[0] = micsread[0] + ((0.04 * (currtemp - 25.0)) * micsread[0]); // compensation based on the current measured temperature
         log_v("CO(ppm): %.3f", micsread[0]);
         MICS_CO += micsread[0];
 
