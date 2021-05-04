@@ -94,10 +94,10 @@ int avg_measurements = 30;
 int avg_delay = 55;
 
 // Sensor active variables
-bool BME_run;
-bool PMS_run;
-bool MICS_run;
-bool O3_run;
+bool BME_run = false;
+bool PMS_run = false;
+bool MICS_run = false;
+bool O3_run = false;
 
 // Variables for BME680
 float hum = 0.0;
@@ -201,13 +201,6 @@ void setup() {
   }
   // +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
-  // SET logpath AND CHECK LOGFILE EXISTANCE +++++++++++++++++++++++++++++++++++++
-  if (SD_ok) {
-    logpath = "/log_" + deviceid + "_" + ver + ".csv";
-    checkLogFile();
-  }
-  //+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-
   //+++++++++++++ GET ESP32 INFO +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
   String modelrev = String(ESP.getChipModel()) + " Rev " + String(ESP.getChipRevision());
   Serial.println("ESP32 Chip model = " + modelrev);
@@ -246,7 +239,6 @@ void setup() {
     log_e("BME680 sensor not detected!\n");
     u8g2.drawStr(20, 55, "BME680 -> Err!");
     u8g2.sendBuffer();
-    BME_run = false;
   }
   //+++++++++++++++++++++++++++++++++++++++++++++
 
@@ -269,7 +261,6 @@ void setup() {
     log_e("PMS5003 sensor not detected!\n");
     u8g2.drawStr(20, 55, "PMS5003 -> Err!");
     u8g2.sendBuffer();
-    PMS_run = false;
   }
   delay(1500);
   //++++++++++++++++++++++++++++++++++++++++++++++
@@ -299,7 +290,6 @@ void setup() {
     log_e("MICS6814 sensor not detected!\n");
     u8g2.drawStr(20, 55, "MICS6814 -> Err!");
     u8g2.sendBuffer();
-    MICS_run = false;
   }
   delay(1500);
   //+++++++++++++++++++++++++++++++++++++++++++++++++++
@@ -308,24 +298,37 @@ void setup() {
   drawScrHead();
   u8g2.drawStr(5, 35, "Detecting sensors...");
   u8g2.sendBuffer();
-  if (!isAnalogO3Connected()) {
-    log_e("ZE25-O3 sensor not detected!\n");
-    u8g2.drawStr(20, 55, "ZE25-O3 -> Err!");
+  if (o3zeroval == -1) { // force detection off by config file, useful for no pulldown resistor cases
+    log_i("ZE25-O3 sensor detection is disabled.\n");
+    u8g2.drawStr(20, 55, "ZE25-O3 -> Off!");
     u8g2.sendBuffer();
-    O3_run = false;
   } else {
-    log_i("ZE25-O3 sensor detected, running...\n");
-    u8g2.drawStr(20, 55, "ZE25-O3 -> Ok!");
-    u8g2.sendBuffer();
-    O3_run = true;
+    if (!isAnalogO3Connected()) {
+      log_e("ZE25-O3 sensor not detected!\n");
+      u8g2.drawStr(20, 55, "ZE25-O3 -> Err!");
+      u8g2.sendBuffer();
+    } else {
+      log_i("ZE25-O3 sensor detected, running...\n");
+      u8g2.drawStr(20, 55, "ZE25-O3 -> Ok!");
+      u8g2.sendBuffer();
+      O3_run = true;
+    }
   }
   delay(1500);
   //+++++++++++++++++++++++++++++++++++++++++++++++++++++
 
   //+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+  
   // CONNECT TO WIFI AND GET DATE&TIME +++++++++++++++++++++++++++++++++++++++++++++++++++
   if (cfg_ok) {
     connAndGetTime();
+  }
+  //+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
+  // SET logpath AND CHECK LOGFILE EXISTANCE +++++++++++++++++++++++++++++++++++++
+  if (SD_ok) {
+    logpath = "/log_" + deviceid + "_" + ver + ".csv";
+    checkLogFile();
   }
   //+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
