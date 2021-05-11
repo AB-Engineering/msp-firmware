@@ -17,13 +17,12 @@ bool syncNTPTime(String *timeFormat, String *date, String *timeT) { // stores da
 
   configTime(0, 0, "pool.ntp.org"); //configTime(gmtOffset_sec, daylightOffset_sec, ntpServer)
   struct tm timeinfo;
-  short retries = 0;
+  auto start = millis();
   while (!getLocalTime(&timeinfo)) {
-    if (retries > 3) {
+    auto timeout = millis() - start;
+    if (timeout > 10000) {
       return false;
     }
-    retries++;
-    delay(5000);
   }
   char Format[29], Date[11], Time[9];
   strftime(Format, 29, "%Y-%m-%dT%T.000Z", &timeinfo);
@@ -71,22 +70,23 @@ bool connectWiFi() { // sets WiFi mode and tx power (var wifipow), performs conn
         delay(100);
       }
 
-      if (ssid_ok) { // Trying to connect
+      if (ssid_ok) { // Begin connection
         log_i("%s found!\n", ssid.c_str());
         u8g2.setCursor(2, 55); u8g2.print(ssid + " ok!");
         u8g2.sendBuffer();
         delay(4000);
-        log_i("Connecting to %s", ssid.c_str());
+        log_i("Connecting to %s, please wait...", ssid.c_str());
         drawScrHead();
         u8g2.drawStr(5, 30, "Connecting to: ");
         u8g2.drawStr(6, 42, ssid.c_str());
+        u8g2.drawStr(15, 60, "Please wait...");
         u8g2.sendBuffer();
 
-        WiFi.begin(ssid.c_str(), passw.c_str()); // Attempting connection
-        short conntries = 0;
-        String dots = "";
+        WiFi.begin(ssid.c_str(), passw.c_str());
+        auto start = millis(); // starting time
         while (WiFi.status() != WL_CONNECTED) {
-          if (conntries > 5) {
+          auto timeout = millis() - start;
+          if (timeout > 10000) {
             log_e("Can't connect to network!\n");
             drawScrHead();
             u8g2.drawStr(15, 45, "WiFi connect err!");
@@ -95,14 +95,8 @@ bool connectWiFi() { // sets WiFi mode and tx power (var wifipow), performs conn
             delay(3000);
             break;
           }
-          dots += '.';
-          u8g2.drawStr(7 + (2 * (conntries + 1)), 55, ". ");
-          u8g2.sendBuffer();
-          conntries++;
-          delay(1000);
         }
-        log_i("%s\n", dots.c_str());
-
+        
         if (WiFi.status() == WL_CONNECTED) { // Connection successful
 
           return true;
