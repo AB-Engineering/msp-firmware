@@ -102,19 +102,19 @@ short evaluateMSPIndex(float pm25, float nox, float o3) { // evaluates the MPS# 
 
   short msp[3] = {0, 0, 0}; // msp[0] is for pm2.5, msp[1] is for nox, msp[2] is for o3
 
-  if (PMS_run && pm25 > -1) {
+  if (PMS_run) {
     if (pm25 > 50) msp[0] = 4;
     else if (pm25 > 25) msp[0] = 3;
     else if (pm25 > 10) msp[0] = 2;
     else msp[0] = 1;
   }
-  if (MICS_run && nox > -1) {
+  if (MICS_run) {
     if (nox > 400) msp[1] = 4;
     else if (nox > 200) msp[1] = 3;
     else if (nox > 100) msp[1] = 2;
     else msp[1] = 1;
   }
-  if (O3_run && o3 > -1) {
+  if (O3_run) {
     if (o3 > 240) msp[2] = 4;
     else if (o3 > 180) msp[2] = 3;
     else if (o3 > 120) msp[2] = 2;
