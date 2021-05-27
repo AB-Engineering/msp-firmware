@@ -79,7 +79,6 @@ MiCS6814 gas;
 U8G2_SH1106_128X64_NONAME_F_HW_I2C u8g2(U8G2_R0, U8X8_PIN_NONE, I2C_SCL_PIN, I2C_SDA_PIN);   // ESP32 Thing, HW I2C with pin remapping
 
 
-
 // Global network and system setup variables defaults
 bool SD_ok = false;
 bool cfg_ok = false;
@@ -122,9 +121,9 @@ float ozone = 0.0;
 int o3zeroval = -1; // ozone sensor ADC zero default offset is 1489, -1 to disable it (0.4V to 1.1V range in 12bit resolution at 0dB attenuation)
 
 // Date and time vars
-String recordedAt = "";
-String dayStamp = "";
-String timeStamp = "";
+struct tm timeinfo;
+char Date[11] = {0};
+char Time[9] = {0};
 
 // Var for MSP# evaluation
 short MSP = -1; // set to -1 to distinguish from grey (0)
@@ -198,6 +197,8 @@ void setup() {
       drawTwoLines(5, "AVG_DELAY less than 50!", 15, "Setting to 50...", 5);
       avg_delay = 50; // must be at least 45 for PMS5003 compensation routine, 5 seconds extra for reading cycle messages
     }
+    // setting the logpath variable
+    logpath = "/log_" + deviceid + "_" + ver + ".csv";
   }
   // +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
@@ -318,19 +319,13 @@ void setup() {
   //+++++++++++++++++++++++++++++++++++++++++++++++++++++
 
   //+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-  
+
   // CONNECT TO WIFI AND GET DATE&TIME +++++++++++++++++++++++++++++++++++++++++++++++++++
   if (cfg_ok) {
     connAndGetTime();
   }
   //+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-
-  // SET logpath AND CHECK LOGFILE EXISTANCE +++++++++++++++++++++++++++++++++++++
-  if (SD_ok) {
-    logpath = "/log_" + deviceid + "_" + ver + ".csv";
-    checkLogFile();
-  }
-  //+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+  
 
 }// end of SETUP
 //*******************************************************************************************************************************
@@ -352,12 +347,12 @@ void loop() {
   //++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
   // ZEROING OUT VARIABLES +++++++++++++++++++++++++++++++++++++
+  log_d("Clearing system variables...\n");
   connected_ok = false;
   datetime_ok = false;
   sent_ok = false;
-  recordedAt = "";
-  dayStamp = "";
-  timeStamp = "";
+  Date[0] = '\0';
+  Time[0] = '\0';
   int errcount = 0;
   short BMEfails = 0;
   temp = 0.0;
@@ -638,7 +633,7 @@ void loop() {
 
   //+++++++++++++ SERIAL LOGGING  +++++++++++++++++++++++
   Serial.println("Measurements log:\n");
-  Serial.println("Date&time: " + dayStamp + " " + timeStamp + "\n");
+  Serial.println("Date&time: " + String(Date) + " " + String(Time) + "\n");
   if (BME_run) {
     Serial.println("Temperature: " + floatToComma(temp) + "°C");
     Serial.println("Humidity: " + floatToComma(hum) + "%");
@@ -670,23 +665,21 @@ void loop() {
 
   if (server_ok && connected_ok && datetime_ok) {
 
-    auto start = millis(); // time for connection
+    time_t epochTime = mktime(&timeinfo); // converting UTC date&time in UNIX Epoch Time format
 
+    client.setVerificationTime((epochTime / 86400UL) + 719528UL, epochTime % 86400UL); // setting SLLClient's verification time to current time while converting UNIX Epoch Time to BearSSL's expected format
+
+    auto start = millis(); // time for connection
     Serial.println("Uploading data to server through HTTPS in progress...\n");
     drawTwoLines(15, "Uploading data", 15, "to server...", 0);
 
     short retries = 0;
-
     while (retries < 4) {
       if (client.connect(server.c_str(), 443)) {
-
         auto contime = millis() - start;
         log_i("Connection to server made! Time: %d\n", contime);
-
         // Building the post string:
-
         String postStr = "";
-
         if (BME_run) {
           postStr += "&temp=";
           postStr += String(temp, 3);
@@ -720,21 +713,17 @@ void loop() {
         postStr += "&msp=";
         postStr += String(MSP);
         postStr += "&recordedAt=";
-        postStr += recordedAt;
+        postStr += String(epochTime);
 
         // Sending client requests
-
         String postLine = "POST /api/v1/records HTTP/1.1\nHost: " + server + "\nAuthorization: Bearer " + api_secret_salt + ":" + deviceid + "\n";
         postLine += "Connection: close\nUser-Agent: MilanoSmartPark\nContent-Type: application/x-www-form-urlencoded\nContent-Length: " + String(postStr.length());
-
         log_d("Post line:\n%s\n", postLine.c_str());
         log_d("Post string: %s\n", postStr.c_str());
-
         client.print(postLine + "\n\n" + postStr);
         client.flush();
 
         // Get answer from server
-
         start = millis();
         String answLine = "";
         while (client.available()) {
@@ -743,11 +732,9 @@ void loop() {
           auto timeout = millis() - start;
           if (timeout > 10000) break;
         }
-
         client.stop(); // Stopping the client
 
         // Check server answer
-
         if (answLine.startsWith("HTTP/1.1 201 Created", 0)) {
           log_i("Server answer ok! Data uploaded successfully!\n");
           drawTwoLines(25, "Data uploaded", 27, "successfully!", 2);
@@ -757,13 +744,10 @@ void loop() {
           log_e("The full answer is:\n%s\n", answLine.c_str());
           drawTwoLines(25, "Serv answ error!", 25, "Data not sent!", 10);
         }
-
         break; // exit
 
       } else {
-
         log_e("Error while connecting to server!");
-
         String mesg = "";
         if (retries == 3) {
           log_e("Data not uploaded!\n");
@@ -773,7 +757,6 @@ void loop() {
           mesg = String(3 - retries) + " retries left...";
         }
         drawTwoLines(25, "Serv conn error!", 20, mesg.c_str(), 10);
-
         retries++;
 
       }

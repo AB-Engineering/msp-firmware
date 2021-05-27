@@ -269,34 +269,33 @@ bool checkConfig(const char *configpath) { // verifies the existance of the conf
 
 //+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
-void checkLogFile() { // verifies the existance of the csv log using the logpath var, creates the file if not found
+bool checkLogFile() { // verifies the existance of the csv log using the logpath var, creates the file if not found
 
   if (!SD.exists(logpath)) {
     log_e("Couldn't find log file. Creating a new one...\n");
     File filecsv = SD.open(logpath, FILE_WRITE);
 
-    if (filecsv) {
+    if (filecsv) { // Creating logfile and appending header string
       filecsv.close();
-      String headertext = "Log file of device " + deviceid + " | Firmware " + ver;
-      appendFile(SD, logpath.c_str(), headertext.c_str());
-      appendFile(SD, logpath.c_str(), "recordedAt;date;time;temp;hum;PM1;PM2_5;PM10;pres;radiation;nox;co;nh3;o3;voc;MSP#;SENT_OK?");
+      appendFile(SD, logpath.c_str(), "sent_ok?;recordedAt;date;time;temp;hum;PM1;PM2_5;PM10;pres;radiation;nox;co;nh3;o3;voc;msp");
       log_i("Log file created!\n");
-      return;
+      return true;
     }
 
     log_e("Error creating log file!\n");
-    return;
+    return false;
   }
 
   log_i("Log file present!\n");
-  return;
+  return true;
 
 }
 
 //+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
 bool addToLog(fs::FS &fs, const char path[], String *message) { // adds new line to the log file at the top, after the header lines
-
+  
+  if (!checkLogFile()) return false;
   String temp = "";
   log_v("Log file is located at: %s\n", path);
   File logfile = fs.open(path, FILE_READ);
@@ -329,18 +328,16 @@ bool addToLog(fs::FS &fs, const char path[], String *message) { // adds new line
     log_e("Error reopening templog!");
     return false;
   }
-  for (int i = 0; i < 2; i++) { // copying the header lines from tempfile
-    temp = tempfile.readStringUntil('~');
-    logfile.println(temp);
-  }
-  logfile.println(*message); // printing the new line
-  while (tempfile.available()) { // copying the remaining strings
+  temp = tempfile.readStringUntil('~'); // copying the header line from tempfile
+  logfile.println(temp);
+  logfile.println(*message); // printing the new string
+  while (tempfile.available()) { // copying the remaining lines
     temp = tempfile.readStringUntil('~');
     logfile.println(temp);
   }
   tempfile.close();
   logfile.close();
-  fs.remove("/templog");
+  fs.remove("/templog"); // deleting temp log
 
   return true;
 
@@ -350,16 +347,19 @@ bool addToLog(fs::FS &fs, const char path[], String *message) { // adds new line
 
 void logToSD() { // builds a new logfile line and calls addToLog() (using logpath global var) to add it
 
-  log_i("Logging data to the .csv on the SD Card...");
+  log_i("Logging data to the .csv on the SD Card...\n");
 
   String logvalue = "";
-
+  char timeFormat[29] = {0};
+  strftime(timeFormat, sizeof(timeFormat), "%Y-%m-%dT%T.000Z", &timeinfo); // formatting date&time in TZ format
+  
   // Data is layed out as follows:
-  // "recordedAt;date;time;temp;hum;PM1;PM2_5;PM10;pres;radiation;nox;co;nh3;o3;voc;MSP#;SENT_OK?"
-
-  logvalue += recordedAt; logvalue += ";";
-  logvalue += dayStamp; logvalue += ";";
-  logvalue += timeStamp; logvalue += ";";
+  // "sent_ok?;recordedAt;date;time;temp;hum;PM1;PM2_5;PM10;pres;radiation;nox;co;nh3;o3;voc;msp"
+  
+  logvalue += (sent_ok) ? "OK" : "ERROR"; logvalue += ";";
+  logvalue += String(timeFormat); logvalue += ";";
+  logvalue += String(Date); logvalue += ";";
+  logvalue += String(Time); logvalue += ";";
   if (BME_run) {
     logvalue += floatToComma(temp);
   } logvalue += ";";
@@ -394,13 +394,12 @@ void logToSD() { // builds a new logfile line and calls addToLog() (using logpat
   if (BME_run) {
     logvalue += floatToComma(VOC);
   } logvalue += ";";
-  logvalue += String(MSP); logvalue += ";";
-  logvalue += (sent_ok) ? "OK" : "ERROR";
+  logvalue += String(MSP);
 
   if (addToLog(SD, logpath.c_str(), &logvalue)) {
     log_i("SD Card log file updated successfully!\n");
   } else {
-    log_e("SD Card log file not updated!\n");
+    log_e("Error updating SD Card log file!\n");
     drawTwoLines(30, "SD Card log", 30, "error!", 3);
   }
 

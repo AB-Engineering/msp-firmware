@@ -13,24 +13,16 @@
 
 //+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
-bool syncNTPTime(String *timeFormat, String *date, String *timeT) { // stores date&time in a convenient format
+bool syncNTPTime(struct tm *timeptr) { // syncs UTC time
 
-  configTime(0, 0, "pool.ntp.org"); //configTime(gmtOffset_sec, daylightOffset_sec, ntpServer)
-  struct tm timeinfo;
+  configTime(0, 0, "pool.ntp.org"); // configTime(gmtOffset_sec, daylightOffset_sec, ntpServer)
   auto start = millis();
-  while (!getLocalTime(&timeinfo)) {
+  while (!getLocalTime(timeptr)) {
     auto timeout = millis() - start;
-    if (timeout > 10000) {
+    if (timeout > 20000) {
       return false;
     }
   }
-  char Format[29], Date[11], Time[9];
-  strftime(Format, 29, "%Y-%m-%dT%T.000Z", &timeinfo);
-  strftime(Date, 11, "%d/%m/%Y", &timeinfo);
-  strftime(Time, 9, "%T", &timeinfo);
-  *timeFormat = String(Format);
-  *date = String(Date);
-  *timeT = String(Time);
   return true;
 
 }
@@ -147,14 +139,15 @@ void connAndGetTime() { // lame function to set global vars
     Serial.println("Waiting a bit before retrieving date&time...");
     drawCountdown(10, 2, "Wait before conn...");
     Serial.println("Retrieving date&time from NTP...");
-    datetime_ok = syncNTPTime(&recordedAt, &dayStamp, &timeStamp); // Connecting with NTP server and retrieving date&time
+    datetime_ok = syncNTPTime(&timeinfo); // Connecting with NTP server and retrieving date&time
     drawScrHead();
     if (datetime_ok) {
-      String tempT = dayStamp + " " + timeStamp;
       Serial.println("Done!");
-      log_i("Current date&time: %s", tempT.c_str());
+      strftime(Date, sizeof(Date), "%d/%m/%Y", &timeinfo); // Formatting date as DD/MM/YYYY
+      strftime(Time, sizeof(Time), "%T", &timeinfo); // Formatting time as HH:MM:SS
+      String tempT = String(Date) + " " + String(Time);
+      log_d("Current date&time: %s", tempT.c_str());
       drawTwoLines(27, "Date & Time:", 8, tempT.c_str(), 0);
-      log_d("recordedAt string is: *%s*", recordedAt.c_str());
     } else {
       log_e("Failed to obtain date&time!");
       u8g2.drawStr(15, 45, "Date & Time err!");
