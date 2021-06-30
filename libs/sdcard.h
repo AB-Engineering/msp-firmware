@@ -351,7 +351,7 @@ void logToSD() { // builds a new logfile line and calls addToLog() (using logpat
 
   String logvalue = "";
   char timeFormat[29] = {0};
-  strftime(timeFormat, sizeof(timeFormat), "%Y-%m-%dT%T.000Z", &timeinfo); // formatting date&time in TZ format
+  if (datetime_ok) strftime(timeFormat, sizeof(timeFormat), "%Y-%m-%dT%T.000Z", &timeinfo); // formatting date&time in TZ format
   
   // Data is layed out as follows:
   // "sent_ok?;recordedAt;date;time;temp;hum;PM1;PM2_5;PM10;pres;radiation;nox;co;nh3;o3;voc;msp"
