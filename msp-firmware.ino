@@ -679,7 +679,7 @@ void loop() {
         auto contime = millis() - start;
         log_i("Connection to server made! Time: %d\n", contime);
         // Building the post string:
-        String postStr = "";
+        String postStr = "X-MSP-ID=" + deviceid;
         if (BME_run) {
           postStr += "&temp=";
           postStr += String(temp, 3);
