@@ -1,6 +1,6 @@
 /*
                         Milano Smart Park Firmware
-                   Copyright (c) 2021 Norman Mulinacci
+                      Copyright (c) Norman Mulinacci
 
           This code is usable under the terms and conditions of the
              GNU GENERAL PUBLIC LICENSE Version 3, 29 June 2007
@@ -9,16 +9,21 @@
                  freely distributed by Luca Crotti @2019
 */
 
+// i2c bus pins
+#define I2C_SDA_PIN 21
+#define I2C_SCL_PIN 22
+
 // Basic system libraries
 #include <Arduino.h>
 #include <FS.h>
 #include <SD.h>
 #include <Wire.h>
 
-#ifdef VERSION_STRING // current firmware version
+// current firmware version
+#ifdef VERSION_STRING
 String ver = VERSION_STRING;
 #else
-String ver = "test";
+String ver = "vTest";
 #endif
 
 // WiFi Client, NTP time management and SSL libraries
@@ -37,10 +42,6 @@ String ver = "test";
 
 // OLED display library
 #include <U8g2lib.h>
-
-// i2c bus pins
-#define I2C_SDA_PIN 21
-#define I2C_SCL_PIN 22
 
 #ifdef API_SECRET_SALT
 String api_secret_salt = API_SECRET_SALT;
@@ -88,7 +89,7 @@ String ssid = "";
 String passw = "";
 String deviceid = "";
 String logpath = "";
-wifi_power_t wifipow = WIFI_POWER_19_5dBm;
+wifi_power_t wifipow = WIFI_POWER_17dBm;
 int avg_measurements = 30;
 int avg_delay = 55;
 
@@ -112,6 +113,8 @@ int PM10 = 0;
 int PM25 = 0;
 
 // Variables for MICS6814
+uint16_t MICSCal[3] = {955, 900, 163}; // default R0 values for the sensor (in order: RED, OX, NH3)
+uint16_t MICSOffset[3] = {0, 154, 0}; // default offset values for sensor measurements (in order: RED, OX, NH3)
 float MICS_CO = 0.0;
 float MICS_NO2 = 0.0;
 float MICS_NH3 = 0.0;
@@ -164,10 +167,10 @@ void setup() {
   analogSetAttenuation((adc_attenuation_t)0);
 
   // BOOT STRINGS ++++++++++++++++++++++++++++++++++++++++++++++++++++++
-  short buildyear = 2021;
   Serial.println("\nMILANO SMART PARK");
-  Serial.println("FIRMWARE " + ver);
-  Serial.printf("by Norman Mulinacci, %d\n\n", buildyear);
+  Serial.println("FIRMWARE " + ver + " by Norman Mulinacci");
+  Serial.println("Compiled " + String(__DATE__) + " " + String(__TIME__) + "\n");
+  drawBoot(&ver);
 #ifdef VERSION_STRING
   log_d("ver was defined at compile time.\n");
 #else
@@ -178,7 +181,6 @@ void setup() {
 #else
   log_d("api_secret_salt is the default.\n");
 #endif
-  drawBoot(&ver, buildyear);
   //+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
   // SD CARD INIT, CHECK AND PARSE CONFIGURATION ++++++++++++++++++++++++++++++++++++++++++++++++++
@@ -219,7 +221,7 @@ void setup() {
 
   // BME680 +++++++++++++++++++++++++++++++++++++
   drawScrHead();
-  u8g2.drawStr(5, 35, "Detecting sensors...");
+  u8g2.drawStr(5, 35, "Detecting BME680...");
   u8g2.sendBuffer();
   bme680.begin(BME680_I2C_ADDR_SECONDARY, Wire);
   if (checkBMESensor()) {
@@ -244,11 +246,11 @@ void setup() {
   //+++++++++++++++++++++++++++++++++++++++++++++
 
   // PMS5003 ++++++++++++++++++++++++++++++++++++
-  // pmsSerial: with WROVER module don't use UART 2 mode on pins 16 and 17, it crashes!
+  // pmsSerial: with WROVER module don't use UART 2 mode on pins 16 and 17: it crashes!
   pmsSerial.begin(9600, SERIAL_8N1, 14, 12); // baud, type, ESP_RX, ESP_TX
   delay(1500);
   drawScrHead();
-  u8g2.drawStr(5, 35, "Detecting sensors...");
+  u8g2.drawStr(5, 35, "Detecting PMS5003...");
   u8g2.sendBuffer();
   pms.wakeUp(); // Waking up sensor after sleep
   delay(1500);
@@ -268,7 +270,7 @@ void setup() {
 
   // MICS6814 ++++++++++++++++++++++++++++++++++++
   drawScrHead();
-  u8g2.drawStr(5, 35, "Detecting sensors...");
+  u8g2.drawStr(5, 35, "Detecting MICS6814...");
   u8g2.sendBuffer();
   if (gas.begin()) { // Connect to sensor using default I2C address (0x04)
     log_i("MICS6814 sensor detected, initializing...\n");
@@ -278,15 +280,27 @@ void setup() {
     gas.powerOn(); // turn on heating element and led
     gas.ledOn();
     delay(1500);
-    log_d("MICS6814 stored base resistance values:");
-    log_d("OX: %d | RED: %d | NH3: %d\n", gas.getBaseResistance(CH_OX), gas.getBaseResistance(CH_RED), gas.getBaseResistance(CH_NH3));
-    drawScrHead();
-    u8g2.setCursor(2, 28); u8g2.print("MICS6814 Res0 values:");
-    u8g2.setCursor(30, 39); u8g2.print("OX: " + String(gas.getBaseResistance(CH_OX)));
-    u8g2.setCursor(30, 50); u8g2.print("RED: " + String(gas.getBaseResistance(CH_RED)));
-    u8g2.setCursor(30, 61); u8g2.print("NH3: " + String(gas.getBaseResistance(CH_NH3)));
-    u8g2.sendBuffer();
-    delay(4000);
+    if (checkMicsValues()) {
+      log_i("MICS6814 R0 values are already as default!\n");
+      drawScrHead();
+      u8g2.drawStr(5, 45, "MICS6814 values OK!");
+      u8g2.sendBuffer();
+      delay(1000);
+    } else {
+      log_i("Setting MICS6814 R0 values as default... ");
+      drawScrHead();
+      u8g2.drawStr(15, 45, "Setting MICS6814...");
+      u8g2.sendBuffer();
+      delay(1000);
+      writeMicsValues();
+      log_i("Done!\n");
+      drawScrHead();
+      u8g2.drawStr(25, 45, "Done!");
+      u8g2.sendBuffer();
+      delay(1000);
+    }
+    drawMicsValues(gas.getBaseResistance(CH_RED), gas.getBaseResistance(CH_OX), gas.getBaseResistance(CH_NH3));
+    gas.setOffsets(MICSOffset);
   } else {
     log_e("MICS6814 sensor not detected!\n");
     u8g2.drawStr(20, 55, "MICS6814 -> Err!");
@@ -297,7 +311,7 @@ void setup() {
 
   // ZE25-O3 ++++++++++++++++++++++++++++++++++++++++++
   drawScrHead();
-  u8g2.drawStr(5, 35, "Detecting sensors...");
+  u8g2.drawStr(5, 35, "Detecting ZE25-O3...");
   u8g2.sendBuffer();
   if (o3zeroval == -1) { // force detection off by config file, useful for no pulldown resistor cases
     log_i("ZE25-O3 sensor detection is disabled.\n");
@@ -324,8 +338,11 @@ void setup() {
   if (cfg_ok) {
     connAndGetTime();
   }
-  //+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-  
+  //++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
+  // CHECK LOGFILE EXISTANCE +++++++++++++++++++++++++++++++++++++++++++++++++++
+  checkLogFile();
+  //++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
 }// end of SETUP
 //*******************************************************************************************************************************
@@ -768,7 +785,9 @@ void loop() {
 
   //+++++++++++++ SD CARD LOGGING ++++++++++++++++++++++++++++++++++++++++++
   if (SD_ok) {
-    logToSD();
+    if (checkLogFile()) {
+      logToSD();
+    }
   }
   //++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 

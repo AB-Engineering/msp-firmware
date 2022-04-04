@@ -1,6 +1,6 @@
 /*
                         Milano Smart Park Firmware
-                   Copyright (c) 2021 Norman Mulinacci
+                      Copyright (c) Norman Mulinacci
 
           This code is usable under the terms and conditions of the
              GNU GENERAL PUBLIC LICENSE Version 3, 29 June 2007
@@ -46,7 +46,7 @@ bool initializeSD() { // checks for SD Card presence and type
 
 //+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
-void appendFile(fs::FS &fs, const char *path, const char *message) { // appends a new line to a specified file
+void appendFile(fs::FS &fs, const char *path, String *message) { // appends a new line to a specified file
 
   log_v("Appending to file: %s", path);
   File file = fs.open(path, FILE_APPEND);
@@ -54,7 +54,7 @@ void appendFile(fs::FS &fs, const char *path, const char *message) { // appends 
     log_e("Failed to open file for appending!\n");
     return;
   }
-  if (file.println(message)) {
+  if (file.println(*message)) {
     log_v("String appended\n");
   } else {
     log_e("Append failed!\n");
@@ -67,12 +67,14 @@ void appendFile(fs::FS &fs, const char *path, const char *message) { // appends 
 
 bool parseConfig(File fl) { // parses the configuration file on the SD Card
 
+#define LINES 11
+
   bool outcome = true;
-  String command[9];
+  String command[LINES];
   String temp;
   int i = 0;
   unsigned long lastpos = 0;
-  while (fl.available() && i < 9) {   // Storing the config file in a string array
+  while (fl.available() && i < LINES) {   // Storing the config file in a string array
     fl.seek(lastpos);
     if (i == 0) temp = fl.readStringUntil('#');
     command[i] = fl.readStringUntil(';');
@@ -85,7 +87,7 @@ bool parseConfig(File fl) { // parses the configuration file on the SD Card
   // Importing variables from the string array.
   //ssid
   if (command[0].startsWith("ssid", 0)) {
-    ssid = command[0].substring(command[0].indexOf("ssid") + 5, command[0].length());
+    ssid = command[0].substring(command[0].indexOf('=') + 1, command[0].length());
     if (ssid.length() == 0) {
       log_e("SSID value is empty!");
       outcome = false;
@@ -98,7 +100,7 @@ bool parseConfig(File fl) { // parses the configuration file on the SD Card
   }
   //passw
   if (command[1].startsWith("password", 0)) {
-    passw = command[1].substring(command[1].indexOf("password") + 9, command[1].length());
+    passw = command[1].substring(command[1].indexOf('=') + 1, command[1].length());
     if (passw.length() == 0) {
       log_e("PASSW value is empty!");
       outcome = false;
@@ -111,7 +113,7 @@ bool parseConfig(File fl) { // parses the configuration file on the SD Card
   }
   //deviceid
   if (command[2].startsWith("device_id", 0)) {
-    deviceid = command[2].substring(command[2].indexOf("device_id") + 10, command[2].length());
+    deviceid = command[2].substring(command[2].indexOf('=') + 1, command[2].length());
     if (deviceid.length() == 0) {
       log_e("DEVICEID value is empty!");
       outcome = false;
@@ -125,7 +127,7 @@ bool parseConfig(File fl) { // parses the configuration file on the SD Card
   //wifipow
   if (command[3].startsWith("wifi_power", 0)) {
     temp = "";
-    temp = command[3].substring(command[3].indexOf("wifi_power") + 11, command[3].length());
+    temp = command[3].substring(command[3].indexOf('=') + 1, command[3].length());
     if (temp.indexOf("19.5dBm") == 0) {
       wifipow = WIFI_POWER_19_5dBm;
       log_i("wifipow = *WIFI_POWER_19_5dBm*");
@@ -170,36 +172,28 @@ bool parseConfig(File fl) { // parses the configuration file on the SD Card
   }
   //o3zeroval
   if (command[4].startsWith("o3_zero_value", 0)) {
-    temp = "";
-    temp = command[4].substring(command[4].indexOf("o3_zero_value") + 14, command[4].length());
-    o3zeroval = temp.toInt();
+    o3zeroval = command[4].substring(command[4].indexOf('=') + 1, command[4].length()).toInt();
   } else {
     log_e("Error parsing O3ZEROVAL line. Falling back to default value");
   }
   log_i("o3zeroval = *%d*", o3zeroval);
   //avg_measurements
   if (command[5].startsWith("average_measurements", 0)) {
-    temp = "";
-    temp = command[5].substring(command[5].indexOf("average_measurements") + 21, command[5].length());
-    avg_measurements = temp.toInt();
+    avg_measurements = command[5].substring(command[5].indexOf('=') + 1, command[5].length()).toInt();
   } else {
     log_e("Error parsing AVG_MEASUREMENTS line. Falling back to default value");
   }
   log_i("avg_measurements = *%d*", avg_measurements);
   //avg_delay
   if (command[6].startsWith("average_delay(seconds)", 0)) {
-    temp = "";
-    temp = command[6].substring(command[6].indexOf("average_delay(seconds)") + 23, command[6].length());
-    avg_delay = temp.toInt();
+    avg_delay = command[6].substring(command[6].indexOf('=') + 1, command[6].length()).toInt();
   } else {
     log_e("Error parsing AVG_DELAY line. Falling back to default value");
   }
   log_i("avg_delay = *%d*", avg_delay);
   //sealevelalt
   if (command[7].startsWith("sea_level_altitude", 0)) {
-    temp = "";
-    temp = command[7].substring(command[7].indexOf("sea_level_altitude") + 19, command[7].length());
-    sealevelalt = temp.toFloat();
+    sealevelalt = command[7].substring(command[7].indexOf('=') + 1, command[7].length()).toFloat();
   } else {
     log_e("Error parsing SEALEVELALT line. Falling back to default value");
   }
@@ -207,7 +201,7 @@ bool parseConfig(File fl) { // parses the configuration file on the SD Card
   //server
   if (command[8].startsWith("upload_server", 0)) {
     temp = "";
-    temp = command[8].substring(command[8].indexOf("upload_server") + 14, command[8].length());
+    temp = command[8].substring(command[8].indexOf('=') + 1, command[8].length());
     if (temp.length() > 0) {
       server = temp;
       server_ok = true;
@@ -225,7 +219,25 @@ bool parseConfig(File fl) { // parses the configuration file on the SD Card
     log_e("Error parsing SERVER line!");
 #endif
   }
-  log_i("server = *%s*\n", server.c_str());
+  log_i("server = *%s*", server.c_str());
+  //mics_calibration_values
+  if (command[9].startsWith("mics_calibration_values", 0)) {
+    MICSCal[0] = command[9].substring(command[9].indexOf("RED:") + 4, command[9].indexOf(",OX:")).toInt();
+    MICSCal[1] = command[9].substring(command[9].indexOf(",OX:") + 4, command[9].indexOf(",NH3:")).toInt();
+    MICSCal[2] = command[9].substring(command[9].indexOf(",NH3:") + 5, command[9].length()).toInt();
+  } else {
+    log_e("Error parsing MICSCal[] line. Falling back to default value");
+  }
+  log_i("MICSCal[] = *%d*, *%d*, *%d*", MICSCal[0], MICSCal[1], MICSCal[2]);
+  //mics_measurements_offsets
+  if (command[10].startsWith("mics_measurements_offsets", 0)) {
+    MICSOffset[0] = command[10].substring(command[10].indexOf("RED:") + 4, command[10].indexOf(",OX:")).toInt();
+    MICSOffset[1] = command[10].substring(command[10].indexOf(",OX:") + 4, command[10].indexOf(",NH3:")).toInt();
+    MICSOffset[2] = command[10].substring(command[10].indexOf(",NH3:") + 5, command[10].length()).toInt();
+  } else {
+    log_e("Error parsing MICSOffset[] line. Falling back to default value");
+  }
+  log_i("MICSOffset[] = *%d*, *%d*, *%d*\n", MICSOffset[0], MICSOffset[1], MICSOffset[2]);
 
   return outcome;
 
@@ -256,7 +268,25 @@ bool checkConfig(const char *configpath) { // verifies the existance of the conf
 
     if (cfgfile) {
       cfgfile.close();
-      appendFile(SD, configpath, "#ssid=;\n#password=;\n#device_id=;\n#wifi_power=17dBm;\n#o3_zero_value=-1;\n#average_measurements=30;\n#average_delay(seconds)=55;\n#sea_level_altitude=122.0;\n#upload_server=;\n\no3_zero_value disables the O3 sensor when set to -1. For normal operation the default offset is 1489.\n\nAccepted wifi_power values are: -1, 2, 5, 7, 8.5, 11, 13, 15, 17, 18.5, 19, 19.5 dBm.\n\nsea_level_altitude is in meters and it must be changed according to the current location of the device. 122.0 meters is the average altitude in Milan, Italy.");
+      // template for default config file
+      String conftemplate = "#ssid=;\n#password=;\n#device_id=;\n#wifi_power=";
+      conftemplate += "17dBm";
+      conftemplate += ";\n#o3_zero_value=";
+      conftemplate += String(o3zeroval);
+      conftemplate += ";\n#average_measurements=";
+      conftemplate += String(avg_measurements);
+      conftemplate += ";\n#average_delay(seconds)=";
+      conftemplate += String(avg_delay);
+      conftemplate += ";\n#sea_level_altitude=";
+      conftemplate += String(sealevelalt);
+      conftemplate += ";\n#upload_server=;\n#mics_calibration_values=";
+      conftemplate += "RED:" + String(MICSCal[0]) + ",OX:" + String(MICSCal[1]) + ",NH3:" + String(MICSCal[2]);
+      conftemplate += ";\n#mics_measurements_offsets=";
+      conftemplate += "RED:" + String(MICSOffset[0]) + ",OX:" + String(MICSOffset[1]) + ",NH3:" + String(MICSOffset[2]);
+      conftemplate += ";\n\no3_zero_value disables the O3 sensor when set to -1. For normal operation the default offset is 1489.\n";
+      conftemplate += "\nAccepted wifi_power values are: -1, 2, 5, 7, 8.5, 11, 13, 15, 17, 18.5, 19, 19.5 dBm.\n";
+      conftemplate += "\nsea_level_altitude is in meters and it must be changed according to the current location of the device. 122.0 meters is the average altitude in Milan, Italy.\n";
+      appendFile(SD, configpath, &conftemplate);
       log_i("New config file with template created!\n");
     } else {
       log_e("Error writing to SD Card!\n");
@@ -277,7 +307,8 @@ bool checkLogFile() { // verifies the existance of the csv log using the logpath
 
     if (filecsv) { // Creating logfile and appending header string
       filecsv.close();
-      appendFile(SD, logpath.c_str(), "sent_ok?;recordedAt;date;time;temp;hum;PM1;PM2_5;PM10;pres;radiation;nox;co;nh3;o3;voc;msp");
+      String heads = "sent_ok?;recordedAt;date;time;temp;hum;PM1;PM2_5;PM10;pres;radiation;nox;co;nh3;o3;voc;msp";
+      appendFile(SD, logpath.c_str(), &heads);
       log_i("Log file created!\n");
       return true;
     }
@@ -295,7 +326,6 @@ bool checkLogFile() { // verifies the existance of the csv log using the logpath
 
 bool addToLog(fs::FS &fs, const char path[], String *message) { // adds new line to the log file at the top, after the header lines
   
-  if (!checkLogFile()) return false;
   String temp = "";
   log_v("Log file is located at: %s\n", path);
   File logfile = fs.open(path, FILE_READ);

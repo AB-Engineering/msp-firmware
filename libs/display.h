@@ -1,6 +1,6 @@
 /*
                         Milano Smart Park Firmware
-                   Copyright (c) 2021 Norman Mulinacci
+                      Copyright (c) Norman Mulinacci
 
           This code is usable under the terms and conditions of the
              GNU GENERAL PUBLIC LICENSE Version 3, 29 June 2007
@@ -15,24 +15,17 @@
 
 //+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
-void drawBoot(String *fwver, short veryear) { // draws the boot screen on the U8G2 display, on two pages
+void drawBoot(String *fwver) { // draws the boot screen on the U8G2 display
 
-  u8g2.firstPage(); // page 1
+  u8g2.firstPage();
   u8g2.clearBuffer();
   u8g2.drawXBM(0, 0, 64, 64, msp_icon64x64);
   u8g2.setFont(u8g2_font_6x13B_tf);
-  u8g2.drawStr(74, 10, "Milano"); u8g2.drawStr(74, 23, "Smart"); u8g2.drawStr(74, 36, "Park");
+  u8g2.drawStr(74, 12, "Milano"); u8g2.drawStr(74, 25, "Smart"); u8g2.drawStr(74, 38, "Park");
   u8g2.setFont(u8g2_font_6x13_tf);
-  u8g2.setCursor(74, 62); u8g2.print(*fwver);
+  u8g2.setCursor(55, 62); u8g2.print(*fwver + " by NM");
   u8g2.sendBuffer();
-  delay(3000);
-  u8g2.clearBuffer(); // page 2
-  u8g2.drawXBM(0, 0, 64, 64, msp_icon64x64);
-  u8g2.setFont(u8g2_font_6x13_tf);
-  u8g2.drawStr(74, 23, "by"); u8g2.drawStr(74, 36, "Norman M.");
-  u8g2.setCursor(74, 49); u8g2.print(veryear);
-  u8g2.sendBuffer();
-  delay(3000);
+  delay(5000);
 
 }
 
@@ -128,6 +121,22 @@ void drawMeasurements() { // draws measurements on the U8g2 display
   u8g2.sendBuffer();
   delay(3000);
   
+}
+
+//+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
+void drawMicsValues(uint16_t redval, uint16_t oxval, uint16_t nh3val) { // draw input values to screen
+
+  log_d("MICS6814 stored base resistance values:");
+  log_d("RED: %d | OX: %d | NH3: %d\n", redval, oxval, nh3val);
+  drawScrHead();
+  u8g2.setCursor(2, 28); u8g2.print("MICS6814 Res0 values:");
+  u8g2.setCursor(30, 39); u8g2.print("RED: " + String(redval));
+  u8g2.setCursor(30, 50); u8g2.print("OX: " + String(oxval));
+  u8g2.setCursor(30, 61); u8g2.print("NH3: " + String(nh3val));
+  u8g2.sendBuffer();
+  delay(2000);
+
 }
 
 //+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++

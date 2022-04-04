@@ -1,6 +1,6 @@
 /*
                         Milano Smart Park Firmware
-                   Copyright (c) 2021 Norman Mulinacci
+                      Copyright (c) Norman Mulinacci
 
           This code is usable under the terms and conditions of the
              GNU GENERAL PUBLIC LICENSE Version 3, 29 June 2007

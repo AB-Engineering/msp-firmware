@@ -15,7 +15,7 @@ LIBRARIES := \
 	"BSEC Software Library"@1.6.1480 \
 	"PMS Library"@1.1.0 \
 	SSLClient@1.6.11 \
-	U8g2@2.28.10
+	U8g2@2.32.15
 LIBRARIES_URLS := \
 	https://github.com/A-A-Milano-Smart-Park/MiCS6814-I2C-MOD-Library
 
