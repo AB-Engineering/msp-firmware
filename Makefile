@@ -1,4 +1,4 @@
-ARDUINO_CLI_VERSION := 0.17.0
+ARDUINO_CLI_VERSION := 0.31.0
 ARDUINO_CLI_URL := https://raw.githubusercontent.com/arduino/arduino-cli/master/install.sh
 ARDUINO_LINT_VERSION :=
 ARDUINO_LINT_URL := https://raw.githubusercontent.com/arduino/arduino-lint/main/etc/install.sh
@@ -8,14 +8,13 @@ BOARD := esp32
 PORT := /dev/ttyACM0
 
 ADDITIONAL_URLS := \
-	https://dl.espressif.com/dl/package_esp32_index.json \
-	http://arduino.esp8266.com/stable/package_esp8266com_index.json
-CORE := esp32:esp32@1.0.6
+	https://raw.githubusercontent.com/espressif/arduino-esp32/gh-pages/package_esp32_index.json
+CORE := esp32:esp32@2.0.7
 LIBRARIES := \
-	"BSEC Software Library"@1.6.1480 \
+	"BSEC Software Library"@1.8.1492 \
 	"PMS Library"@1.1.0 \
 	SSLClient@1.6.11 \
-	U8g2@2.32.15
+	U8g2@2.33.15
 LIBRARIES_URLS := \
 	https://github.com/A-A-Milano-Smart-Park/MiCS6814-I2C-MOD-Library
 
@@ -129,8 +128,8 @@ env: $(BINDIR)/arduino-cli $(BINDIR)/arduino-lint $(ETCDIR)/arduino-cli.yaml
 	# add platform.local.txt to installed esp32 platform
 	# required by BSEC Arduino Library
 	# https://github.com/BoschSensortec/BSEC-Arduino-library#3-modify-the-platformtxt-file
-	CORE_VERSION=$$($(BINDIR)/arduino-cli --config-file $(ETCDIR)/arduino-cli.yaml core list | grep "$(CORE_NAME)" | cut -f2 -d' ') ; \
-	cp platform.local.txt $(VARDIR)/packages/esp32/hardware/esp32/$$CORE_VERSION/
+	# CORE_VERSION=$$($(BINDIR)/arduino-cli --config-file $(ETCDIR)/arduino-cli.yaml core list | grep "$(CORE_NAME)" | cut -f2 -d' ') ; \
+	# cp platform.local.txt $(VARDIR)/packages/esp32/hardware/esp32/$$CORE_VERSION/
 ifdef LIBRARIES
 	$(BINDIR)/arduino-cli --config-file $(ETCDIR)/arduino-cli.yaml lib update-index
 	$(BINDIR)/arduino-cli --config-file $(ETCDIR)/arduino-cli.yaml lib install $(LIBRARIES)

@@ -37,9 +37,8 @@ bool initializeSD() { // checks for SD Card presence and type
     drawTwoLines(5, "SD Card format!", 25, "No web!", 3);
     return false;
   }
-  uint64_t cardSize = SD.cardSize() / (1024 * 1024);
   delay(300);
-  log_i("SD Card size: %lluMB\n", cardSize);
+  log_i("SD Card size: %lluMB\n", SD.cardSize() / (1024 * 1024));
   return true;
 
 }

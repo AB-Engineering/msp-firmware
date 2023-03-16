@@ -223,7 +223,7 @@ void setup() {
   drawScrHead();
   u8g2.drawStr(5, 35, "Detecting BME680...");
   u8g2.sendBuffer();
-  bme680.begin(BME680_I2C_ADDR_SECONDARY, Wire);
+  bme680.begin(BME68X_I2C_ADDR_HIGH, Wire);
   if (checkBMESensor()) {
     log_i("BME680 sensor detected, initializing...\n");
     u8g2.drawStr(20, 55, "BME680 -> Ok!");
@@ -693,8 +693,7 @@ void loop() {
     short retries = 0;
     while (retries < 4) {
       if (client.connect(server.c_str(), 443)) {
-        auto contime = millis() - start;
-        log_i("Connection to server made! Time: %d\n", contime);
+        log_i("Connection to server made! Time: %d\n", millis() - start);
         // Building the post string:
         String postStr = "X-MSP-ID=" + deviceid;
         if (BME_run) {

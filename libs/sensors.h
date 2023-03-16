@@ -39,21 +39,21 @@ float convertPpmToUgM3(float ppm, float mm) { // calculates ug/m3 from a gas ppm
 
 bool checkBMESensor() { // checks BME680 status
 
-  if (bme680.status < BSEC_OK) {
-    log_e("BSEC error, status %d!", bme680.status);
+  if (bme680.bsecStatus < BSEC_OK) {
+    log_e("BSEC error, status %d!", bme680.bsecStatus);
     return false;
-  } else if (bme680.status > BSEC_OK) {
-    log_w("BSEC warning, status %d!", bme680.status);
+  } else if (bme680.bsecStatus > BSEC_OK) {
+    log_w("BSEC warning, status %d!", bme680.bsecStatus);
   }
 
-  if (bme680.bme680Status < BME680_OK) {
-    log_e("Sensor error, bme680_status %d!", bme680.bme680Status);
+  if (bme680.bme68xStatus < BME68X_OK) {
+    log_e("Sensor error, bme680_status %d!", bme680.bme68xStatus);
     return false;
-  } else if (bme680.bme680Status > BME680_OK) {
-    log_w("Sensor warning, status %d!", bme680.bme680Status);
+  } else if (bme680.bme68xStatus > BME68X_OK) {
+    log_w("Sensor warning, status %d!", bme680.bme68xStatus);
   }
 
-  bme680.status = BSEC_OK;
+  bme680.bsecStatus = BSEC_OK;
   return true;
 
 }
