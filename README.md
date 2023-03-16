@@ -2,7 +2,7 @@
 
 A&A Milano Smart Park Project
 
-Firmware developed with the Arduino IDE by Norman Mulinacci @ 2021
+Firmware developed with the Arduino IDE (v2.0.4) by Norman Mulinacci @ 2023
 
 The project runs on Espressif's ESP32-DevkitC with ESP32-WROVER-B module
 
@@ -10,19 +10,17 @@ The project runs on Espressif's ESP32-DevkitC with ESP32-WROVER-B module
 
 ### Required Core (you can also download it through the Arduino IDE):
 
-- [Arduino core for the ESP32](https://github.com/espressif/arduino-esp32)
+- [Arduino core for the ESP32](https://github.com/espressif/arduino-esp32) version 2.0.7
     + To download the core through the Arduino IDE, you need to add the following URLs in File -> Settings -> Additional URLs:
-    https://dl.espressif.com/dl/package_esp32_index.json, http://arduino.esp8266.com/stable/package_esp8266com_index.json
+    https://raw.githubusercontent.com/espressif/arduino-esp32/gh-pages/package_esp32_index.json
 
 ### Required external libraries (you can also download them through the Arduino IDE):
 
 Libraries listed below can be installed through the Arduino IDE Library Manager:
-- [U8g2 Arduino library](https://github.com/olikraus/U8g2_Arduino)
-- [SSLClient Library](https://github.com/OPEnSLab-OSU/SSLClient)
-- [BSEC Arduino library](https://github.com/BoschSensortec/BSEC-Arduino-library)
-	+ In order for the linker to work properly, you need to copy the included "platform.local.txt" to your [...]/packages/esp32/hardware/esp32/<version_of_the_package>/ subdirectory.
-	+ This subdirectory is found in different locations depending on your OS. e.g. in Windows is under /Users/"your_username"/AppData/Local/Arduino15/ 
-- [PMS Library](https://github.com/fu-hsi/pms)
+- [U8g2 Arduino library](https://github.com/olikraus/U8g2_Arduino) version 2.33.15
+- [SSLClient Library](https://github.com/OPEnSLab-OSU/SSLClient) version 1.6.11
+- [BSEC Arduino library](https://github.com/BoschSensortec/BSEC-Arduino-library) version 1.8.1492
+- [PMS Library](https://github.com/fu-hsi/pms) version 1.1.0
 
 You will also need to install a modified version of [MiCS6814-I2C-MOD-Library](https://github.com/eNBeWe/MiCS6814-I2C-Library/network) which is not available through the Arduino Library Manager and [must be imported manually](https://www.arduino.cc/en/Guide/Libraries#importing-a-zip-library):
 - [MiCS6814-I2C-MOD-Library](https://github.com/A-A-Milano-Smart-Park/MiCS6814-I2C-MOD-Library)
