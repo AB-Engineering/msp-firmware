@@ -100,12 +100,7 @@ bool parseConfig(File fl) { // parses the configuration file on the SD Card
   //passw
   if (command[1].startsWith("password", 0)) {
     passw = command[1].substring(command[1].indexOf('=') + 1, command[1].length());
-    if (passw.length() == 0) {
-      log_e("PASSW value is empty!");
-      outcome = false;
-    } else {
-      log_i("passw = *%s*", passw.c_str());
-    }
+    log_i("passw = *%s*", passw.c_str());
   } else {
     log_e("Error parsing PASSW line!");
     outcome = false;
