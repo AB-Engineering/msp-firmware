@@ -9,7 +9,7 @@
                  freely distributed by Luca Crotti @2019
 */
 
-// i2c bus pins
+// I2C bus pins
 #define I2C_SDA_PIN 21
 #define I2C_SCL_PIN 22
 
@@ -23,7 +23,7 @@
 #ifdef VERSION_STRING
 String ver = VERSION_STRING;
 #else
-String ver = "vTest";
+String ver = "DEV";
 #endif
 
 // WiFi Client, NTP time management and SSL libraries
@@ -146,12 +146,12 @@ bool sent_ok = false;
 //*******************************************************************************************************************************
 void setup() {
 
-  // INIT EEPROM, I2C, DISPLAY, SERIAL SENSORS ++++++++++++++++++++++++++++++++++++
+  // INIT SERIAL, I2C, DISPLAY ++++++++++++++++++++++++++++++++++++
+  Serial.begin(115200);
+  delay(2000); // give time to serial to initialize properly
   Wire.begin(I2C_SDA_PIN, I2C_SCL_PIN);
   u8g2.begin();
-  Serial.begin(115200);
-  delay(2000);// time for serial init
-
+  
   // SET UNUSED PINS TO OUTPUT AND ADC ++++++++++++++++++++++++++++++++++++
   pinMode(33, OUTPUT);
   pinMode(25, OUTPUT);
@@ -172,19 +172,28 @@ void setup() {
   Serial.println("Compiled " + String(__DATE__) + " " + String(__TIME__) + "\n");
   drawBoot(&ver);
 #ifdef VERSION_STRING
-  log_d("ver was defined at compile time.\n");
+  log_i("ver was defined at compile time.\n");
 #else
-  log_d("ver is the default.\n");
+  log_i("ver is the default.\n");
 #endif
 #ifdef API_SECRET_SALT
-  log_d("api_secret_salt was defined at compile time.\n");
+  log_i("api_secret_salt was defined at compile time.\n");
 #else
-  log_d("api_secret_salt is the default.\n");
+  log_i("api_secret_salt is the default.\n");
 #endif
   //+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
+  //+++++++++++++ GET MAC ADDRESS FOR WIFI STATION +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+  uint8_t baseMac[6];
+	esp_read_mac(baseMac, ESP_MAC_WIFI_STA);
+	char baseMacChr[18] = {0};
+	sprintf(baseMacChr, "%02X:%02X:%02X:%02X:%02X:%02X", baseMac[0], baseMac[1], baseMac[2], baseMac[3], baseMac[4], baseMac[5]);
+  Serial.println("WIFI MAC ADDRESS: " + String(baseMacChr) + "\n");
+  drawTwoLines(13, "WIFI MAC ADDRESS:", 12, baseMacChr, 10);
+  //++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++  
+
   // SD CARD INIT, CHECK AND PARSE CONFIGURATION ++++++++++++++++++++++++++++++++++++++++++++++++++
-  Serial.println("Initializing SD Card...\n");
+  log_i("Initializing SD Card...\n");
   drawTwoLines(23, "Initializing", 35, "SD Card...", 0);
   SD_ok = initializeSD();
   if (SD_ok) {
@@ -203,18 +212,6 @@ void setup() {
     logpath = "/log_" + deviceid + "_" + ver + ".csv";
   }
   // +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-
-  //+++++++++++++ GET ESP32 INFO +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-  String modelrev = String(ESP.getChipModel()) + " Rev " + String(ESP.getChipRevision());
-  Serial.println("ESP32 Chip model = " + modelrev);
-  uint32_t chipId = 0;
-  for (int i = 0; i < 17; i = i + 8) {
-    chipId |= ((ESP.getEfuseMac() >> (40 - i)) & 0xff) << i;
-  }
-  String idstring = "ID: " + String(chipId);
-  Serial.println(idstring + "\n");
-  drawTwoLines(8, modelrev.c_str(), 21, idstring.c_str(), 5);
-  //++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
   //++++++++++++++++ DETECT AND INIT SENSORS ++++++++++++++++++++++++++++++
   Serial.println("Detecting and initializing sensors...\n");
