@@ -2,7 +2,7 @@
 
 A&A Milano Smart Park Project
 
-Firmware developed with the Arduino IDE (v2.0.4) by Norman Mulinacci @ 2023
+Firmware developed with the Arduino IDE (v2.1.0) by Norman Mulinacci @ 2023
 
 The project runs on Espressif's ESP32-DevkitC with ESP32-WROVER-B module
 
@@ -10,7 +10,7 @@ The project runs on Espressif's ESP32-DevkitC with ESP32-WROVER-B module
 
 ### Required Core (you can also download it through the Arduino IDE):
 
-- [Arduino core for the ESP32](https://github.com/espressif/arduino-esp32) version 2.0.7
+- [Arduino core for the ESP32](https://github.com/espressif/arduino-esp32) version 2.0.9
     + To download the core through the Arduino IDE, you need to add the following URLs in File -> Settings -> Additional URLs:
     https://raw.githubusercontent.com/espressif/arduino-esp32/gh-pages/package_esp32_index.json
 
@@ -29,17 +29,9 @@ If you already have the official or any another version of the MiCS6814-I2C-Libr
 
 ### Build settings (under the Tools tab):
 
-- Board: "ESP32 Dev Module" (under ESP32 Arduino)
-- Upload Speed: "921600"
-- CPU Frequency: "240MHz (WiFi/BT)"
-- Flash Frequency: "80MHz"
-- Flash Mode: "QIO"
-- Flash Size: "4MB (32Mb)"
-- Partition Scheme: "Default 4MB with spiffs (1.2MB APP/1.5MB SPIFFS)"
-- Core Debug Level: "Error"
-- PSRAM: "Disabled"
+- Board --> esp32 --> "ESP32 Dev Module"
 
-N.B: When building, Core Debug Level can be set from "None" to "Verbose" to have a less or a more detailed serial output.
+P.S: When building, Core Debug Level can be set from "None" to "Verbose" to have a less or a more detailed serial output.
 
 ## Building from source (using `Makefile`):
 
