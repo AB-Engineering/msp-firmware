@@ -5,10 +5,11 @@ on: push
 
 jobs:
   lint:
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@v2
+        uses: actions/checkout@v3
+		uses: arduino/arduino-lint-action@v1
       - name: Setup Arduino CLI environment
         run: make env
       - name: Lint the sketch
@@ -17,7 +18,7 @@ jobs:
     runs-on: ubuntu-22.04
     steps:
       - name: Checkout
-        uses: actions/checkout@v2
+        uses: actions/checkout@v3
       - name: Fetch git tags info
         run: git fetch --tags --force
       - name: Install Arduino CLI host dependencies
