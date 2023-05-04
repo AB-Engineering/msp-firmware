@@ -9,7 +9,6 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v3
-		uses: arduino/arduino-lint-action@v1
       - name: Setup Arduino CLI environment
         run: make env
       - name: Lint the sketch
