@@ -1,6 +1,6 @@
-ARDUINO_CLI_VERSION := 0.31.0
+ARDUINO_CLI_VERSION := 0.32.2
 ARDUINO_CLI_URL := https://raw.githubusercontent.com/arduino/arduino-cli/master/install.sh
-ARDUINO_LINT_VERSION :=
+ARDUINO_LINT_VERSION := 1.2.1
 ARDUINO_LINT_URL := https://raw.githubusercontent.com/arduino/arduino-lint/main/etc/install.sh
 
 SKETCH := msp-firmware
@@ -9,7 +9,7 @@ PORT := /dev/ttyACM0
 
 ADDITIONAL_URLS := \
 	https://raw.githubusercontent.com/espressif/arduino-esp32/gh-pages/package_esp32_index.json
-CORE := esp32:esp32@2.0.7
+CORE := esp32:esp32@2.0.9
 LIBRARIES := \
 	"BSEC Software Library"@1.8.1492 \
 	"PMS Library"@1.1.0 \
