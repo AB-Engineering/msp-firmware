@@ -28,7 +28,8 @@ String ver = "DEV";
 
 // WiFi Client, NTP time management and SSL libraries
 #include <WiFi.h>
-#include <time.h>
+#include "time.h"
+#include "sntp.h"
 #include <SSLClient.h>
 #include "libs/trust_anchor.h" // Server Trust Anchor
 
@@ -189,7 +190,7 @@ void setup() {
 	char baseMacChr[18] = {0};
 	sprintf(baseMacChr, "%02X:%02X:%02X:%02X:%02X:%02X", baseMac[0], baseMac[1], baseMac[2], baseMac[3], baseMac[4], baseMac[5]);
   Serial.println("WIFI MAC ADDRESS: " + String(baseMacChr) + "\n");
-  drawTwoLines("WIFI MAC ADDRESS:", baseMacChr, 10);
+  drawTwoLines("WIFI MAC ADDRESS:", baseMacChr, 6);
   //++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++  
 
   // SD CARD INIT, CHECK AND PARSE CONFIGURATION ++++++++++++++++++++++++++++++++++++++++++++++++++

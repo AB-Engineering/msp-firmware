@@ -9,21 +9,13 @@
                  freely distributed by Luca Crotti @2019
 */
 
-// Netwok Management Functions
+// Network Management Functions
 
 //+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
-bool syncNTPTime(struct tm *timeptr) { // syncs UTC time
+void timeavailable(struct timeval *t) { // Callback function (gets called when time adjusts via NTP)
 
-  configTime(0, 0, "pool.ntp.org"); // configTime(gmtOffset_sec, daylightOffset_sec, ntpServer)
-  auto start = millis();
-  while (!getLocalTime(timeptr)) {
-    auto timeout = millis() - start;
-    if (timeout > 20000) {
-      return false;
-    }
-  }
-  return true;
+  Serial.println("Got time adjustment from NTP!\n");
 
 }
 
@@ -49,11 +41,9 @@ bool connectWiFi() { // sets WiFi mode and tx power (var wifipow), performs conn
       log_i("%d networks found\n", networks);
       String netCnt = "Networks found: " + String(networks);
       drawTwoLines(netCnt.c_str(), "", 0);
-      delay(100);
       bool ssid_ok = false; // For selected network if found
       for (short i = 0; i < networks; i++) { // Prints SSID and RSSI for each network found, checks against ssid
         log_v("%d: %s(%d) %s%c", i + 1, WiFi.SSID(i).c_str(), WiFi.RSSI(i), WiFi.encryptionType(i) == WIFI_AUTH_OPEN ? "OPEN" : "ENCRYPTED", i == networks - 1 ? '\n' : ' ');
-        delay(100);
         if (WiFi.SSID(i) == ssid) {
           ssid_ok = true;
           break;
@@ -63,13 +53,9 @@ bool connectWiFi() { // sets WiFi mode and tx power (var wifipow), performs conn
       if (ssid_ok) { // Begin connection
         log_i("%s found!\n", ssid.c_str());
 		String foundNet = ssid + " OK!";
-        drawTwoLines(netCnt.c_str(), foundNet.c_str(), 4);
+        drawTwoLines(netCnt.c_str(), foundNet.c_str(), 2);
         log_i("Connecting to %s, please wait...", ssid.c_str());
-        drawScrHead();
-        u8g2.drawStr(5, 30, "Connecting to: ");
-        u8g2.drawStr(6, 42, ssid.c_str());
-        u8g2.drawStr(15, 60, "Please wait...");
-        u8g2.sendBuffer();
+        drawTwoLines("Wait for conn. to: ", ssid.c_str(), 0);
 
         WiFi.begin(ssid.c_str(), passw.c_str());
         auto start = millis(); // starting time
@@ -113,28 +99,33 @@ bool connectWiFi() { // sets WiFi mode and tx power (var wifipow), performs conn
 
 //+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
-void connAndGetTime() { // lame function to set global vars
-
+void connAndGetTime() { // calls connectWifi and checks internet connectivity to NTP server
+  
+  sntp_set_time_sync_notification_cb(timeavailable);
+  configTime(0, 0, "pool.ntp.org", "time.nist.gov"); // configTime(gmtOffset_sec, daylightOffset_sec, ntpServer1, ntpServer2)
   Serial.println("Connecting to WiFi...\n");
   connected_ok = connectWiFi();
   if (connected_ok) {
-    Serial.println("Connection with " + ssid + " made successfully!");
+    Serial.println("Connection with " + ssid + " made successfully!\n");
     drawLine("WiFi connected!", 2);
-    Serial.println("Waiting a bit before retrieving date&time...");
-    drawCountdown(10, "Wait before conn...");
     Serial.println("Retrieving date&time from NTP...");
     drawLine("Getting date&time...", 0);
-    datetime_ok = syncNTPTime(&timeinfo); // Connecting with NTP server and retrieving date&time
+    auto start = millis();
+    while (!datetime_ok) { // Connecting with NTP server and retrieving date&time
+      auto timeout = millis() - start;
+      datetime_ok = getLocalTime(&timeinfo);
+      if (datetime_ok || timeout > 90000) break;
+      delay(5000);
+    }
     if (datetime_ok) {
-      Serial.println("Done!");
       strftime(Date, sizeof(Date), "%d/%m/%Y", &timeinfo); // Formatting date as DD/MM/YYYY
       strftime(Time, sizeof(Time), "%T", &timeinfo); // Formatting time as HH:MM:SS
       String tempT = String(Date) + " " + String(Time);
-      log_d("Current date&time: %s", tempT.c_str());
+      Serial.println("Current date&time: " + tempT);
       drawTwoLines("Date & Time:", tempT.c_str(), 0);
     } else {
-      log_e("Failed to obtain date&time!");
-      drawLine("Date & time err!", 0);
+      log_e("Failed to obtain date&time! Is this WiFi network connected to the internet?\n");
+      drawTwoLines("Date & time err!", "Is internet ok?", 0);
     }
     Serial.println();
     delay(3000);
