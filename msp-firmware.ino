@@ -189,23 +189,24 @@ void setup() {
 	char baseMacChr[18] = {0};
 	sprintf(baseMacChr, "%02X:%02X:%02X:%02X:%02X:%02X", baseMac[0], baseMac[1], baseMac[2], baseMac[3], baseMac[4], baseMac[5]);
   Serial.println("WIFI MAC ADDRESS: " + String(baseMacChr) + "\n");
-  drawTwoLines(13, "WIFI MAC ADDRESS:", 12, baseMacChr, 10);
+  drawTwoLines("WIFI MAC ADDRESS:", baseMacChr, 10);
   //++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++  
 
   // SD CARD INIT, CHECK AND PARSE CONFIGURATION ++++++++++++++++++++++++++++++++++++++++++++++++++
   log_i("Initializing SD Card...\n");
-  drawTwoLines(23, "Initializing", 35, "SD Card...", 0);
+  drawTwoLines("Initializing", "SD Card...", 1);
   SD_ok = initializeSD();
   if (SD_ok) {
-    Serial.println("Reading configuration...\n");
+    Serial.println("SD Card ok! Reading configuration...\n");
+    drawTwoLines("SD Card ok!", "Reading config...", 1);
     cfg_ok = checkConfig("/config_v3.txt");
     if (!server_ok) {
       log_e("No server URL defined. Can't upload data!\n");
-      drawTwoLines(20, "No URL defined!", 35, "No upload!", 6);
+      drawTwoLines("No URL defined!", "No upload!", 6);
     }
     if (avg_delay < 50) {
       log_e("AVG_DELAY should be at least 50 seconds! Setting to 50...\n");
-      drawTwoLines(5, "AVG_DELAY less than 50!", 15, "Setting to 50...", 5);
+      drawTwoLines("AVG_DELAY less than 50!", "Setting to 50...", 5);
       avg_delay = 50; // must be at least 45 for PMS5003 compensation routine, 5 seconds extra for reading cycle messages
     }
     // setting the logpath variable
@@ -217,14 +218,11 @@ void setup() {
   Serial.println("Detecting and initializing sensors...\n");
 
   // BME680 +++++++++++++++++++++++++++++++++++++
-  drawScrHead();
-  u8g2.drawStr(5, 35, "Detecting BME680...");
-  u8g2.sendBuffer();
+  drawTwoLines("Detecting BME680...", "", 0);
   bme680.begin(BME68X_I2C_ADDR_HIGH, Wire);
   if (checkBMESensor()) {
     log_i("BME680 sensor detected, initializing...\n");
-    u8g2.drawStr(20, 55, "BME680 -> Ok!");
-    u8g2.sendBuffer();
+    drawTwoLines("Detecting BME680...", "BME680 -> Ok!", 1);
     bsec_virtual_sensor_t sensor_list[] = {
       BSEC_OUTPUT_RAW_TEMPERATURE,
       BSEC_OUTPUT_RAW_PRESSURE,
@@ -237,8 +235,7 @@ void setup() {
     BME_run = true;
   } else {
     log_e("BME680 sensor not detected!\n");
-    u8g2.drawStr(20, 55, "BME680 -> Err!");
-    u8g2.sendBuffer();
+    drawTwoLines("Detecting BME680...", "BME680 -> Err!", 1);
   }
   //+++++++++++++++++++++++++++++++++++++++++++++
 
@@ -246,83 +243,59 @@ void setup() {
   // pmsSerial: with WROVER module don't use UART 2 mode on pins 16 and 17: it crashes!
   pmsSerial.begin(9600, SERIAL_8N1, 14, 12); // baud, type, ESP_RX, ESP_TX
   delay(1500);
-  drawScrHead();
-  u8g2.drawStr(5, 35, "Detecting PMS5003...");
-  u8g2.sendBuffer();
+  drawTwoLines("Detecting PMS5003...", "", 0);
   pms.wakeUp(); // Waking up sensor after sleep
   delay(1500);
   if (pms.readUntil(data)) {
     log_i("PMS5003 sensor detected, initializing...\n");
-    u8g2.drawStr(20, 55, "PMS5003 -> Ok!");
-    u8g2.sendBuffer();
+    drawTwoLines("Detecting PMS5003...", "PMS5003 -> Ok!", 1);
     PMS_run = true;
     pms.sleep(); // Putting sensor to sleep
   } else {
     log_e("PMS5003 sensor not detected!\n");
-    u8g2.drawStr(20, 55, "PMS5003 -> Err!");
-    u8g2.sendBuffer();
+    drawTwoLines("Detecting PMS5003...", "PMS5003 -> Err!", 1);
   }
-  delay(1500);
   //++++++++++++++++++++++++++++++++++++++++++++++
 
   // MICS6814 ++++++++++++++++++++++++++++++++++++
-  drawScrHead();
-  u8g2.drawStr(5, 35, "Detecting MICS6814...");
-  u8g2.sendBuffer();
+  drawTwoLines("Detecting MICS6814...", "", 0);
   if (gas.begin()) { // Connect to sensor using default I2C address (0x04)
     log_i("MICS6814 sensor detected, initializing...\n");
-    u8g2.drawStr(20, 55, "MICS6814 -> Ok!");
-    u8g2.sendBuffer();
+    drawTwoLines("Detecting MICS6814...", "MICS6814 -> Ok!", 0);
     MICS_run = true;
     gas.powerOn(); // turn on heating element and led
     gas.ledOn();
     delay(1500);
     if (checkMicsValues()) {
       log_i("MICS6814 R0 values are already as default!\n");
-      drawScrHead();
-      u8g2.drawStr(5, 45, "MICS6814 values OK!");
-      u8g2.sendBuffer();
-      delay(1000);
+      drawLine("MICS6814 values OK!", 1);
     } else {
       log_i("Setting MICS6814 R0 values as default... ");
-      drawScrHead();
-      u8g2.drawStr(15, 45, "Setting MICS6814...");
-      u8g2.sendBuffer();
-      delay(1000);
+      drawLine("Setting MICS6814...", 1);
       writeMicsValues();
       log_i("Done!\n");
-      drawScrHead();
-      u8g2.drawStr(25, 45, "Done!");
-      u8g2.sendBuffer();
-      delay(1000);
+      drawLine("Done!", 1);
     }
     drawMicsValues(gas.getBaseResistance(CH_RED), gas.getBaseResistance(CH_OX), gas.getBaseResistance(CH_NH3));
     gas.setOffsets(MICSOffset);
   } else {
     log_e("MICS6814 sensor not detected!\n");
-    u8g2.drawStr(20, 55, "MICS6814 -> Err!");
-    u8g2.sendBuffer();
+    drawTwoLines("Detecting MICS6814...", "MICS6814 -> Err!", 1);
   }
-  delay(1500);
   //+++++++++++++++++++++++++++++++++++++++++++++++++++
 
   // ZE25-O3 ++++++++++++++++++++++++++++++++++++++++++
-  drawScrHead();
-  u8g2.drawStr(5, 35, "Detecting ZE25-O3...");
-  u8g2.sendBuffer();
+  drawTwoLines("Detecting ZE25-O3...", "", 1);
   if (o3zeroval == -1) { // force detection off by config file, useful for no pulldown resistor cases
     log_i("ZE25-O3 sensor detection is disabled.\n");
-    u8g2.drawStr(20, 55, "ZE25-O3 -> Off!");
-    u8g2.sendBuffer();
+    drawTwoLines("Detecting ZE25-O3...", "ZE25-O3 -> Off!", 0);
   } else {
     if (!isAnalogO3Connected()) {
       log_e("ZE25-O3 sensor not detected!\n");
-      u8g2.drawStr(20, 55, "ZE25-O3 -> Err!");
-      u8g2.sendBuffer();
+      drawTwoLines("Detecting ZE25-O3...", "ZE25-O3 -> Err!", 0);
     } else {
       log_i("ZE25-O3 sensor detected, running...\n");
-      u8g2.drawStr(20, 55, "ZE25-O3 -> Ok!");
-      u8g2.sendBuffer();
+      drawTwoLines("Detecting ZE25-O3...", "ZE25-O3 -> Ok!", 0);
       O3_run = true;
     }
   }
@@ -406,20 +379,20 @@ void loop() {
     //+++++++++ NEXT MEASUREMENTS CYCLE DELAY ++++++++++++
     Serial.printf("Wait %d min. and %d sec. for measurement cycle %d of %d\n\n", curdelay / 60, curdelay % 60, k + 1, avg_measurements);
     String cyclemsg = "Cycle " + String(k + 1) + " of " + String(avg_measurements);
-    drawCountdown(curdelay, 25, cyclemsg.c_str());
+    drawCountdown(curdelay, cyclemsg.c_str());
     //+++++++++++++++++++++++++++++++++++++++++++++++++++++
 
     //+++++++++ WAKE UP AND PREHEAT PMS5003 ++++++++++++
     if (PMS_run) {
       Serial.println("Waking up and preheating PMS5003 sensor for 45 seconds...\n");
       pms.wakeUp();
-      drawCountdown(45, 2, "Preheating PMS5003...");
+      drawCountdown(45, "Preheating PMS5003...");
     }
     //++++++++++++++++++++++++++++++++++++++++++++++++
 
     //+++++++++ MEASUREMENTS MESSAGE ++++++++++++
     log_i("Measurements in progress...\n");
-    drawTwoLines(25, "Measurements", 25, "in progress...", 0);
+    drawTwoLines("Measurements", "in progress...", 0);
     //+++++++++++++++++++++++++++++++++++++++++++++++++++++
 
     //+++++++++ READING BME680 ++++++++++++
@@ -685,7 +658,7 @@ void loop() {
 
     auto start = millis(); // time for connection
     Serial.println("Uploading data to server through HTTPS in progress...\n");
-    drawTwoLines(15, "Uploading data", 15, "to server...", 0);
+    drawTwoLines("Uploading data", "to server...", 0);
 
     short retries = 0;
     while (retries < 4) {
@@ -750,12 +723,12 @@ void loop() {
         // Check server answer
         if (answLine.startsWith("HTTP/1.1 201 Created", 0)) {
           log_i("Server answer ok! Data uploaded successfully!\n");
-          drawTwoLines(25, "Data uploaded", 27, "successfully!", 2);
+          drawTwoLines("Data uploaded", "successfully!", 2);
           sent_ok = true;
         } else {
           log_e("Server answered with an error! Data not uploaded!\n");
           log_e("The full answer is:\n%s\n", answLine.c_str());
-          drawTwoLines(25, "Serv answ error!", 25, "Data not sent!", 10);
+          drawTwoLines("Serv answ error!", "Data not sent!", 10);
         }
         break; // exit
 
@@ -769,7 +742,7 @@ void loop() {
           log_i("Trying again, %d retries left...\n", 3 - retries);
           mesg = String(3 - retries) + " retries left...";
         }
-        drawTwoLines(25, "Serv conn error!", 20, mesg.c_str(), 10);
+        drawTwoLines("Serv conn error!", mesg.c_str(), 10);
         retries++;
 
       }

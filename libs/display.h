@@ -57,8 +57,35 @@ void drawScrHead() { // draws the screen header on the U8G2 display
 
 //+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
-void drawTwoLines(short offset1, const char message1[], short offset2, const char message2[], short secdelay) { // draws two text lines on the U8G2 display
+short getLineHOffset(const char string[]) { // get the proper horizontal offset of a string for the U8G2 display
+  
+  short offset = 0;
+  u8g2_uint_t x = (u8g2.getDisplayWidth() - u8g2.getStrWidth(string)) / 2;
+  if (x > 0) {
+    offset = short(x);
+  }
+  return offset;
 
+}
+
+//+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
+void drawLine(const char message[], short secdelay) { // draws a text line on the U8G2 display
+  
+  short offset = getLineHOffset(message);
+  drawScrHead();
+  u8g2.setCursor(offset, 45); u8g2.print(message);
+  u8g2.sendBuffer();
+  delay(secdelay * 1000);
+
+}
+
+//+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
+void drawTwoLines(const char message1[], const char message2[], short secdelay) { // draws two text lines on the U8G2 display
+  
+  short offset1 = getLineHOffset(message1);
+  short offset2 = getLineHOffset(message2);
   drawScrHead();
   u8g2.setCursor(offset1, 35); u8g2.print(message1);
   u8g2.setCursor(offset2, 55); u8g2.print(message2);
@@ -69,17 +96,12 @@ void drawTwoLines(short offset1, const char message1[], short offset2, const cha
 
 //+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
-void drawCountdown(int startsec, short offset, const char message[]) { // draws a countdown on the U8G2 display
+void drawCountdown(short startsec, const char message[]) { // draws a countdown on the U8G2 display
 
-  for (int i = startsec; i >= 0; i--) {
-    String output = "";
-    output = String(i / 60) + ":";
-    if (i % 60 >= 0 && i % 60 <= 9) {
-      output += "0";
-    }
-    output += String(i % 60);
-    output = "WAIT " + output + " MIN.";
-    drawTwoLines(offset, message, 23, output.c_str(), 1);
+  for (short i = startsec; i >= 0; i--) {
+    char output[17] = {0};
+    sprintf(output, "WAIT %02d:%02d MIN.", i / 60, i % 60);
+    drawTwoLines(message, output, 1);
   }
 
 }

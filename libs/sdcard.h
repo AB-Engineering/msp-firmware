@@ -19,7 +19,7 @@ bool initializeSD() { // checks for SD Card presence and type
   while (!SD.begin()) {
     if (timeout > 4) { // errors after 10 seconds
       log_e("No SD Card detected! No internet connection possible!\n");
-      drawTwoLines(10, "No SD Card!", 25, "No web!", 3);
+      drawTwoLines("No SD Card!", "No web!", 3);
       return false;
     }
     delay(1000); // giving it some time to detect the card properly
@@ -27,18 +27,18 @@ bool initializeSD() { // checks for SD Card presence and type
   }
   uint8_t cardType = SD.cardType();
   if (cardType == CARD_MMC) {
-    log_i("SD Card type: MMC");
+    log_v("SD Card type: MMC");
   } else if (cardType == CARD_SD) {
-    log_i("SD Card type: SD");
+    log_v("SD Card type: SD");
   } else if (cardType == CARD_SDHC) {
-    log_i("SD Card type: SDHC");
+    log_v("SD Card type: SDHC");
   } else {
     log_e("Unidentified Card type, format the SD Card!  No internet connection possible!\n");
-    drawTwoLines(5, "SD Card format!", 25, "No web!", 3);
+    drawTwoLines("SD Card format!", "No web!", 3);
     return false;
   }
   delay(300);
-  log_i("SD Card size: %lluMB\n", SD.cardSize() / (1024 * 1024));
+  log_v("SD Card size: %lluMB\n", SD.cardSize() / (1024 * 1024));
   return true;
 
 }
@@ -251,13 +251,13 @@ bool checkConfig(const char *configpath) { // verifies the existance of the conf
       return true;
     } else {
       log_e("Error parsing config file! No network configuration!\n");
-      drawTwoLines(5, "Cfg error!", 25, "No web!", 3);
+      drawTwoLines("Cfg error!", "No web!", 3);
       return false;
     }
 
   } else {
     log_e("Couldn't find config file! Creating a new one with template...");
-    drawTwoLines(5, "No cfg found!", 25, "No web!", 3);
+    drawTwoLines("No cfg found!", "No web!", 3);
     cfgfile = SD.open(configpath, FILE_WRITE); // open r/w
 
     if (cfgfile) {
@@ -424,7 +424,7 @@ void logToSD() { // builds a new logfile line and calls addToLog() (using logpat
     log_i("SD Card log file updated successfully!\n");
   } else {
     log_e("Error updating SD Card log file!\n");
-    drawTwoLines(30, "SD Card log", 30, "error!", 3);
+    drawTwoLines("SD Card log", "error!", 3);
   }
 
 }
