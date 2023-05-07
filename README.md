@@ -60,17 +60,17 @@ To run the build to completion, a working Python interpreter must be installed
 on your build system, along with the
 [`pyserial`](https://pypi.org/project/pyserial/) library.
 
-## Flashing from binary releases (Windows instructions):
+## Flashing from binary releases (Windows 64bit instructions):
 
 1. Connect the ESP32 board to a USB port on your PC. Check that it's been detected correctly:
-   it should appear as "Silicon Labs CP210x USB to UART Bridge (COMx)".
+   it should appear as "Silicon Labs CP210x USB to UART Bridge (COMx)" (check in Windows Device Management).
    If not, download the drivers manually: 
-	+ for Windows 10: https://www.silabs.com/documents/public/software/CP210x_Universal_Windows_Driver.zip
+	+ for Windows 10/11: https://www.silabs.com/documents/public/software/CP210x_Universal_Windows_Driver.zip
 	+ for older Windows versions: https://www.silabs.com/documents/public/software/CP210x_Windows_Drivers.zip
 	
-2. Extract the "esptool_win" folder from the zip file.
+2. Extract the zip file.
 
-3. Run "RUNME.BAT". The script will automatically scan for the right COM port and then erase, flash and verify the board.
+3. Run "runme.bat". The script will automatically scan for the right COM port and then erase, flash and verify the board.
    If it stays on "Connecting..." for too long, hold the "BOOT" button of the ESP32 board and try again.
    If it still doesn't work, try on a different USB port.
 
