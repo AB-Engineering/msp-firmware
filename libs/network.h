@@ -99,7 +99,7 @@ bool connectWiFi() { // sets WiFi mode and tx power (var wifipow), performs conn
 
 //+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
-void connAndGetTime() { // calls connectWifi and checks internet connectivity to NTP server
+void connAndGetTime() { // calls connectWifi and retrieves time from NTP server
   
   sntp_set_time_sync_notification_cb(timeavailable);
   configTime(0, 0, "pool.ntp.org", "time.nist.gov"); // configTime(gmtOffset_sec, daylightOffset_sec, ntpServer1, ntpServer2)
@@ -109,15 +109,16 @@ void connAndGetTime() { // calls connectWifi and checks internet connectivity to
     Serial.println("Connection with " + ssid + " made successfully!\n");
     drawLine("WiFi connected!", 2);
     Serial.println("Retrieving date&time from NTP...");
-    drawLine("Getting date&time...", 0);
+    drawTwoLines("Getting date&time...", "Please wait...", 0);
     auto start = millis();
     while (!datetime_ok) { // Connecting with NTP server and retrieving date&time
       auto timeout = millis() - start;
       datetime_ok = getLocalTime(&timeinfo);
-      if (datetime_ok || timeout > 90000) break;
+      if (datetime_ok || timeout > 120000) break;
       delay(5000);
     }
     if (datetime_ok) {
+      drawTwoLines("Getting date&time...", "OK!", 2);
       strftime(Date, sizeof(Date), "%d/%m/%Y", &timeinfo); // Formatting date as DD/MM/YYYY
       strftime(Time, sizeof(Time), "%T", &timeinfo); // Formatting time as HH:MM:SS
       String tempT = String(Date) + " " + String(Time);
