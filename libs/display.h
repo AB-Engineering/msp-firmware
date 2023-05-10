@@ -23,7 +23,7 @@ void drawBoot(String *fwver) { // draws the boot screen on the U8G2 display
   u8g2.setFont(u8g2_font_6x13B_tf);
   u8g2.drawStr(74, 12, "Milano"); u8g2.drawStr(74, 25, "Smart"); u8g2.drawStr(74, 38, "Park");
   u8g2.setFont(u8g2_font_6x13_tf);
-  u8g2.setCursor(60, 62); u8g2.print(*fwver + " by NM");
+  u8g2.setCursor(55, 62); u8g2.print(*fwver + " by NM");
   u8g2.sendBuffer();
   delay(5000);
 
