@@ -101,6 +101,7 @@ bool connectWiFi() { // sets WiFi mode and tx power (var wifipow), performs conn
 
 void connAndGetTime() { // calls connectWifi and retrieves time from NTP server
   
+  datetime_ok = false; // resetting the date&time var
   sntp_set_time_sync_notification_cb(timeavailable);
   configTime(0, 0, "pool.ntp.org", "time.nist.gov"); // configTime(gmtOffset_sec, daylightOffset_sec, ntpServer1, ntpServer2)
   Serial.println("Connecting to WiFi...\n");

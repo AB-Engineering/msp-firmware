@@ -331,13 +331,12 @@ void loop() {
   Serial.println("Turning off WiFi...\n");
   WiFi.disconnect();
   WiFi.mode(WIFI_OFF);
+  connected_ok = false;
   delay(1000); // Waiting a bit for Wifi mode set
   //++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
-  // ZEROING OUT VARIABLES +++++++++++++++++++++++++++++++++++++
+  // CLEARING VARIABLES +++++++++++++++++++++++++++++++++++++
   log_d("Clearing system variables...\n");
-  connected_ok = false;
-  datetime_ok = false;
   sent_ok = false;
   Date[0] = '\0';
   Time[0] = '\0';
