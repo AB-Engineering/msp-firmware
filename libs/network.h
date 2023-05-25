@@ -23,8 +23,9 @@ void timeavailable(struct timeval *t) { // Callback function (gets called when t
 
 bool connectWiFi() { // sets WiFi mode and tx power (var wifipow), performs connection to WiFi network (vars ssid, passw)
 
+  log_i("Setting WiFi STATION mode...");
   WiFi.mode(WIFI_STA); // Set WiFi to station mode
-  delay(1500); // Waiting a bit for Wifi mode to set
+  //delay(1500); // Waiting a bit for Wifi mode to set
 
   WiFi.setTxPower(wifipow); // Set WiFi transmission power
   log_i("WIFIPOW set to %d", wifipow);
@@ -32,15 +33,11 @@ bool connectWiFi() { // sets WiFi mode and tx power (var wifipow), performs conn
 
   for (short retry = 0; retry < 4; retry++) { // Scan WiFi for selected network and connect
     log_i("Scanning WiFi networks...");
-    drawTwoLines("Scanning networks...", "", 0);
     short networks = WiFi.scanNetworks(); // WiFi.scanNetworks will return the number of networks found
     log_i("Scanning complete\n");
-    drawTwoLines("Scanning networks...", "Scanning complete", 1);
 
     if (networks > 0) { // Looking through found networks
       log_i("%d networks found\n", networks);
-      String netCnt = "Networks found: " + String(networks);
-      drawTwoLines(netCnt.c_str(), "", 0);
       bool ssid_ok = false; // For selected network if found
       for (short i = 0; i < networks; i++) { // Prints SSID and RSSI for each network found, checks against ssid
         log_v("%d: %s(%d) %s%c", i + 1, WiFi.SSID(i).c_str(), WiFi.RSSI(i), WiFi.encryptionType(i) == WIFI_AUTH_OPEN ? "OPEN" : "ENCRYPTED", i == networks - 1 ? '\n' : ' ');
@@ -53,18 +50,16 @@ bool connectWiFi() { // sets WiFi mode and tx power (var wifipow), performs conn
       if (ssid_ok) { // Begin connection
         log_i("%s found!\n", ssid.c_str());
 		String foundNet = ssid + " OK!";
-        drawTwoLines(netCnt.c_str(), foundNet.c_str(), 2);
         log_i("Connecting to %s, please wait...", ssid.c_str());
-        drawTwoLines("Wait for conn. to: ", ssid.c_str(), 0);
 
         WiFi.begin(ssid.c_str(), passw.c_str());
         auto start = millis(); // starting time
         while (WiFi.status() != WL_CONNECTED) {
           auto timeout = millis() - start;
           if (timeout > 10000) {
-            log_e("Can't connect to network!\n");
-            drawLine("WiFi connect err!", 3);
             WiFi.disconnect();
+			log_e("Can't connect to network!\n");
+            drawLine("WiFi connect err!", 2);
             break;
           }
         }
@@ -76,7 +71,7 @@ bool connectWiFi() { // sets WiFi mode and tx power (var wifipow), performs conn
       } else {
         log_e("%s not found!\n", ssid.c_str());
         String noNet = "NO " + ssid + "!";
-        drawTwoLines(netCnt.c_str(), noNet.c_str(), 4);
+        drawLine(noNet.c_str(), 2);
       }
     } else {
       log_e("No networks found!\n");
@@ -86,10 +81,10 @@ bool connectWiFi() { // sets WiFi mode and tx power (var wifipow), performs conn
     if (retry < 3) { // Print remaining tries
       log_i("Retrying, %d retries left\n", 3 - retry);
       String remain = String(3 - retry) + " tries remain.";
-      drawTwoLines("Retrying...", remain.c_str(), 3);
+      drawTwoLines("Retrying...", remain.c_str(), 2);
     } else if (retry == 3) {
       log_e("No internet connection!\n");
-      drawLine("No internet!", 3);
+      drawLine("No internet!", 2);
     }
   }
 
@@ -105,21 +100,21 @@ void connAndGetTime() { // calls connectWifi and retrieves time from NTP server
   sntp_set_time_sync_notification_cb(timeavailable);
   configTime(0, 0, "pool.ntp.org", "time.nist.gov"); // configTime(gmtOffset_sec, daylightOffset_sec, ntpServer1, ntpServer2)
   Serial.println("Connecting to WiFi...\n");
+  drawTwoLines("Connecting to", "WiFi...", 1);
   connected_ok = connectWiFi();
   if (connected_ok) {
     Serial.println("Connection with " + ssid + " made successfully!\n");
-    drawLine("WiFi connected!", 2);
+    drawLine("WiFi connected!", 1);
     Serial.println("Retrieving date&time from NTP...");
-    drawTwoLines("Getting date&time...", "Please wait...", 0);
+    drawTwoLines("Getting date&time...", "Please wait...", 1);
     auto start = millis();
     while (!datetime_ok) { // Connecting with NTP server and retrieving date&time
       auto timeout = millis() - start;
       datetime_ok = getLocalTime(&timeinfo);
       if (datetime_ok || timeout > 120000) break;
-      delay(5000);
     }
     if (datetime_ok) {
-      drawTwoLines("Getting date&time...", "OK!", 2);
+      drawTwoLines("Getting date&time...", "OK!", 1);
       strftime(Date, sizeof(Date), "%d/%m/%Y", &timeinfo); // Formatting date as DD/MM/YYYY
       strftime(Time, sizeof(Time), "%T", &timeinfo); // Formatting time as HH:MM:SS
       String tempT = String(Date) + " " + String(Time);
