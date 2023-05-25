@@ -13,6 +13,9 @@
 #define I2C_SDA_PIN 21
 #define I2C_SCL_PIN 22
 
+// O3 sensor ADC pin
+#define O3_ADC_PIN 32
+
 // Basic system libraries
 #include <Arduino.h>
 #include <FS.h>
