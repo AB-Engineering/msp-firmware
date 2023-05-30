@@ -65,7 +65,7 @@ on your build system, along with the
 1. Connect the ESP32 board to a USB port on your PC.
 
 2. Check that it's been detected correctly: it should appear as `Silicon Labs CP210x USB to UART Bridge (COMx)` (check in Windows Device Management).
-   If not, download the drivers manually:
+   If not, download the drivers and install them manually through Device Management:
 	+ for Windows 10/11: https://www.silabs.com/documents/public/software/CP210x_Universal_Windows_Driver.zip
 	+ for older Windows versions: https://www.silabs.com/documents/public/software/CP210x_Windows_Drivers.zip
 
@@ -79,13 +79,11 @@ on your build system, along with the
 
 1. Connect the ESP32 board to a USB port on your Mac.
 
-2. Open a Terminal window and type the following command: `ls /dev/cu.*`. Verify that the `/dev/cu.SLAB_USBtoUART` device appears.
-   If not, download the drivers manually
-	+ for macOS: https://www.silabs.com/documents/public/software/Mac_OSX_VCP_Driver.zip
+2. Download and install the drivers for macOS: https://www.silabs.com/documents/public/software/Mac_OSX_VCP_Driver.zip
+When installing, you need to authorize them in macOS Security Settings.
+Check that the device appearsin macOS System Information, otherwise disconnect and reconnect the USB cable. If it still doesn't find it, try a different USB port.
 
-   When installing, you need to authorize them in macOS Security Settings. Check again that the device appears, otherwise disconnect and reconnect the USB cable.
-
-3. Download the latest release, extract it. In the Terminal, move to the Download folder and in the msp-firmware folder (`cd Downloads/msp-firmware*`); then make the `.sh` files executable with these commands: `chmod +x install-pip-esptool.sh` and `chmod +x flash-msp-firmware.sh`.
+3. Download the latest release, extract it. In the Terminal, move to the msp-firmware folder using the `cd` command; then make the `.sh` files executable with these commands: `chmod +x install-pip-esptool.sh` and `chmod +x flash-msp-firmware.sh`.
 
 4. Run the install script with this terminal command: `./install-pip-esptool.sh` (you might need to authorize its execution in macOS Security Settings). This will check if Python3 is installed (it might ask to install Developer Tools: if it does, install them), and it will install pip and the esptool program needed for the flashing process.
 
