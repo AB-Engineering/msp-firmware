@@ -17,7 +17,7 @@ The project runs on Espressif's ESP32-DevkitC with ESP32-WROVER-B module
 ### Required external libraries (you can also download them through the Arduino IDE):
 
 Libraries listed below can be installed through the Arduino IDE Library Manager:
-- [U8g2 Arduino library](https://github.com/olikraus/U8g2_Arduino) version 2.33.15
+- [U8g2 Arduino library](https://github.com/olikraus/U8g2_Arduino) version 2.34.22
 - [SSLClient Library](https://github.com/OPEnSLab-OSU/SSLClient) version 1.6.11
 - [BSEC Arduino library](https://github.com/BoschSensortec/BSEC-Arduino-library) version 1.8.1492
 - [PMS Library](https://github.com/fu-hsi/pms) version 1.1.0

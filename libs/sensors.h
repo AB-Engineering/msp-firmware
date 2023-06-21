@@ -71,6 +71,14 @@ bool isAnalogO3Connected() { // checks analog ozone sensor status
 
 //+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
+float no2AndVocCompensation(float inputGas, float currtemp, float currpre, float currhum) { // for NO2 and VOC gas compensations
+
+  return (inputGas*(((currhum + 50)/100)*compH)) + ((currtemp-25)*compT) - ((currpre-1013.25)*compP);
+
+}
+
+//+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
 float analogUgM3O3Read(float *intemp) { // reads and calculates ozone ppm value from analog ozone sensor
 
   int points = 0;
@@ -128,7 +136,7 @@ bool checkMicsValues() { // check if MICS6814 internal values are the same as fi
 
 //+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
-short evaluateMSPIndex(float pm25, float nox, float o3) { // evaluates the MPS# index from ug/m3 concentrations of specific gases using standard IAQ values (needs 1h averages)
+short evaluateMSPIndex(float pm25, float nox, float o3) { // evaluates the MSP# index from ug/m3 concentrations of specific gases using standard IAQ values (needs 1h averages)
 
   // possible returned values are: 0 -> n.d.(grey); 1 -> good(green); 2 -> acceptable(yellow); 3 -> bad(red); 4 -> really bad(black)
   log_i("Evaluating MSP# index...\n");

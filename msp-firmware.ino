@@ -118,7 +118,7 @@ int PM25 = 0;
 
 // Variables for MICS6814
 uint16_t MICSCal[3] = {955, 900, 163}; // default R0 values for the sensor (in order: RED, OX, NH3)
-uint16_t MICSOffset[3] = {0, 154, 0}; // default offset values for sensor measurements (in order: RED, OX, NH3)
+int MICSOffset[3] = {0, 0, 0}; // default ug/m3 offset values for sensor measurements (in order: RED, OX, NH3)
 float MICS_CO = 0.0;
 float MICS_NO2 = 0.0;
 float MICS_NH3 = 0.0;
@@ -126,6 +126,11 @@ float MICS_NH3 = 0.0;
 // Variables for ZE25-O3
 float ozone = 0.0;
 int o3zeroval = -1; // ozone sensor ADC zero default offset is 1489, -1 to disable it (0.4V to 1.1V range in 12bit resolution at 0dB attenuation)
+
+// Variables for compensation (MICS6814-OX and BME680-VOC)
+float compH = 0.6; // default humidity compensation
+float compT = 1.352; // default temperature compensation
+float compP = 0.0132; // default pressure compensation
 
 // Date and time vars
 struct tm timeinfo;
@@ -281,7 +286,6 @@ void setup() {
       drawLine("Done!", 1);
     }
     drawMicsValues(gas.getBaseResistance(CH_RED), gas.getBaseResistance(CH_OX), gas.getBaseResistance(CH_NH3));
-    gas.setOffsets(MICSOffset);
   } else {
     log_e("MICS6814 sensor not detected!\n");
     drawTwoLines("Detecting MICS6814...", "MICS6814 -> Err!", 1);
@@ -347,6 +351,8 @@ void loop() {
   short BMEfails = 0;
   temp = 0.0;
   float currtemp = 0.0; // used for compensating gas measures
+  float currpre = 0.0; // used for compensating gas measures
+  float currhum = 0.0; // used for compensating gas measures
   pre = 0.0;
   hum = 0.0;
   VOC = 0.0;
@@ -421,15 +427,20 @@ void loop() {
         temp += bmeread;
 
         bmeread = bme680.pressure / 100.0;
+        // Normalizing pressure based on sea level altitude and current temperature
+        bmeread = (bmeread * pow(1 - (0.0065 * sealevelalt / (currtemp + 0.0065 * sealevelalt + 273.15)), -5.257));
         log_v("Pressure(hPa): %.3f", bmeread);
+        currpre = bmeread;
         pre += bmeread;
 
         bmeread = bme680.humidity;
         log_v("Humidity(perc.): %.3f", bmeread);
+        currhum = bmeread;
         hum += bmeread;
 
         bmeread = bme680.gasResistance / 1000.0;
-        log_v("Gas resistance(kOhm): %.3f\n", bmeread);
+        bmeread = no2AndVocCompensation(bmeread, currtemp, currpre, currhum); // VOC Compensation
+        log_v("Compensated gas resistance(kOhm): %.3f\n", bmeread);
         VOC += bmeread;
 
         break;
@@ -492,10 +503,10 @@ void loop() {
           continue;
         }
 
-        // if (BME_run) micsread[0] = micsread[0] + ((0.04 * (currtemp - 25.0)) * micsread[0]); // compensation based on the current measured temperature
         log_v("CO(ppm): %.3f", micsread[0]);
         MICS_CO += micsread[0];
 
+        if (BME_run) micsread[1] = no2AndVocCompensation(micsread[1], currtemp, currpre, currhum) + MICSOffset[2]; // NO2 Compensation
         log_v("NOx(ppm): %.3f", micsread[1]);
         MICS_NO2 += micsread[1];
 
@@ -554,8 +565,6 @@ void loop() {
   if (BME_run && runs > 0) {
     temp /= runs;
     pre /= runs;
-    // Normalizing pressure based on sea level altitude and current temperature
-    pre = (pre * pow(1 - (0.0065 * sealevelalt / (temp + 0.0065 * sealevelalt + 273.15)), -5.257));
     hum /= runs;
     VOC /= runs;
   } else if (BME_run) {

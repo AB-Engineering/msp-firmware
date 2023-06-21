@@ -25,8 +25,6 @@ bool connectWiFi() { // sets WiFi mode and tx power (var wifipow), performs conn
 
   log_i("Setting WiFi STATION mode...");
   WiFi.mode(WIFI_STA); // Set WiFi to station mode
-  //delay(1500); // Waiting a bit for Wifi mode to set
-
   WiFi.setTxPower(wifipow); // Set WiFi transmission power
   log_i("WIFIPOW set to %d", wifipow);
   log_i("Legend: -4(-1dBm), 8(2dBm), 20(5dBm), 28(7dBm), 34(8.5dBm), 44(11dBm), 52(13dBm), 60(15dBm), 68(17dBm), 74(18.5dBm), 76(19dBm), 78(19.5dBm)\n");

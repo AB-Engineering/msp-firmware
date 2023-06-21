@@ -66,7 +66,7 @@ void appendFile(fs::FS &fs, const char *path, String *message) { // appends a ne
 
 bool parseConfig(File fl) { // parses the configuration file on the SD Card
 
-#define LINES 11
+#define LINES 12
 
   bool outcome = true;
   String command[LINES];
@@ -232,6 +232,15 @@ bool parseConfig(File fl) { // parses the configuration file on the SD Card
     log_e("Error parsing MICSOffset[] line. Falling back to default value");
   }
   log_i("MICSOffset[] = *%d*, *%d*, *%d*\n", MICSOffset[0], MICSOffset[1], MICSOffset[2]);
+  //compensation_factors
+  if (command[11].startsWith("compensation_factors", 0)) {
+    compH = command[11].substring(command[11].indexOf("compH:") + 6, command[11].indexOf(",compT:")).toFloat();
+    compT = command[11].substring(command[11].indexOf(",compT:") + 7, command[11].indexOf(",compP:")).toFloat();
+    compP = command[11].substring(command[11].indexOf(",compP:") + 7, command[11].length()).toFloat();
+  } else {
+    log_e("Error parsing compensation_factors line. Falling back to default value");
+  }
+  log_i("compH = *%.4f*, compT = *%.4f*, compP = *%.4f*\n", compH, compT, compP);
 
   return outcome;
 
@@ -257,7 +266,7 @@ bool checkConfig(const char *configpath) { // verifies the existance of the conf
 
   } else {
     log_e("Couldn't find config file! Creating a new one with template...");
-    drawTwoLines("No cfg found!", "No web!", 3);
+    drawTwoLines("No cfg found!", "Creating...", 2);
     cfgfile = SD.open(configpath, FILE_WRITE); // open r/w
 
     if (cfgfile) {
@@ -277,13 +286,17 @@ bool checkConfig(const char *configpath) { // verifies the existance of the conf
       conftemplate += "RED:" + String(MICSCal[0]) + ",OX:" + String(MICSCal[1]) + ",NH3:" + String(MICSCal[2]);
       conftemplate += ";\n#mics_measurements_offsets=";
       conftemplate += "RED:" + String(MICSOffset[0]) + ",OX:" + String(MICSOffset[1]) + ",NH3:" + String(MICSOffset[2]);
+      conftemplate += ";\n#compensation_factors=";
+      conftemplate += "compH:" + String(compH) + ",compT:" + String(compT) + ",compP:" + String(compP);
       conftemplate += ";\n\no3_zero_value disables the O3 sensor when set to -1. For normal operation the default offset is 1489.\n";
       conftemplate += "\nAccepted wifi_power values are: -1, 2, 5, 7, 8.5, 11, 13, 15, 17, 18.5, 19, 19.5 dBm.\n";
       conftemplate += "\nsea_level_altitude is in meters and it must be changed according to the current location of the device. 122.0 meters is the average altitude in Milan, Italy.\n";
       appendFile(SD, configpath, &conftemplate);
       log_i("New config file with template created!\n");
+      drawTwoLines("Done! Please", "insert data!", 2);
     } else {
       log_e("Error writing to SD Card!\n");
+      drawTwoLines("Error while", "writing SD Card!", 2);
     }
 
     return false;
