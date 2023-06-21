@@ -1,0 +1,19 @@
+#ssid=;
+#password=;
+#device_id=;
+#wifi_power=17dBm;
+#o3_zero_value=-1;
+#average_measurements=30;
+#average_delay(seconds)=55;
+#sea_level_altitude=122.00;
+#upload_server=;
+#mics_calibration_values=RED:955,OX:900,NH3:163;
+#mics_measurements_offsets=RED:0,OX:0,NH3:0;
+#compensation_factors=compH:0.6,compT:1.352,compP:0.0132;
+
+o3_zero_value disables the O3 sensor when set to -1. For normal operation the default offset is 1489.
+
+Accepted wifi_power values are: -1, 2, 5, 7, 8.5, 11, 13, 15, 17, 18.5, 19, 19.5 dBm.
+
+sea_level_altitude is in meters and it must be changed according to the current location of the device. 122.0 meters is the average altitude in Milan, Italy.
+
