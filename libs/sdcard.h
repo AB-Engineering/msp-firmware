@@ -45,25 +45,6 @@ bool initializeSD() { // checks for SD Card presence and type
 
 //+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
-void appendFile(fs::FS &fs, const char *path, String *message) { // appends a new line to a specified file
-
-  log_v("Appending to file: %s", path);
-  File file = fs.open(path, FILE_APPEND);
-  if (!file) {
-    log_e("Failed to open file for appending!\n");
-    return;
-  }
-  if (file.println(*message)) {
-    log_v("String appended\n");
-  } else {
-    log_e("Append failed!\n");
-  }
-  file.close();
-
-}
-
-//+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-
 bool parseConfig(File fl) { // parses the configuration file on the SD Card
 
 #define LINES 12
@@ -270,7 +251,6 @@ bool checkConfig(const char *configpath) { // verifies the existance of the conf
     cfgfile = SD.open(configpath, FILE_WRITE); // open r/w
 
     if (cfgfile) {
-      cfgfile.close();
       // template for default config file
       String conftemplate = "#ssid=;\n#password=;\n#device_id=;\n#wifi_power=";
       conftemplate += "17dBm";
@@ -291,8 +271,9 @@ bool checkConfig(const char *configpath) { // verifies the existance of the conf
       conftemplate += ";\n\no3_zero_value disables the O3 sensor when set to -1. For normal operation the default offset is 1489.\n";
       conftemplate += "\nAccepted wifi_power values are: -1, 2, 5, 7, 8.5, 11, 13, 15, 17, 18.5, 19, 19.5 dBm.\n";
       conftemplate += "\nsea_level_altitude is in meters and it must be changed according to the current location of the device. 122.0 meters is the average altitude in Milan, Italy.\n";
-      appendFile(SD, configpath, &conftemplate);
+      cfgfile.println(conftemplate);
       log_i("New config file with template created!\n");
+      cfgfile.close();
       drawTwoLines("Done! Please", "insert data!", 2);
     } else {
       log_e("Error writing to SD Card!\n");
@@ -312,11 +293,11 @@ bool checkLogFile() { // verifies the existance of the csv log using the logpath
     log_e("Couldn't find log file. Creating a new one...\n");
     File filecsv = SD.open(logpath, FILE_WRITE);
 
-    if (filecsv) { // Creating logfile and appending header string
-      filecsv.close();
+    if (filecsv) { // Creating logfile and adding header string
       String heads = "sent_ok?;recordedAt;date;time;temp;hum;PM1;PM2_5;PM10;pres;radiation;nox;co;nh3;o3;voc;msp";
-      appendFile(SD, logpath.c_str(), &heads);
+      filecsv.println(heads);
       log_i("Log file created!\n");
+      filecsv.close();
       return true;
     }
 
@@ -340,6 +321,10 @@ bool addToLog(fs::FS &fs, const char path[], String *message) { // adds new line
     log_e("Error opening the log file!");
     return false;
   }
+  if (SD.exists("/templog")) {
+    fs.remove("/templog"); // deleting leftover temp log
+    log_v("Deleted leftover templog!");
+  }
   File tempfile = fs.open("/templog", FILE_WRITE);
   if (!tempfile) {
     log_e("Error creating templog!");
@@ -347,10 +332,9 @@ bool addToLog(fs::FS &fs, const char path[], String *message) { // adds new line
     return false;
   }
   while (logfile.available()) { // copies entire log file into temp log
-    temp = logfile.readStringUntil('\r'); //reads until carriage return character
-    tempfile.print(temp);
-    tempfile.print('~'); // uses ~ to separate lines
-    temp = logfile.readStringUntil('\n'); //discarding line feed character
+    temp = logfile.readStringUntil('\r'); //reads until CR character
+    tempfile.println(temp);
+    logfile.readStringUntil('\n'); // consumes LF character (uses DOS-style CRLF)
   }
   logfile.close();
   tempfile.close();
@@ -365,12 +349,16 @@ bool addToLog(fs::FS &fs, const char path[], String *message) { // adds new line
     log_e("Error reopening templog!");
     return false;
   }
-  temp = tempfile.readStringUntil('~'); // copying the header line from tempfile
-  logfile.println(temp);
-  logfile.println(*message); // printing the new string
-  while (tempfile.available()) { // copying the remaining lines
-    temp = tempfile.readStringUntil('~');
+  bool newline_ok = false;
+  while (tempfile.available()) { // copy back the tempfile
+    temp = tempfile.readStringUntil('\r'); // reads until CR character
     logfile.println(temp);
+    tempfile.readStringUntil('\n'); // consumes LF character (uses DOS-style CRLF)
+    if (!newline_ok) {
+      logfile.println(*message); // printing the new string, only once and after the header
+      log_v("New line added!\n");
+      newline_ok = true;
+    }
   }
   tempfile.close();
   logfile.close();
@@ -393,44 +381,59 @@ void logToSD() { // builds a new logfile line and calls addToLog() (using logpat
   // Data is layed out as follows:
   // "sent_ok?;recordedAt;date;time;temp;hum;PM1;PM2_5;PM10;pres;radiation;nox;co;nh3;o3;voc;msp"
   
-  logvalue += (sent_ok) ? "OK" : "ERROR"; logvalue += ";";
-  logvalue += String(timeFormat); logvalue += ";";
-  logvalue += String(Date); logvalue += ";";
-  logvalue += String(Time); logvalue += ";";
+  logvalue += (sent_ok) ? "OK" : "ERROR";
+  logvalue += ";";
+  logvalue += String(timeFormat);
+  logvalue += ";";
+  logvalue += String(Date);
+  logvalue += ";";
+  logvalue += String(Time);
+  logvalue += ";";
   if (BME_run) {
     logvalue += floatToComma(temp);
-  } logvalue += ";";
+  }
+  logvalue += ";";
   if (BME_run) {
     logvalue += floatToComma(hum);
-  } logvalue += ";";
+  }
+  logvalue += ";";
   if (PMS_run) {
     logvalue += String(PM1);
-  } logvalue += ";";
+  }
+  logvalue += ";";
   if (PMS_run) {
     logvalue += String(PM25);
-  } logvalue += ";";
+  }
+  logvalue += ";";
   if (PMS_run) {
     logvalue += String(PM10);
-  } logvalue += ";";
+  }
+  logvalue += ";";
   if (BME_run) {
     logvalue += floatToComma(pre);
-  } logvalue += ";";
+  }
+  logvalue += ";";
   logvalue += ";"; // for "radiation"
   if (MICS_run) {
     logvalue += floatToComma(MICS_NO2);
-  } logvalue += ";";
+  }
+  logvalue += ";";
   if (MICS_run) {
     logvalue += floatToComma(MICS_CO);
-  } logvalue += ";";
+  }
+  logvalue += ";";
   if (MICS_run) {
     logvalue += floatToComma(MICS_NH3);
-  } logvalue += ";";
+  }
+  logvalue += ";";
   if (O3_run) {
     logvalue += floatToComma(ozone);
-  } logvalue += ";";
+  }
+  logvalue += ";";
   if (BME_run) {
     logvalue += floatToComma(VOC);
-  } logvalue += ";";
+  }
+  logvalue += ";";
   logvalue += String(MSP);
 
   if (addToLog(SD, logpath.c_str(), &logvalue)) {
