@@ -486,15 +486,23 @@ void loop() {
       errcount = 0;
       while (1) {
 
+        if (millis() < 3600000) {
+          log_e("MICS6814 sensor is still heating up, needs 1h from boot (3600 seconds)");
+          log_v("Time since bootup: %d seconds.", millis()/1000);
+          log_e("\n");
+          MICSfails++;
+          break;
+        }
+
         float micsread[3]; // array for temporary readings
 
         micsread[0] = gas.measureCO();
         micsread[1] = gas.measureNO2();
         micsread[2] = gas.measureNH3();
 
-        if (micsread[0] < 0 || micsread[0] > 50 || micsread[1] < 0 || micsread[1] > 0.6 || micsread[2] < 0 || micsread[2] > 50) {
+        if (micsread[0] < 0 || micsread[1] < 0 || micsread[2] < 0) {
           if (errcount > 2) {
-            log_e("Error while sampling MICS6814 sensor!");
+            log_e("Error while sampling!");
             MICSfails++;
             break;
           }
@@ -503,14 +511,17 @@ void loop() {
           continue;
         }
 
-        log_v("CO(ppm): %.3f", micsread[0]);
+        micsread[0] = convertPpmToUgM3(micsread[0], 28.01);
+        log_v("CO(ug/m3): %.3f", micsread[0]);
         MICS_CO += micsread[0];
 
+        micsread[1] = convertPpmToUgM3(micsread[1], 46.01);
         if (BME_run) micsread[1] = no2AndVocCompensation(micsread[1], currtemp, currpre, currhum) + MICSOffset[2]; // NO2 Compensation
-        log_v("NOx(ppm): %.3f", micsread[1]);
+        log_v("NOx(ug/m3): %.3f", micsread[1]);
         MICS_NO2 += micsread[1];
 
-        log_v("NH3(ppm): %.3f\n", micsread[2]);
+        micsread[2] = convertPpmToUgM3(micsread[2], 17.03);
+        log_v("NH3(ug/m3): %.3f\n", micsread[2]);
         MICS_NH3 += micsread[2];
 
         break;
@@ -601,11 +612,8 @@ void loop() {
   runs = avg_measurements - MICSfails;
   if (MICS_run && runs > 0) {
     MICS_CO /= runs;
-    MICS_CO = convertPpmToUgM3(MICS_CO, 28.01);
     MICS_NO2 /= runs;
-    MICS_NO2 = convertPpmToUgM3(MICS_NO2, 46.01);
     MICS_NH3 /= runs;
-    MICS_NH3 = convertPpmToUgM3(MICS_NH3, 17.03);
   } else if (MICS_run) {
     MICS_run = false;
     senserrs[2] = true;
