@@ -483,15 +483,7 @@ void loop() {
       log_i("Sampling MICS6814 sensor...");
       errcount = 0;
       while (1) {
-        
-        if (millis() < 3600000) {
-          log_e("MICS6814 sensor is still heating up, needs 1h from boot (3600 seconds)");
-          log_v("Time since bootup: %d seconds.", millis()/1000);
-          log_e("\n");
-          MICSfails++;
-          break;
-        }
-        
+                
         float micsread[3]; // array for temporary readings
 
         micsread[0] = gas.measureCO();
