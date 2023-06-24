@@ -312,60 +312,44 @@ bool checkLogFile() { // verifies the existance of the csv log using the logpath
 
 //+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
-bool addToLog(fs::FS &fs, const char path[], String *message) { // adds new line to the log file at the top, after the header lines
+bool addToLog(const char *path, const char *oldpath, String *message) { // adds new line to the log file at the top, after the header lines
   
   String temp = "";
   log_v("Log file is located at: %s\n", path);
-  File logfile = fs.open(path, FILE_READ);
-  if (!logfile) {
-    log_e("Error opening the log file!");
+  log_v("Old path is: %s\n", oldpath);
+  if (!SD.exists(oldpath)) {
+    SD.rename(path, oldpath);
+  } else {
+    if (SD.exists(path)) SD.remove(path);
+    log_e("An error occurred, resuming logging from the old log...\n");
+  }
+  File oldfile = SD.open(oldpath, FILE_READ); // opening the renamed log
+  if (!oldfile) {
+    log_e("Error opening the renamed the log file!");
     return false;
   }
-  if (SD.exists("/templog")) {
-    fs.remove("/templog"); // deleting leftover temp log
-    log_v("Deleted leftover templog!");
-  }
-  File tempfile = fs.open("/templog", FILE_WRITE);
-  if (!tempfile) {
-    log_e("Error creating templog!");
-    logfile.close();
-    return false;
-  }
-  while (logfile.available()) { // copies entire log file into temp log
-    temp = logfile.readStringUntil('\r'); //reads until CR character
-    tempfile.println(temp);
-    logfile.readStringUntil('\n'); // consumes LF character (uses DOS-style CRLF)
-  }
-  logfile.close();
-  tempfile.close();
-  fs.remove(path); // deletes log file
-  logfile = fs.open(path, FILE_WRITE); // recreates empty logfile
+  File logfile = SD.open(path, FILE_WRITE); // recreates empty logfile
   if (!logfile) {
     log_e("Error recreating the log file!");
     return false;
   }
-  tempfile = fs.open("/templog", FILE_READ);
-  if (!tempfile) {
-    log_e("Error reopening templog!");
-    return false;
-  }
   bool newline_ok = false;
-  while (tempfile.available()) { // copy back the tempfile
-    temp = tempfile.readStringUntil('\r'); // reads until CR character
+  while (oldfile.available()) { // copy the old log file with new string added
+    temp = oldfile.readStringUntil('\r'); // reads until CR character
     logfile.println(temp);
-    tempfile.readStringUntil('\n'); // consumes LF character (uses DOS-style CRLF)
+    oldfile.readStringUntil('\n'); // consumes LF character (uses DOS-style CRLF)
     if (!newline_ok) {
       logfile.println(*message); // printing the new string, only once and after the header
       log_v("New line added!\n");
       newline_ok = true;
     }
   }
-  tempfile.close();
+  oldfile.close();
   logfile.close();
-  fs.remove("/templog"); // deleting temp log
+  SD.remove(oldpath); // deleting old log
 
   return true;
-
+  
 }
 
 //+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
@@ -436,7 +420,9 @@ void logToSD() { // builds a new logfile line and calls addToLog() (using logpat
   logvalue += ";";
   logvalue += String(MSP);
 
-  if (addToLog(SD, logpath.c_str(), &logvalue)) {
+  String oldlogpath = logpath + ".old";
+
+  if (addToLog(logpath.c_str(), oldlogpath.c_str(), &logvalue)) {
     log_i("SD Card log file updated successfully!\n");
   } else {
     log_e("Error updating SD Card log file!\n");
