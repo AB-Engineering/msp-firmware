@@ -171,9 +171,8 @@ void setup() {
   pinMode(0, OUTPUT);
   pinMode(2, OUTPUT);
   pinMode(15, OUTPUT);
-  analogReadResolution(12); // ADC settings for ZE25-O3
-  analogSetWidth(12);
-  analogSetAttenuation((adc_attenuation_t)0);
+  pinMode(O3_ADC_PIN, INPUT_PULLDOWN);
+  analogSetAttenuation(ADC_11db);
 
   // BOOT STRINGS ++++++++++++++++++++++++++++++++++++++++++++++++++++++
   Serial.println("\nMILANO SMART PARK");
@@ -296,10 +295,12 @@ void setup() {
 
   // ZE25-O3 ++++++++++++++++++++++++++++++++++++++++++
   drawTwoLines("Detecting ZE25-O3...", "", 1);
+  /*
   if (o3zeroval == -1) { // force detection off by config file, useful for no pulldown resistor cases
     log_i("ZE25-O3 sensor detection is disabled.\n");
     drawTwoLines("Detecting ZE25-O3...", "ZE25-O3 -> Off!", 0);
   } else {
+    */
     if (!isAnalogO3Connected()) {
       log_e("ZE25-O3 sensor not detected!\n");
       drawTwoLines("Detecting ZE25-O3...", "ZE25-O3 -> Err!", 0);
@@ -308,7 +309,7 @@ void setup() {
       drawTwoLines("Detecting ZE25-O3...", "ZE25-O3 -> Ok!", 0);
       O3_run = true;
     }
-  }
+//  }
   delay(1500);
   //+++++++++++++++++++++++++++++++++++++++++++++++++++++
 

@@ -62,10 +62,11 @@ bool checkBMESensor() { // checks BME680 status
 
 bool isAnalogO3Connected() { // checks analog ozone sensor status
 
-  int detect = analogReadMilliVolts(O3_ADC_PIN);
-  log_d("Detect mV: %d", detect);
-  if (detect > 360) return true;
-  return false;
+  int detect = analogRead(O3_ADC_PIN);
+  pinMode(O3_ADC_PIN, INPUT_PULLDOWN); // must invoke after every analogRead
+  log_d("Detected points: %d", detect);
+  if (detect == 0) return false;
+  return true;
 
 }
 
@@ -90,6 +91,7 @@ float analogUgM3O3Read(float *intemp) { // reads and calculates ozone ppm value 
   const short readtimes = 10; // reading 10 times for good measure
   for (short i = 0; i < readtimes; i++) {
     int readnow = analogRead(O3_ADC_PIN);
+    pinMode(O3_ADC_PIN, INPUT_PULLDOWN); // must invoke after every analogRead
     log_v("ADC Read is: %d", readnow);
     points += readnow;
     delay(10);
