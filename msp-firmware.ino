@@ -101,6 +101,7 @@ int avg_delay = 55;
 bool BME_run = false;
 bool PMS_run = false;
 bool MICS_run = false;
+bool MICS4514_run = false;
 bool O3_run = false;
 
 // Variables for BME680
@@ -116,9 +117,10 @@ int PM1 = 0;
 int PM10 = 0;
 int PM25 = 0;
 
-// Variables for MICS6814
+// Variables for MICS
 uint16_t MICSCal[3] = {955, 900, 163}; // default R0 values for the sensor (in order: RED, OX, NH3)
-int MICSOffset[3] = {0, 0, 0}; // default ug/m3 offset values for sensor measurements (in order: RED, OX, NH3)
+int MICSOffset[3] = {0, 0, 0}; // default ppm offset values for sensor measurements (in order: RED, OX, NH3)
+const float MICSmm[3] = {28.01, 46.01, 17.03}; // molar mass of (in order): CO, NO2, NH3
 float MICS_CO = 0.0;
 float MICS_NO2 = 0.0;
 float MICS_NH3 = 0.0;
@@ -293,20 +295,20 @@ void setup() {
   }
   //+++++++++++++++++++++++++++++++++++++++++++++++++++
 
-  // ZE25-O3 ++++++++++++++++++++++++++++++++++++++++++
-  drawTwoLines("Detecting ZE25-O3...", "", 1);
+  // O3 ++++++++++++++++++++++++++++++++++++++++++
+  drawTwoLines("Detecting O3...", "", 1);
   /*
   if (o3zeroval == -1) { // force detection off by config file, useful for no pulldown resistor cases
-    log_i("ZE25-O3 sensor detection is disabled.\n");
-    drawTwoLines("Detecting ZE25-O3...", "ZE25-O3 -> Off!", 0);
+    log_i("O3 sensor detection is disabled.\n");
+    drawTwoLines("Detecting O3...", "O3 -> Off!", 0);
   } else {
     */
     if (!isAnalogO3Connected()) {
-      log_e("ZE25-O3 sensor not detected!\n");
-      drawTwoLines("Detecting ZE25-O3...", "ZE25-O3 -> Err!", 0);
+      log_e("O3 sensor not detected!\n");
+      drawTwoLines("Detecting O3...", "O3 -> Err!", 0);
     } else {
-      log_i("ZE25-O3 sensor detected, running...\n");
-      drawTwoLines("Detecting ZE25-O3...", "ZE25-O3 -> Ok!", 0);
+      log_i("O3 sensor detected, running...\n");
+      drawTwoLines("Detecting O3...", "O3 -> Ok!", 0);
       O3_run = true;
     }
 //  }
@@ -502,16 +504,17 @@ void loop() {
           continue;
         }
 
-        micsread[0] = convertPpmToUgM3(micsread[0], 28.01);
+        micsread[0] = convertPpmToUgM3(micsread[0], MICSmm[0]);
         log_v("CO(ug/m3): %.3f", micsread[0]);
         MICS_CO += micsread[0];
 
-        micsread[1] = convertPpmToUgM3(micsread[1], 46.01);
-        if (BME_run) micsread[1] = no2AndVocCompensation(micsread[1], currtemp, currpre, currhum) + MICSOffset[2]; // NO2 Compensation
+        micsread[1] += MICSOffset[1]; //add ppm offset
+        micsread[1] = convertPpmToUgM3(micsread[1], MICSmm[1]);
+        if (BME_run) micsread[1] = no2AndVocCompensation(micsread[1], currtemp, currpre, currhum); // NO2 Compensation
         log_v("NOx(ug/m3): %.3f", micsread[1]);
         MICS_NO2 += micsread[1];
 
-        micsread[2] = convertPpmToUgM3(micsread[2], 17.03);
+        micsread[2] = convertPpmToUgM3(micsread[2], MICSmm[2]);
         log_v("NH3(ug/m3): %.3f\n", micsread[2]);
         MICS_NH3 += micsread[2];
 
@@ -520,15 +523,15 @@ void loop() {
     }
     //+++++++++++++++++++++++++++++++++++++++++++++++++++++
 
-    //+++++++++ READING ZE25-O3 ++++++++++++
+    //+++++++++ READING O3 ++++++++++++
     if (O3_run) {
       float o3read = 0.0; // temporary read var
-      log_i("Sampling ZE25-O3 sensor...");
+      log_i("Sampling O3 sensor...");
       errcount = 0;
       while (1) {
         if (!isAnalogO3Connected()) {
           if (errcount > 2) {
-            log_e("Error while sampling ZE25-O3 sensor!");
+            log_e("Error while sampling O3 sensor!");
             O3fails++;
             break;
           }
@@ -559,9 +562,7 @@ void loop() {
   //------------------------------------------------------------------------
 
 
-  //+++++++++++ PERFORMING AVERAGES AND POST MEASUREMENTS TASKS ++++++++++++++++++++++++++++++++++++++++++
-
-  log_i("Performing averages and converting to ug/m3...\n");
+  log_i("Performing averages...\n");
 
   short runs = avg_measurements - BMEfails;
   if (BME_run && runs > 0) {
@@ -621,16 +622,11 @@ void loop() {
   // MSP# Index evaluation
   MSP = evaluateMSPIndex(PM25, MICS_NO2, ozone); // implicitly casting PM25 as float for MSP evaluation only
 
-  //++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-
-  //+++++++++++ RECONNECTING AND UPDATING DATE/TIME +++++++++++++++++++++
   if (cfg_ok) {
     connAndGetTime();
   }
-  //++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
-  //+++++++++++++ SERIAL LOGGING  +++++++++++++++++++++++
-  Serial.println("Measurements log:\n");
+  Serial.println("Measurements log:\n"); // Log measurements to serial output
   Serial.println("Date&time: " + String(Date) + " " + String(Time) + "\n");
   if (BME_run) {
     Serial.println("Temperature: " + floatToComma(temp) + "°C");
@@ -652,128 +648,20 @@ void loop() {
     Serial.println("NH3: " + floatToComma(MICS_NH3) + "ug/m3");
   }
   Serial.println();
-  //++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
-  //+++++++++++  UPDATING DISPLAY  ++++++++++++++++++++++++++++++++++++++++++
-  drawMeasurements();
-  //++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-
-
-  //++++++  UPDATING SERVER VIA HTTPS ++++++++++++++++++++++++++++++++++++++++++++
+  drawMeasurements(); // draw on display
 
   if (server_ok && connected_ok && datetime_ok) {
-
-    time_t epochTime = mktime(&timeinfo); // converting UTC date&time in UNIX Epoch Time format
-
-    client.setVerificationTime((epochTime / 86400UL) + 719528UL, epochTime % 86400UL); // setting SLLClient's verification time to current time while converting UNIX Epoch Time to BearSSL's expected format
-
-    auto start = millis(); // time for connection
-    Serial.println("Uploading data to server through HTTPS in progress...\n");
-    drawTwoLines("Uploading data", "to server...", 0);
-
-    short retries = 0;
-    while (retries < 4) {
-      if (client.connect(server.c_str(), 443)) {
-        log_i("Connection to server made! Time: %d\n", millis() - start);
-        // Building the post string:
-        String postStr = "X-MSP-ID=" + deviceid;
-        if (BME_run) {
-          postStr += "&temp=";
-          postStr += String(temp, 3);
-          postStr += "&hum=";
-          postStr += String(hum, 3);
-          postStr += "&pre=";
-          postStr += String(pre, 3);
-          postStr += "&voc=";
-          postStr += String(VOC, 3);
-        }
-        if (MICS_run) {
-          postStr += "&cox=";
-          postStr += String(MICS_CO, 3);
-          postStr += "&nox=";
-          postStr += String(MICS_NO2, 3);
-          postStr += "&nh3=";
-          postStr += String(MICS_NH3, 3);
-        }
-        if (PMS_run) {
-          postStr += "&pm1=";
-          postStr += String(PM1);
-          postStr += "&pm25=";
-          postStr += String(PM25);
-          postStr += "&pm10=";
-          postStr += String(PM10);
-        }
-        if (O3_run) {
-          postStr += "&o3=";
-          postStr += String(ozone, 3);
-        }
-        postStr += "&msp=";
-        postStr += String(MSP);
-        postStr += "&recordedAt=";
-        postStr += String(epochTime);
-
-        // Sending client requests
-        String postLine = "POST /api/v1/records HTTP/1.1\nHost: " + server + "\nAuthorization: Bearer " + api_secret_salt + ":" + deviceid + "\n";
-        postLine += "Connection: close\nUser-Agent: MilanoSmartPark\nContent-Type: application/x-www-form-urlencoded\nContent-Length: " + String(postStr.length());
-        log_d("Post line:\n%s\n", postLine.c_str());
-        log_d("Post string: %s\n", postStr.c_str());
-        client.print(postLine + "\n\n" + postStr);
-        client.flush();
-
-        // Get answer from server
-        start = millis();
-        String answLine = "";
-        while (client.available()) {
-          char c = client.read();
-          answLine += c;
-          auto timeout = millis() - start;
-          if (timeout > 10000) break;
-        }
-        client.stop(); // Stopping the client
-
-        // Check server answer
-        if (answLine.startsWith("HTTP/1.1 201 Created", 0)) {
-          log_i("Server answer ok! Data uploaded successfully!\n");
-          drawTwoLines("Data uploaded", "successfully!", 2);
-          sent_ok = true;
-        } else {
-          log_e("Server answered with an error! Data not uploaded!\n");
-          log_e("The full answer is:\n%s\n", answLine.c_str());
-          drawTwoLines("Serv answ error!", "Data not sent!", 10);
-        }
-        break; // exit
-
-      } else {
-        log_e("Error while connecting to server!");
-        String mesg = "";
-        if (retries == 3) {
-          log_e("Data not uploaded!\n");
-          mesg = "Data not sent!";
-        } else {
-          log_i("Trying again, %d retries left...\n", 3 - retries);
-          mesg = String(3 - retries) + " retries left...";
-        }
-        drawTwoLines("Serv conn error!", mesg.c_str(), 10);
-        retries++;
-
-      }
-    }
+    connectToServer();
   }
 
-  //++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-
-
-  //+++++++++++++ SD CARD LOGGING ++++++++++++++++++++++++++++++++++++++++++
   if (SD_ok) {
     if (checkLogFile()) {
       logToSD();
     }
   }
-  //++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
-
-  //+++++++++++++ RESTORE SENSOR FROM ERROR ++++++++++++++++++++++++++++++++++++++++++
-  for (short i = 0; i < 4; i++) {
+  for (short i = 0; i < 4; i++) { // restore sensors from errors
     if (senserrs[i] == true) {
       switch (i) {
         case 0:
@@ -791,8 +679,5 @@ void loop() {
       }
     }
   }
-  //++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
-
-
-}// end of LOOP
+}
