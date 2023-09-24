@@ -13,6 +13,11 @@
 #define I2C_SDA_PIN 21
 #define I2C_SCL_PIN 22
 
+// PMS5003 serial pins
+// with WROVER module don't use UART 2 mode on pins 16 and 17: it crashes!
+#define PMSERIAL_RX 14
+#define PMSERIAL_TX 12
+
 // O3 sensor ADC pin
 #define O3_ADC_PIN 32
 
@@ -62,9 +67,9 @@ String server = "";
 bool server_ok = false;
 #endif
 
-// Analog pin 32 (Ozone sensor raw adc data) to get semi-random data from for SSL
+// Pin to get semi-random data from for SSL
 // Pick a pin that's not connected or attached to a randomish voltage source
-const int rand_pin = 32;
+const int rand_pin = 27;
 
 // Initialize the SSL client library
 // We input a WiFi Client, our trust anchors, and the analog pin
@@ -72,7 +77,6 @@ WiFiClient base_client;
 SSLClient client(base_client, TAs, (size_t)TAs_NUM, rand_pin, 1, SSLClient::SSL_ERROR);
 
 // Hardware UART definitions. Modes: UART0=0(debug out); UART1=1; UART2=2
-// HardwareSerial sim800Serial(1);
 HardwareSerial pmsSerial(2);
 
 // BME680, PMS5003 and MICS6814 sensors instances
@@ -145,7 +149,7 @@ short MSP = -1; // set to -1 to distinguish from grey (0)
 // Sending data to server was successful?
 bool sent_ok = false;
 
-// Include system functions ordered on dependencies
+// Include system functions
 #include "libs/sensors.h"
 #include "libs/display.h"
 #include "libs/sdcard.h"
@@ -165,14 +169,9 @@ void setup() {
   
   // SET UNUSED PINS TO OUTPUT AND ADC ++++++++++++++++++++++++++++++++++++
   pinMode(33, OUTPUT);
-  pinMode(25, OUTPUT);
-  pinMode(26, OUTPUT);
-  pinMode(27, OUTPUT);
   pinMode(13, OUTPUT);
-  pinMode(4, OUTPUT);
-  pinMode(0, OUTPUT);
-  pinMode(2, OUTPUT);
-  pinMode(15, OUTPUT);
+  pinMode(26, OUTPUT);
+  pinMode(25, OUTPUT);
   pinMode(O3_ADC_PIN, INPUT_PULLDOWN);
   analogSetAttenuation(ADC_11db);
 
@@ -252,8 +251,7 @@ void setup() {
   //+++++++++++++++++++++++++++++++++++++++++++++
 
   // PMS5003 ++++++++++++++++++++++++++++++++++++
-  // pmsSerial: with WROVER module don't use UART 2 mode on pins 16 and 17: it crashes!
-  pmsSerial.begin(9600, SERIAL_8N1, 14, 12); // baud, type, ESP_RX, ESP_TX
+  pmsSerial.begin(9600, SERIAL_8N1, PMSERIAL_RX, PMSERIAL_TX); // baud, type, ESP_RX, ESP_TX
   delay(1500);
   drawTwoLines("Detecting PMS5003...", "", 0);
   pms.wakeUp(); // Waking up sensor after sleep
@@ -297,12 +295,6 @@ void setup() {
 
   // O3 ++++++++++++++++++++++++++++++++++++++++++
   drawTwoLines("Detecting O3...", "", 1);
-  /*
-  if (o3zeroval == -1) { // force detection off by config file, useful for no pulldown resistor cases
-    log_i("O3 sensor detection is disabled.\n");
-    drawTwoLines("Detecting O3...", "O3 -> Off!", 0);
-  } else {
-    */
     if (!isAnalogO3Connected()) {
       log_e("O3 sensor not detected!\n");
       drawTwoLines("Detecting O3...", "O3 -> Err!", 0);
@@ -311,13 +303,12 @@ void setup() {
       drawTwoLines("Detecting O3...", "O3 -> Ok!", 0);
       O3_run = true;
     }
-//  }
   delay(1500);
   //+++++++++++++++++++++++++++++++++++++++++++++++++++++
 
   //+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
-  // CONNECT TO WIFI AND GET DATE&TIME +++++++++++++++++++++++++++++++++++++++++++++++++++
+  // CONNECT TO INTERNET AND GET DATE&TIME +++++++++++++++++++++++++++++++++++++++++++++++++++
   if (cfg_ok) {
     connAndGetTime();
   }
@@ -626,28 +617,7 @@ void loop() {
     connAndGetTime();
   }
 
-  Serial.println("Measurements log:\n"); // Log measurements to serial output
-  Serial.println("Date&time: " + String(Date) + " " + String(Time) + "\n");
-  if (BME_run) {
-    Serial.println("Temperature: " + floatToComma(temp) + "°C");
-    Serial.println("Humidity: " + floatToComma(hum) + "%");
-    Serial.println("Pressure: " + floatToComma(pre) + "hPa");
-    Serial.println("VOC: " + floatToComma(VOC) + "kOhm");
-  }
-  if (PMS_run) {
-    Serial.println("PM10: " + String(PM10) + "ug/m3");
-    Serial.println("PM2,5: " + String(PM25) + "ug/m3");
-    Serial.println("PM1: " + String(PM1) + "ug/m3");
-  }
-  if (O3_run) {
-    Serial.println("O3: " + floatToComma(ozone) + "ug/m3");
-  }
-  if (MICS_run) {
-    Serial.println("NOx: " + floatToComma(MICS_NO2) + "ug/m3");
-    Serial.println("CO: " + floatToComma(MICS_CO) + "ug/m3");
-    Serial.println("NH3: " + floatToComma(MICS_NH3) + "ug/m3");
-  }
-  Serial.println();
+  printMeasurementsOnSerial();
 
   drawMeasurements(); // draw on display
 

@@ -11,6 +11,9 @@
 
 // Network Management Functions
 
+#ifndef NETWORK_H
+#define NETWORK_H
+
 //+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
 void timeavailable(struct timeval *t) { // Callback function (gets called when time adjusts via NTP)
@@ -230,3 +233,5 @@ void connectToServer() {
 }
 
 //+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
+#endif

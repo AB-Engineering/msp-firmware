@@ -11,6 +11,9 @@
 
 // Display Management Functions
 
+#ifndef DISPLAY_H
+#define DISPLAY_H
+
 #include "icons.h"
 
 //+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
@@ -162,3 +165,5 @@ void drawMicsValues(uint16_t redval, uint16_t oxval, uint16_t nh3val) { // draw 
 }
 
 //+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
+#endif

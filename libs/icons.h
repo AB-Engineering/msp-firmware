@@ -11,6 +11,9 @@
 
 // Firmware Icons
 
+#ifndef ICONS_H
+#define ICONS_H
+
 //+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
 static unsigned char msp_icon64x64[] = { // Milano Smart Park project logo
@@ -186,3 +189,5 @@ unsigned char clock_icon16x16[] = {
 };
 
 //+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
+#endif

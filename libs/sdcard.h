@@ -11,6 +11,9 @@
 
 // SD Card and File Management Functions
 
+#ifndef SDCARD_H
+#define SDCARD_H
+
 //+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
 bool initializeSD() { // checks for SD Card presence and type
@@ -432,3 +435,5 @@ void logToSD() { // builds a new logfile line and calls addToLog() (using logpat
 }
 
 //+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
+#endif

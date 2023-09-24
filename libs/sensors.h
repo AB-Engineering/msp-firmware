@@ -11,33 +11,34 @@
 
 // Sensors and Data Management Functions
 
+#ifndef SENSORS_H
+#define SENSORS_H
+
 //+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
-String floatToComma(float value) { // converts float values in strings with the decimal part separated from the integer part by a comma
+String floatToComma(float value) {  // converts float values in strings with the decimal part separated from the integer part by a comma
 
   String convert = String(value, 3);
   convert.replace(".", ",");
   return convert;
-
 }
 
 //+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
-float convertPpmToUgM3(float ppm, float mm) { // calculates ug/m3 from a gas ppm concentration
+float convertPpmToUgM3(float ppm, float mm) {  // calculates ug/m3 from a gas ppm concentration
 
   // mm is molar mass and must be g/mol
   // using OSHA standard conditions to perform the conversion
   float T = 25.0;
   float P = 1013.25;
-  const float R = 83.1446261815324; //gas constant (L * hPa * K^−1 * mol^−1)
-  float Vm = (R * (T + 273.15)) / P; //molar volume (L * mol^-1)
+  const float R = 83.1446261815324;   //gas constant (L * hPa * K^−1 * mol^−1)
+  float Vm = (R * (T + 273.15)) / P;  //molar volume (L * mol^-1)
   return (ppm * 1000) * (mm / Vm);
-
 }
 
 //+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
-bool checkBMESensor() { // checks BME680 status
+bool checkBMESensor() {  // checks BME680 status
 
   if (bme680.bsecStatus < BSEC_OK) {
     log_e("BSEC error, status %d!", bme680.bsecStatus);
@@ -55,43 +56,40 @@ bool checkBMESensor() { // checks BME680 status
 
   bme680.bsecStatus = BSEC_OK;
   return true;
-
 }
 
 //+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
-bool isAnalogO3Connected() { // checks analog ozone sensor status
+bool isAnalogO3Connected() {  // checks analog ozone sensor status
 
   int detect = analogRead(O3_ADC_PIN);
-  pinMode(O3_ADC_PIN, INPUT_PULLDOWN); // must invoke after every analogRead
+  pinMode(O3_ADC_PIN, INPUT_PULLDOWN);  // must invoke after every analogRead
   log_d("Detected points: %d", detect);
   if (detect == 0) return false;
   return true;
-
 }
 
 //+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
-float no2AndVocCompensation(float inputGas, float currtemp, float currpre, float currhum) { // for NO2 and VOC gas compensations
+float no2AndVocCompensation(float inputGas, float currtemp, float currpre, float currhum) {  // for NO2 and VOC gas compensations
 
-  return (inputGas*(((currhum + 50)/100)*compH)) + ((currtemp-25)*compT) - ((currpre-1013.25)*compP);
-
+  return (inputGas * (((currhum + 50) / 100) * compH)) + ((currtemp - 25) * compT) - ((currpre - 1013.25) * compP);
 }
 
 //+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
-float analogUgM3O3Read(float *intemp) { // reads and calculates ozone ppm value from analog ozone sensor
+float analogUgM3O3Read(float *intemp) {  // reads and calculates ozone ppm value from analog ozone sensor
 
   int points = 0;
-  float T = 25.0; // initialized at OSHA standard conditions for temperature compensation
+  float T = 25.0;  // initialized at OSHA standard conditions for temperature compensation
   if (BME_run) {
-    T = *intemp; // using current measured temperature
+    T = *intemp;  // using current measured temperature
     log_d("Current measured temperature is %.3f", T);
   }
-  const short readtimes = 10; // reading 10 times for good measure
+  const short readtimes = 10;  // reading 10 times for good measure
   for (short i = 0; i < readtimes; i++) {
     int readnow = analogRead(O3_ADC_PIN);
-    pinMode(O3_ADC_PIN, INPUT_PULLDOWN); // must invoke after every analogRead
+    pinMode(O3_ADC_PIN, INPUT_PULLDOWN);  // must invoke after every analogRead
     log_v("ADC Read is: %d", readnow);
     points += readnow;
     delay(10);
@@ -100,30 +98,28 @@ float analogUgM3O3Read(float *intemp) { // reads and calculates ozone ppm value 
   log_d("ADC Read averaged is: %d", points);
   points -= o3zeroval;
   if (points <= 0) return 0.0;
-  return ((points * 2.03552924) * 12.187 * 48) / (273.15 + T); // temperature compensated
-
+  return ((points * 2.03552924) * 12.187 * 48) / (273.15 + T);  // temperature compensated
 }
 
 //+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
-void writeMicsValues() { // write firmware calibration values into MICS6814's EEPROM
+void writeMicsValues() {  // write firmware calibration values into MICS6814's EEPROM
 
   // Store new base resistance values in EEPROM
   Wire.beginTransmission(DATA_I2C_ADDR);
   Wire.write(CMD_V2_SET_R0);
-  Wire.write(MICSCal[2] >> 8); // NH3
+  Wire.write(MICSCal[2] >> 8);  // NH3
   Wire.write(MICSCal[2] & 0xFF);
-  Wire.write(MICSCal[0] >> 8); // RED
+  Wire.write(MICSCal[0] >> 8);  // RED
   Wire.write(MICSCal[0] & 0xFF);
-  Wire.write(MICSCal[1] >> 8); // OX
+  Wire.write(MICSCal[1] >> 8);  // OX
   Wire.write(MICSCal[1] & 0xFF);
   Wire.endTransmission();
-
 }
 
 //+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
-bool checkMicsValues() { // check if MICS6814 internal values are the same as firmware defaults
+bool checkMicsValues() {  // check if MICS6814 internal values are the same as firmware defaults
 
   uint16_t redR0, oxR0, nh3R0;
   redR0 = gas.getBaseResistance(CH_RED);
@@ -133,17 +129,44 @@ bool checkMicsValues() { // check if MICS6814 internal values are the same as fi
     return true;
   }
   return false;
-
 }
 
 //+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
-short evaluateMSPIndex(float pm25, float nox, float o3) { // evaluates the MSP# index from ug/m3 concentrations of specific gases using standard IAQ values (needs 1h averages)
+void printMeasurementsOnSerial() {
+
+  Serial.println("Measurements log:\n");  // Log measurements to serial output
+  Serial.println("Date&time: " + String(Date) + " " + String(Time) + "\n");
+  if (BME_run) {
+    Serial.println("Temperature: " + floatToComma(temp) + "°C");
+    Serial.println("Humidity: " + floatToComma(hum) + "%");
+    Serial.println("Pressure: " + floatToComma(pre) + "hPa");
+    Serial.println("VOC: " + floatToComma(VOC) + "kOhm");
+  }
+  if (PMS_run) {
+    Serial.println("PM10: " + String(PM10) + "ug/m3");
+    Serial.println("PM2,5: " + String(PM25) + "ug/m3");
+    Serial.println("PM1: " + String(PM1) + "ug/m3");
+  }
+  if (O3_run) {
+    Serial.println("O3: " + floatToComma(ozone) + "ug/m3");
+  }
+  if (MICS_run) {
+    Serial.println("NOx: " + floatToComma(MICS_NO2) + "ug/m3");
+    Serial.println("CO: " + floatToComma(MICS_CO) + "ug/m3");
+    Serial.println("NH3: " + floatToComma(MICS_NH3) + "ug/m3");
+  }
+  Serial.println();
+}
+
+//+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
+short evaluateMSPIndex(float pm25, float nox, float o3) {  // evaluates the MSP# index from ug/m3 concentrations of specific gases using standard IAQ values (needs 1h averages)
 
   // possible returned values are: 0 -> n.d.(grey); 1 -> good(green); 2 -> acceptable(yellow); 3 -> bad(red); 4 -> really bad(black)
   log_i("Evaluating MSP# index...\n");
 
-  short msp[3] = {0, 0, 0}; // msp[0] is for pm2.5, msp[1] is for nox, msp[2] is for o3
+  short msp[3] = { 0, 0, 0 };  // msp[0] is for pm2.5, msp[1] is for nox, msp[2] is for o3
 
   if (PMS_run) {
     if (pm25 > 50) msp[0] = 4;
@@ -164,15 +187,16 @@ short evaluateMSPIndex(float pm25, float nox, float o3) { // evaluates the MSP# 
     else msp[2] = 1;
   }
 
-  if (msp[0] > 0 && msp[1] > 0 && msp[2] > 0 && (msp[0] == msp [1] || msp[0] == msp[2] || msp[1] == msp[2])) { //return the most dominant
+  if (msp[0] > 0 && msp[1] > 0 && msp[2] > 0 && (msp[0] == msp[1] || msp[0] == msp[2] || msp[1] == msp[2])) {  //return the most dominant
     if (msp[1] == msp[2]) return msp[1];
     else return msp[0];
-  } else { // return the worst one
+  } else {  // return the worst one
     if (msp[0] > msp[1] && msp[0] > msp[2]) return msp[0];
     else if (msp[1] > msp[2]) return msp[1];
     else return msp[2];
   }
-
 }
 
 //+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
+#endif
