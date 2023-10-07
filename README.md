@@ -21,6 +21,7 @@ Libraries listed below can be installed through the Arduino IDE Library Manager:
 - [SSLClient Library](https://github.com/OPEnSLab-OSU/SSLClient) version 1.6.11
 - [BSEC Arduino library](https://github.com/BoschSensortec/BSEC-Arduino-library) version 1.8.1492
 - [PMS Library](https://github.com/fu-hsi/pms) version 1.1.0
+- [TinyGSM Library](https://github.com/vshymanskyy/TinyGSM) version 0.11.7
 
 You will also need to install a modified version of [MiCS6814-I2C-MOD-Library](https://github.com/eNBeWe/MiCS6814-I2C-Library/network) which is not available through the Arduino Library Manager and [must be imported manually](https://www.arduino.cc/en/Guide/Libraries#importing-a-zip-library):
 - [MiCS6814-I2C-MOD-Library](https://github.com/A-A-Milano-Smart-Park/MiCS6814-I2C-MOD-Library)

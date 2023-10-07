@@ -46,7 +46,11 @@ void drawScrHead() { // draws the screen header on the U8G2 display
     u8g2.drawXBMP(92, 0, 16, 16, clock_icon16x16);
   }
   if (connected_ok) {
-    u8g2.drawXBMP(112, 0, 16, 16, wifi1_icon16x16);
+    if (use_modem) {
+      u8g2.drawXBMP(112, 0, 16, 16, mobile_icon16x16);
+    } else {
+      u8g2.drawXBMP(112, 0, 16, 16, wifi1_icon16x16);
+    }
   } else {
     u8g2.drawXBMP(112, 0, 16, 16, nocon_icon16x16);
   }

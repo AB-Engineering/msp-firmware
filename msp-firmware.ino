@@ -115,6 +115,7 @@ U8G2_SH1106_128X64_NONAME_F_HW_I2C u8g2(U8G2_R0, U8X8_PIN_NONE, I2C_SCL_PIN, I2C
 bool SD_ok = false;
 bool cfg_ok = false;
 bool connected_ok = false;
+bool use_modem = true;
 bool datetime_ok = false;
 String ssid = "";
 String passw = "";
@@ -190,8 +191,9 @@ void setup() {
   delay(2000); // give time to serial to initialize properly
   Wire.begin(I2C_SDA_PIN, I2C_SCL_PIN);
   u8g2.begin();
-  
-  // SET UNUSED PINS TO OUTPUT AND ADC ++++++++++++++++++++++++++++++++++++
+  //+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
+  // SET PIN MODES ++++++++++++++++++++++++++++++++++++
   pinMode(33, OUTPUT);
   pinMode(13, OUTPUT);
   pinMode(26, OUTPUT);
@@ -200,7 +202,7 @@ void setup() {
   analogSetAttenuation(ADC_11db);
   pinMode(MODEM_RST, OUTPUT);
   digitalWrite(MODEM_RST, HIGH);
-  delay(3000);
+  //+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
   // BOOT STRINGS ++++++++++++++++++++++++++++++++++++++++++++++++++++++
   Serial.println("\nMILANO SMART PARK");
