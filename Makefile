@@ -15,7 +15,7 @@ LIBRARIES := \
 	"PMS Library"@1.1.0 \
 	SSLClient@1.6.11 \
 	U8g2@2.34.22 \
-    TinyGSM@0.11.7 \
+    TinyGSM@0.11.7
 LIBRARIES_URLS := \
 	https://github.com/A-A-Milano-Smart-Park/MiCS6814-I2C-MOD-Library
 
