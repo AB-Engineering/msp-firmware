@@ -42,7 +42,7 @@ String ver = "DEV";
 // WiFi Client, NTP time management, Modem and SSL libraries
 #include <WiFi.h>
 #include "time.h"
-#include "sntp.h"
+#include "esp_sntp.h"
 #include <TinyGsmClient.h>
 #include <SSLClient.h>
 #include "libs/trust_anchor.h" // Server Trust Anchor
@@ -77,20 +77,20 @@ bool server_ok = false;
 #if !defined(TINY_GSM_RX_BUFFER) // Increase RX buffer to capture the entire response
 #define TINY_GSM_RX_BUFFER 650
 #endif
-#define TINY_GSM_DEBUG Serial // Define the serial console for debug prints, if needed
+//#define TINY_GSM_DEBUG Serial // Define the serial console for debug prints, if needed
 
 // Hardware UART definitions. Modes: UART0=0(debug out); UART1=1; UART2=2
 HardwareSerial gsmSerial(1);
 HardwareSerial pmsSerial(2);
 
 // Modem instance
-#ifdef DUMP_AT_COMMANDS
-#include <StreamDebugger.h>
-StreamDebugger debugger(gsmSerial, Serial);
-TinyGsm        modem(debugger);
-#else
+//#ifdef DUMP_AT_COMMANDS
+//#include <StreamDebugger.h>
+//StreamDebugger debugger(gsmSerial, Serial);
+//TinyGsm        modem(debugger);
+//#else
 TinyGsm        modem(gsmSerial);
-#endif
+//#endif
 
 // Pin to get semi-random data from for SSL
 // Pick a pin that's not connected or attached to a randomish voltage source
@@ -622,7 +622,7 @@ void loop() {
   drawMeasurements(); // draw on display
 
   if (server_ok && connected_ok && datetime_ok) {
-    connectToServer(wificlient);
+    connectToServer((use_modem) ? gsmclient : wificlient);
   }
 
   if (SD_ok) {

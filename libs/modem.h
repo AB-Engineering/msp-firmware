@@ -22,23 +22,14 @@ void initializeModem() {
   delay(6000);
 
   // Restart takes quite some time
-  log_i("Issuing modem reset...");
+  log_i("Issuing modem reset (takes some time)...");
   modem.restart();
 
-  String name = modem.getModemName();
-  log_d("Modem Name: %s", name.c_str());
+  log_i("Done!");
 
-  String modemInfo = modem.getModemInfo();
-  log_d("Modem Info: %s", modemInfo.c_str());
+  log_d("Modem Name: %s", modem.getModemName().c_str());
 
-  String ccid = modem.getSimCCID();
-  log_d("CCID: %s", ccid.c_str());
-
-  String imei = modem.getIMEI();
-  log_d("IMEI: %s", imei.c_str());
-
-  String imsi = modem.getIMSI();
-  log_d("IMSI: %s", imsi.c_str());
+  log_d("Modem Info: %s", modem.getModemInfo().c_str());
 
 }
 
@@ -46,20 +37,27 @@ void initializeModem() {
 
 bool connectToGPRS() {
 
-  log_i("Waiting for network...");
-  if (!modem.waitForNetwork()) {
-    log_e("Network not found!");
-    return false;
-  }
-/*
-  if (!modem.isNetworkConnected()) {
-    log_e("Couldn't find network!");
-    return false;
-  }
-*/
-  log_i("Connected to network!");
-
   short retries = 0;
+  while (retries < 2) {
+    log_i("Waiting for network...");
+    if (modem.waitForNetwork()) {
+      log_i("Connected to network!");
+      break;
+    }
+    log_e("Couldn't find network!");
+    if (retries < 1) {
+      log_i("Retrying in 10 seconds...");
+      delay(10000);
+    }
+    retries++;
+  }
+
+  if (!modem.isNetworkConnected()) {
+    log_e("Network is not connected!");
+    return false;
+  }
+
+  retries = 0;
   while (retries < 4) {
     log_i("Connecting to GPRS...");
     if (modem.gprsConnect("", "", "")) {
@@ -68,7 +66,7 @@ bool connectToGPRS() {
     }
     log_e("Connection failed!");
     if (retries < 3) {
-      log_e("Retrying in 5 seconds...");
+      log_i("Retrying in 5 seconds...");
       delay(5000);
     }
     retries++;
@@ -78,6 +76,16 @@ bool connectToGPRS() {
     log_e("GPRS is not connected!");
     return false;
   }
+
+  log_d("CCID: %s", modem.getSimCCID().c_str());
+
+  log_d("IMEI: %s", modem.getIMEI().c_str());
+
+  log_d("IMSI: %s", modem.getIMSI().c_str());
+
+  log_d("Operator: %s", modem.getOperator().c_str());
+
+  log_d("Signal quality: &d", modem.getSignalQuality());
 
   return true;
 
