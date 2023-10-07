@@ -4,9 +4,6 @@
 
           This code is usable under the terms and conditions of the
              GNU GENERAL PUBLIC LICENSE Version 3, 29 June 2007
-
-             Parts of this code are based on open source works
-                 freely distributed by Luca Crotti @2019
 */
 
 // Network Management Functions
@@ -128,6 +125,19 @@ void connAndGetTime() { // calls connectWifi and retrieves time from NTP server
     Serial.println();
     delay(3000);
   }
+
+}
+
+//+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
+void printWiFiMacAddress() {
+
+  uint8_t baseMac[6];
+	esp_read_mac(baseMac, ESP_MAC_WIFI_STA);
+	char baseMacChr[18] = {0};
+	sprintf(baseMacChr, "%02X:%02X:%02X:%02X:%02X:%02X", baseMac[0], baseMac[1], baseMac[2], baseMac[3], baseMac[4], baseMac[5]);
+  Serial.println("WIFI MAC ADDRESS: " + String(baseMacChr) + "\n");
+  drawTwoLines("WIFI MAC ADDRESS:", baseMacChr, 6);
 
 }
 

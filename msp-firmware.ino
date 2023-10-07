@@ -3,10 +3,7 @@
                        Developed by Norman Mulinacci
 
           This code is usable under the terms and conditions of the
-             GNU GENERAL PUBLIC LICENSE Version 3, 29 June 2007
-
-             Parts of this code are based on open source works
-                 freely distributed by Luca Crotti @2019
+             GNU GENERAL PUBLIC LICENSE Version 3, 29 June 2007 
 */
 
 // I2C bus pins
@@ -192,41 +189,12 @@ void setup() {
 #endif
   //+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
-  //+++++++++++++ GET MAC ADDRESS FOR WIFI STATION +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-  uint8_t baseMac[6];
-	esp_read_mac(baseMac, ESP_MAC_WIFI_STA);
-	char baseMacChr[18] = {0};
-	sprintf(baseMacChr, "%02X:%02X:%02X:%02X:%02X:%02X", baseMac[0], baseMac[1], baseMac[2], baseMac[3], baseMac[4], baseMac[5]);
-  Serial.println("WIFI MAC ADDRESS: " + String(baseMacChr) + "\n");
-  drawTwoLines("WIFI MAC ADDRESS:", baseMacChr, 6);
-  //++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++  
+  printWiFiMacAddress();
 
-  // SD CARD INIT, CHECK AND PARSE CONFIGURATION ++++++++++++++++++++++++++++++++++++++++++++++++++
-  log_i("Initializing SD Card...\n");
-  drawTwoLines("Initializing", "SD Card...", 1);
-  SD_ok = initializeSD();
-  if (SD_ok) {
-    Serial.println("SD Card ok! Reading configuration...\n");
-    drawTwoLines("SD Card ok!", "Reading config...", 1);
-    cfg_ok = checkConfig("/config_v3.txt");
-    if (!server_ok) {
-      log_e("No server URL defined. Can't upload data!\n");
-      drawTwoLines("No URL defined!", "No upload!", 6);
-    }
-    if (avg_delay < 50) {
-      log_e("AVG_DELAY should be at least 50 seconds! Setting to 50...\n");
-      drawTwoLines("AVG_DELAY less than 50!", "Setting to 50...", 5);
-      avg_delay = 50; // must be at least 45 for PMS5003 compensation routine, 5 seconds extra for reading cycle messages
-    }
-    // setting the logpath variable
-    logpath = "/log_" + deviceid + "_" + ver + ".csv";
-    // checking logfile existance
-    checkLogFile();
-  }
-  // +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+  readSD();
 
   //++++++++++++++++ DETECT AND INIT SENSORS ++++++++++++++++++++++++++++++
-  Serial.println("Detecting and initializing sensors...\n");
+  log_i("Detecting and initializing sensors...\n");
 
   // BME680 +++++++++++++++++++++++++++++++++++++
   drawTwoLines("Detecting BME680...", "", 0);

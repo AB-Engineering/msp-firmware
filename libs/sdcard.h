@@ -4,9 +4,6 @@
 
           This code is usable under the terms and conditions of the
              GNU GENERAL PUBLIC LICENSE Version 3, 29 June 2007
-
-             Parts of this code are based on open source works
-                 freely distributed by Luca Crotti @2019
 */
 
 // SD Card and File Management Functions
@@ -430,6 +427,34 @@ void logToSD() { // builds a new logfile line and calls addToLog() (using logpat
   } else {
     log_e("Error updating SD Card log file!\n");
     drawTwoLines("SD Card log", "error!", 3);
+  }
+
+}
+
+//+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
+void readSD() {
+
+  log_i("Initializing SD Card...\n");
+  drawTwoLines("Initializing", "SD Card...", 1);
+  SD_ok = initializeSD();
+  if (SD_ok) {
+    log_i("SD Card ok! Reading configuration...\n");
+    drawTwoLines("SD Card ok!", "Reading config...", 1);
+    cfg_ok = checkConfig("/config_v3.txt");
+    if (!server_ok) {
+      log_e("No server URL defined. Can't upload data!\n");
+      drawTwoLines("No URL defined!", "No upload!", 6);
+    }
+    if (avg_delay < 50) {
+      log_e("AVG_DELAY should be at least 50 seconds! Setting to 50...\n");
+      drawTwoLines("AVG_DELAY less than 50!", "Setting to 50...", 5);
+      avg_delay = 50; // must be at least 45 for PMS5003 compensation routine, 5 seconds extra for reading cycle messages
+    }
+    // setting the logpath variable
+    logpath = "/log_" + deviceid + "_" + ver + ".csv";
+    // checking logfile existance
+    checkLogFile();
   }
 
 }

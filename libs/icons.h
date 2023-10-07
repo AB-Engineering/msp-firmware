@@ -4,9 +4,6 @@
 
           This code is usable under the terms and conditions of the
              GNU GENERAL PUBLIC LICENSE Version 3, 29 June 2007
-
-             Parts of this code are based on open source works
-                 freely distributed by Luca Crotti @2019
 */
 
 // Firmware Icons
