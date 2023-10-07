@@ -15,6 +15,14 @@
 #define PMSERIAL_RX 14
 #define PMSERIAL_TX 12
 
+// Select modem type
+#define TINY_GSM_MODEM_SIM800
+
+// Serial modem pins
+#define MODEM_RST            4
+#define MODEM_TX             13
+#define MODEM_RX             15
+
 // O3 sensor ADC pin
 #define O3_ADC_PIN 32
 
@@ -31,10 +39,11 @@ String ver = VERSION_STRING;
 String ver = "DEV";
 #endif
 
-// WiFi Client, NTP time management and SSL libraries
+// WiFi Client, NTP time management, Modem and SSL libraries
 #include <WiFi.h>
 #include "time.h"
 #include "sntp.h"
+#include <TinyGsmClient.h>
 #include <SSLClient.h>
 #include "libs/trust_anchor.h" // Server Trust Anchor
 
@@ -64,17 +73,35 @@ String server = "";
 bool server_ok = false;
 #endif
 
+//Modem stuff
+#if !defined(TINY_GSM_RX_BUFFER) // Increase RX buffer to capture the entire response
+#define TINY_GSM_RX_BUFFER 650
+#endif
+#define TINY_GSM_DEBUG Serial // Define the serial console for debug prints, if needed
+
+// Hardware UART definitions. Modes: UART0=0(debug out); UART1=1; UART2=2
+HardwareSerial gsmSerial(1);
+HardwareSerial pmsSerial(2);
+
+// Modem instance
+#ifdef DUMP_AT_COMMANDS
+#include <StreamDebugger.h>
+StreamDebugger debugger(gsmSerial, Serial);
+TinyGsm        modem(debugger);
+#else
+TinyGsm        modem(gsmSerial);
+#endif
+
 // Pin to get semi-random data from for SSL
 // Pick a pin that's not connected or attached to a randomish voltage source
 const int rand_pin = 27;
 
 // Initialize the SSL client library
 // We input a WiFi Client, our trust anchors, and the analog pin
-WiFiClient base_client;
-SSLClient client(base_client, TAs, (size_t)TAs_NUM, rand_pin, 1, SSLClient::SSL_ERROR);
-
-// Hardware UART definitions. Modes: UART0=0(debug out); UART1=1; UART2=2
-HardwareSerial pmsSerial(2);
+WiFiClient wifi_base;
+TinyGsmClient gsm_base(modem);
+SSLClient wificlient(wifi_base, TAs, (size_t)TAs_NUM, rand_pin, 1, SSLClient::SSL_ERROR);
+SSLClient gsmclient(gsm_base, TAs, (size_t)TAs_NUM, rand_pin, 1, SSLClient::SSL_ERROR);
 
 // BME680, PMS5003 and MICS6814 sensors instances
 Bsec bme680;
@@ -83,7 +110,6 @@ MiCS6814 gas;
 
 // Instance for the OLED 1.3" display with the SH1106 controller
 U8G2_SH1106_128X64_NONAME_F_HW_I2C u8g2(U8G2_R0, U8X8_PIN_NONE, I2C_SCL_PIN, I2C_SDA_PIN);   // ESP32 Thing, HW I2C with pin remapping
-
 
 // Global network and system setup variables defaults
 bool SD_ok = false;
@@ -151,6 +177,7 @@ bool sent_ok = false;
 #include "libs/display.h"
 #include "libs/sdcard.h"
 #include "libs/network.h"
+#include "libs/modem.h"
 
 
 //*******************************************************************************************************************************
@@ -171,6 +198,9 @@ void setup() {
   pinMode(25, OUTPUT);
   pinMode(O3_ADC_PIN, INPUT_PULLDOWN);
   analogSetAttenuation(ADC_11db);
+  pinMode(MODEM_RST, OUTPUT);
+  digitalWrite(MODEM_RST, HIGH);
+  delay(3000);
 
   // BOOT STRINGS ++++++++++++++++++++++++++++++++++++++++++++++++++++++
   Serial.println("\nMILANO SMART PARK");
@@ -590,7 +620,7 @@ void loop() {
   drawMeasurements(); // draw on display
 
   if (server_ok && connected_ok && datetime_ok) {
-    connectToServer();
+    connectToServer(wificlient);
   }
 
   if (SD_ok) {

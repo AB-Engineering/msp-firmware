@@ -143,7 +143,7 @@ void printWiFiMacAddress() {
 
 //+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
-void connectToServer() {
+void connectToServer(SSLClient client) {
 
   time_t epochTime = mktime(&timeinfo); // converting UTC date&time in UNIX Epoch Time format
 

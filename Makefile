@@ -9,7 +9,7 @@ PORT := /dev/ttyACM0
 
 ADDITIONAL_URLS := \
 	https://raw.githubusercontent.com/espressif/arduino-esp32/gh-pages/package_esp32_index.json
-CORE := esp32:esp32@2.0.13
+CORE := esp32:esp32@2.0.14
 LIBRARIES := \
 	"BSEC Software Library"@1.8.1492 \
 	"PMS Library"@1.1.0 \

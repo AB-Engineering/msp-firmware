@@ -10,7 +10,7 @@ The project runs on Espressif's ESP32-DevkitC with ESP32-WROVER-B module
 
 ### Required Core (you can also download it through the Arduino IDE):
 
-- [Arduino core for the ESP32](https://github.com/espressif/arduino-esp32) version 2.0.13
+- [Arduino core for the ESP32](https://github.com/espressif/arduino-esp32) version 2.0.14
     + To download the core through the Arduino IDE, you need to add the following URLs in File -> Settings -> Additional URLs:
     https://raw.githubusercontent.com/espressif/arduino-esp32/gh-pages/package_esp32_index.json
 
