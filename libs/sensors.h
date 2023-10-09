@@ -158,6 +158,69 @@ void printMeasurementsOnSerial() {
 
 //+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
+void performAverages(short BMEfails, short PMSfails, short MICSfails, short O3fails, bool senserrs[4]) {
+
+  log_i("Performing averages...\n");
+
+  short runs = avg_measurements - BMEfails;
+  if (BME_run && runs > 0) {
+    temp /= runs;
+    pre /= runs;
+    hum /= runs;
+    VOC /= runs;
+  } else if (BME_run) {
+    BME_run = false;
+    senserrs[0] = true;
+  }
+
+  runs = avg_measurements - PMSfails;
+  if (PMS_run && runs > 0) {
+    float b = 0.0;
+    b = PM1 / runs;
+    if (b - int(b) >= 0.5) {
+      PM1 = int(b) + 1;
+    } else {
+      PM1 = int(b);
+    }
+    b = PM25 / runs;
+    if (b - int(b) >= 0.5) {
+      PM25 = int(b) + 1;
+    } else {
+      PM25 = int(b);
+    }
+    b = PM10 / runs;
+    if (b - int(b) >= 0.5) {
+      PM10 = int(b) + 1;
+    } else {
+      PM10 = int(b);
+    }
+  } else if (PMS_run) {
+    PMS_run = false;
+    senserrs[1] = true;
+  }
+
+  runs = avg_measurements - MICSfails;
+  if (MICS_run && runs > 0) {
+    MICS_CO /= runs;
+    MICS_NO2 /= runs;
+    MICS_NH3 /= runs;
+  } else if (MICS_run) {
+    MICS_run = false;
+    senserrs[2] = true;
+  }
+
+  runs = avg_measurements - O3fails;
+  if (O3_run && runs > 0) {
+    ozone /= runs;
+  } else if (O3_run) {
+    O3_run = false;
+    senserrs[3] = true;
+  }
+
+}
+
+//+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
 short evaluateMSPIndex(float pm25, float nox, float o3) {  // evaluates the MSP# index from ug/m3 concentrations of specific gases using standard IAQ values (needs 1h averages)
 
   // possible returned values are: 0 -> n.d.(grey); 1 -> good(green); 2 -> acceptable(yellow); 3 -> bad(red); 4 -> really bad(black)

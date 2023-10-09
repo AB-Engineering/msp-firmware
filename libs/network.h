@@ -13,6 +13,19 @@
 
 //+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
+void printWiFiMACAddr() {
+
+  uint8_t baseMac[6];
+	esp_read_mac(baseMac, ESP_MAC_WIFI_STA);
+	char baseMacChr[18] = {0};
+	sprintf(baseMacChr, "%02X:%02X:%02X:%02X:%02X:%02X", baseMac[0], baseMac[1], baseMac[2], baseMac[3], baseMac[4], baseMac[5]);
+  Serial.println("WIFI MAC ADDRESS: " + String(baseMacChr) + "\n");
+  drawTwoLines("WIFI MAC ADDRESS:", baseMacChr, 6);
+
+}
+
+//+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
 void timeavailable(struct timeval *t) { // Callback function (gets called when time adjusts via NTP)
 
   Serial.println("Got time adjustment from NTP!\n");
@@ -92,17 +105,117 @@ bool connectWiFi() { // sets WiFi mode and tx power (var wifipow), performs conn
 
 //+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
-void connAndGetTime() { // calls connectWifi and retrieves time from NTP server
+void disconnectWiFi() {
+
+  log_i("Turning off WiFi...\n");
+  WiFi.disconnect();
+  WiFi.mode(WIFI_OFF);
+  connected_ok = false;
+  delay(1000); // Waiting a bit for Wifi mode set
+
+}
+
+//+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
+void initializeModem() {
+
+  log_i("Initializing SIM800L modem serial connection...");
+
+  // Set GSM module baud rate
+  gsmSerial.begin(9600, SERIAL_8N1, MODEM_RX, MODEM_TX);
+  delay(6000);
+
+  // Restart takes quite some time
+  log_i("Issuing modem reset (takes some time)...");
+  modem.restart();
+
+  log_i("Done!");
+
+  log_d("Modem Name: %s", modem.getModemName().c_str());
+
+  log_d("Modem Info: %s", modem.getModemInfo().c_str());
+
+}
+
+//+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
+bool connectToGPRS() {
+
+  initializeModem();
+  
+  short retries = 0;
+  while (retries < 2) {
+    log_i("Waiting for network...");
+    if (modem.waitForNetwork()) {
+      log_i("Connected to network!");
+      break;
+    }
+    log_e("Couldn't find network!");
+    if (retries < 1) {
+      log_i("Retrying in 10 seconds...");
+      delay(10000);
+    }
+    retries++;
+  }
+
+  if (!modem.isNetworkConnected()) {
+    log_e("Network is not connected!");
+    return false;
+  }
+
+  retries = 0;
+  while (retries < 4) {
+    log_i("Connecting to GPRS...");
+    if (modem.gprsConnect(apn.c_str(), "", "")) {
+      log_i("GPRS connected!");
+      break;
+    }
+    log_e("Connection failed!");
+    if (retries < 3) {
+      log_i("Retrying in 5 seconds...");
+      delay(5000);
+    }
+    retries++;
+  }
+
+  if (!modem.isGprsConnected()) {
+    log_e("GPRS is not connected!");
+    return false;
+  }
+
+  log_d("CCID: %s", modem.getSimCCID().c_str());
+
+  log_d("IMEI: %s", modem.getIMEI().c_str());
+
+  log_d("IMSI: %s", modem.getIMSI().c_str());
+
+  log_d("Operator: %s", modem.getOperator().c_str());
+
+  log_d("Signal quality: &d", modem.getSignalQuality());
+
+  return true;
+
+}
+
+//+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
+void connAndGetTime() { // connects to the internet and retrieves time from NTP server
   
   datetime_ok = false; // resetting the date&time var
   sntp_set_time_sync_notification_cb(timeavailable);
   configTime(0, 0, "pool.ntp.org", "time.nist.gov"); // configTime(gmtOffset_sec, daylightOffset_sec, ntpServer1, ntpServer2)
-  Serial.println("Connecting to WiFi...\n");
-  drawTwoLines("Connecting to", "WiFi...", 1);
-  connected_ok = connectWiFi();
+  if (use_modem && !connected_ok) {
+    Serial.println("Connecting to GPRS...\n");
+    drawTwoLines("Connecting to", "GPRS...", 1);
+    connected_ok = connectToGPRS();
+  } else {
+    Serial.println("Connecting to WiFi...\n");
+    drawTwoLines("Connecting to", "WiFi...", 1);
+    connected_ok = connectWiFi();
+  }
   if (connected_ok) {
-    Serial.println("Connection with " + ssid + " made successfully!\n");
-    drawLine("WiFi connected!", 1);
+    Serial.println("Connection made successfully!\n");
+    drawLine("Connected!", 1);
     Serial.println("Retrieving date&time from NTP...");
     drawTwoLines("Getting date&time...", "Please wait...", 1);
     auto start = millis();
@@ -119,7 +232,7 @@ void connAndGetTime() { // calls connectWifi and retrieves time from NTP server
       Serial.println("Current date&time: " + tempT);
       drawTwoLines("Date & Time:", tempT.c_str(), 0);
     } else {
-      log_e("Failed to obtain date&time! Is this WiFi network connected to the internet?\n");
+      log_e("Failed to obtain date&time! Is this network connected to the internet?\n");
       drawTwoLines("Date & time err!", "Is internet ok?", 0);
     }
     Serial.println();
@@ -130,24 +243,11 @@ void connAndGetTime() { // calls connectWifi and retrieves time from NTP server
 
 //+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
-void printWiFiMacAddress() {
-
-  uint8_t baseMac[6];
-	esp_read_mac(baseMac, ESP_MAC_WIFI_STA);
-	char baseMacChr[18] = {0};
-	sprintf(baseMacChr, "%02X:%02X:%02X:%02X:%02X:%02X", baseMac[0], baseMac[1], baseMac[2], baseMac[3], baseMac[4], baseMac[5]);
-  Serial.println("WIFI MAC ADDRESS: " + String(baseMacChr) + "\n");
-  drawTwoLines("WIFI MAC ADDRESS:", baseMacChr, 6);
-
-}
-
-//+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-
-void connectToServer(SSLClient client) {
+void connectToServer(SSLClient *client) {
 
   time_t epochTime = mktime(&timeinfo); // converting UTC date&time in UNIX Epoch Time format
 
-  client.setVerificationTime((epochTime / 86400UL) + 719528UL, epochTime % 86400UL); // setting SLLClient's verification time to current time while converting UNIX Epoch Time to BearSSL's expected format
+  client->setVerificationTime((epochTime / 86400UL) + 719528UL, epochTime % 86400UL); // setting SLLClient's verification time to current time while converting UNIX Epoch Time to BearSSL's expected format
 
   auto start = millis(); // time for connection
   Serial.println("Uploading data to server through HTTPS in progress...\n");
@@ -155,7 +255,7 @@ void connectToServer(SSLClient client) {
 
   short retries = 0;
   while (retries < 4) {
-    if (client.connect(server.c_str(), 443)) {
+    if (client->connect(server.c_str(), 443)) {
       log_i("Connection to server made! Time: %d\n", millis() - start);
       // Building the post string:
       String postStr = "X-MSP-ID=" + deviceid;
@@ -199,19 +299,19 @@ void connectToServer(SSLClient client) {
       postLine += "Connection: close\nUser-Agent: MilanoSmartPark\nContent-Type: application/x-www-form-urlencoded\nContent-Length: " + String(postStr.length());
       log_d("Post line:\n%s\n", postLine.c_str());
       log_d("Post string: %s\n", postStr.c_str());
-      client.print(postLine + "\n\n" + postStr);
-      client.flush();
+      client->print(postLine + "\n\n" + postStr);
+      client->flush();
 
       // Get answer from server
       start = millis();
       String answLine = "";
-      while (client.available()) {
-        char c = client.read();
+      while (client->available()) {
+        char c = client->read();
         answLine += c;
         auto timeout = millis() - start;
         if (timeout > 10000) break;
       }
-      client.stop(); // Stopping the client
+      client->stop(); // Stopping the client
 
       // Check server answer
       if (answLine.startsWith("HTTP/1.1 201 Created", 0)) {

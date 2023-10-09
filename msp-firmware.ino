@@ -84,11 +84,12 @@ HardwareSerial gsmSerial(1);
 HardwareSerial pmsSerial(2);
 
 // Modem instance
-//#ifdef DUMP_AT_COMMANDS
-//#include <StreamDebugger.h>
-//StreamDebugger debugger(gsmSerial, Serial);
-//TinyGsm        modem(debugger);
-//#else
+/*
+#ifdef DUMP_AT_COMMANDS
+#include <StreamDebugger.h>
+StreamDebugger debugger(gsmSerial, Serial);
+TinyGsm        modem(debugger);
+#else*/
 TinyGsm        modem(gsmSerial);
 //#endif
 
@@ -97,7 +98,7 @@ TinyGsm        modem(gsmSerial);
 const int rand_pin = 27;
 
 // Initialize the SSL client library
-// We input a WiFi Client, our trust anchors, and the analog pin
+// We input a client, our trust anchors, and the analog pin
 WiFiClient wifi_base;
 TinyGsmClient gsm_base(modem);
 SSLClient wificlient(wifi_base, TAs, (size_t)TAs_NUM, rand_pin, 1, SSLClient::SSL_ERROR);
@@ -119,6 +120,7 @@ bool use_modem = true;
 bool datetime_ok = false;
 String ssid = "";
 String passw = "";
+String apn = "TM";
 String deviceid = "";
 String logpath = "";
 wifi_power_t wifipow = WIFI_POWER_17dBm;
@@ -178,8 +180,6 @@ bool sent_ok = false;
 #include "libs/display.h"
 #include "libs/sdcard.h"
 #include "libs/network.h"
-#include "libs/modem.h"
-
 
 //*******************************************************************************************************************************
 //******************************************  S E T U P  ************************************************************************
@@ -221,7 +221,7 @@ void setup() {
 #endif
   //+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
-  printWiFiMacAddress();
+  printWiFiMACAddr();
 
   readSD();
 
@@ -327,11 +327,7 @@ void setup() {
 void loop() {
 
   // DISCONNECTING AND TURNING OFF WIFI +++++++++++++++++++++++++++++++++++++
-  Serial.println("Turning off WiFi...\n");
-  WiFi.disconnect();
-  WiFi.mode(WIFI_OFF);
-  connected_ok = false;
-  delay(1000); // Waiting a bit for Wifi mode set
+  if (!use_modem) disconnectWiFi();
   //++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
   // CLEARING VARIABLES +++++++++++++++++++++++++++++++++++++
@@ -553,77 +549,19 @@ void loop() {
   //------------------------------------------------------------------------
 
 
-  log_i("Performing averages...\n");
+  if (BME_run || PMS_run || MICS_run || MICS4514_run || O3_run) performAverages(BMEfails, PMSfails, MICSfails, O3fails, senserrs);
 
-  short runs = avg_measurements - BMEfails;
-  if (BME_run && runs > 0) {
-    temp /= runs;
-    pre /= runs;
-    hum /= runs;
-    VOC /= runs;
-  } else if (BME_run) {
-    BME_run = false;
-    senserrs[0] = true;
-  }
-
-  runs = avg_measurements - PMSfails;
-  if (PMS_run && runs > 0) {
-    float b = 0.0;
-    b = PM1 / runs;
-    if (b - int(b) >= 0.5) {
-      PM1 = int(b) + 1;
-    } else {
-      PM1 = int(b);
-    }
-    b = PM25 / runs;
-    if (b - int(b) >= 0.5) {
-      PM25 = int(b) + 1;
-    } else {
-      PM25 = int(b);
-    }
-    b = PM10 / runs;
-    if (b - int(b) >= 0.5) {
-      PM10 = int(b) + 1;
-    } else {
-      PM10 = int(b);
-    }
-  } else if (PMS_run) {
-    PMS_run = false;
-    senserrs[1] = true;
-  }
-
-  runs = avg_measurements - MICSfails;
-  if (MICS_run && runs > 0) {
-    MICS_CO /= runs;
-    MICS_NO2 /= runs;
-    MICS_NH3 /= runs;
-  } else if (MICS_run) {
-    MICS_run = false;
-    senserrs[2] = true;
-  }
-
-  runs = avg_measurements - O3fails;
-  if (O3_run && runs > 0) {
-    ozone /= runs;
-  } else if (O3_run) {
-    O3_run = false;
-    senserrs[3] = true;
-  }
 
   // MSP# Index evaluation
   MSP = evaluateMSPIndex(PM25, MICS_NO2, ozone); // implicitly casting PM25 as float for MSP evaluation only
 
-  if (cfg_ok) {
-    connAndGetTime();
-  }
+  if (cfg_ok) connAndGetTime();
 
   printMeasurementsOnSerial();
 
   drawMeasurements(); // draw on display
 
-  if (server_ok && connected_ok && datetime_ok) {
-    connectToServer((use_modem) ? gsmclient : wificlient);
-  }
+  if (server_ok && connected_ok && datetime_ok) connectToServer((use_modem) ? &gsmclient : &wificlient);
 
   if (SD_ok) {
     if (checkLogFile()) {
