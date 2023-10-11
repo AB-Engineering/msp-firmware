@@ -309,9 +309,7 @@ void setup() {
   //+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
   // CONNECT TO INTERNET AND GET DATE&TIME +++++++++++++++++++++++++++++++++++++++++++++++++++
-  if (cfg_ok) {
-    connAndGetTime();
-  }
+  if (cfg_ok) connAndGetTime();
   //++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
 }// end of SETUP
@@ -548,9 +546,7 @@ void loop() {
   //+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
   //------------------------------------------------------------------------
 
-
   if (BME_run || PMS_run || MICS_run || MICS4514_run || O3_run) performAverages(BMEfails, PMSfails, MICSfails, O3fails, senserrs);
-
 
   // MSP# Index evaluation
   MSP = evaluateMSPIndex(PM25, MICS_NO2, ozone); // implicitly casting PM25 as float for MSP evaluation only

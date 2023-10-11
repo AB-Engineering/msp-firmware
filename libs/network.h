@@ -16,41 +16,39 @@
 void printWiFiMACAddr() {
 
   uint8_t baseMac[6];
-	esp_read_mac(baseMac, ESP_MAC_WIFI_STA);
-	char baseMacChr[18] = {0};
-	sprintf(baseMacChr, "%02X:%02X:%02X:%02X:%02X:%02X", baseMac[0], baseMac[1], baseMac[2], baseMac[3], baseMac[4], baseMac[5]);
+  esp_read_mac(baseMac, ESP_MAC_WIFI_STA);
+  char baseMacChr[18] = { 0 };
+  sprintf(baseMacChr, "%02X:%02X:%02X:%02X:%02X:%02X", baseMac[0], baseMac[1], baseMac[2], baseMac[3], baseMac[4], baseMac[5]);
   Serial.println("WIFI MAC ADDRESS: " + String(baseMacChr) + "\n");
   drawTwoLines("WIFI MAC ADDRESS:", baseMacChr, 6);
-
 }
 
 //+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
-void timeavailable(struct timeval *t) { // Callback function (gets called when time adjusts via NTP)
+void timeavailable(struct timeval *t) {  // Callback function (gets called when time adjusts via NTP)
 
   Serial.println("Got time adjustment from NTP!\n");
-
 }
 
 //+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
-bool connectWiFi() { // sets WiFi mode and tx power (var wifipow), performs connection to WiFi network (vars ssid, passw)
+bool connectWiFi() {  // sets WiFi mode and tx power (var wifipow), performs connection to WiFi network (vars ssid, passw)
 
   log_i("Setting WiFi STATION mode...");
-  WiFi.mode(WIFI_STA); // Set WiFi to station mode
-  WiFi.setTxPower(wifipow); // Set WiFi transmission power
+  WiFi.mode(WIFI_STA);       // Set WiFi to station mode
+  WiFi.setTxPower(wifipow);  // Set WiFi transmission power
   log_i("WIFIPOW set to %d", wifipow);
   log_i("Legend: -4(-1dBm), 8(2dBm), 20(5dBm), 28(7dBm), 34(8.5dBm), 44(11dBm), 52(13dBm), 60(15dBm), 68(17dBm), 74(18.5dBm), 76(19dBm), 78(19.5dBm)\n");
 
-  for (short retry = 0; retry < 4; retry++) { // Scan WiFi for selected network and connect
+  for (short retry = 0; retry < 4; retry++) {  // Scan WiFi for selected network and connect
     log_i("Scanning WiFi networks...");
-    short networks = WiFi.scanNetworks(); // WiFi.scanNetworks will return the number of networks found
+    short networks = WiFi.scanNetworks();  // WiFi.scanNetworks will return the number of networks found
     log_i("Scanning complete\n");
 
-    if (networks > 0) { // Looking through found networks
+    if (networks > 0) {  // Looking through found networks
       log_i("%d networks found\n", networks);
-      bool ssid_ok = false; // For selected network if found
-      for (short i = 0; i < networks; i++) { // Prints SSID and RSSI for each network found, checks against ssid
+      bool ssid_ok = false;                   // For selected network if found
+      for (short i = 0; i < networks; i++) {  // Prints SSID and RSSI for each network found, checks against ssid
         log_v("%d: %s(%d) %s%c", i + 1, WiFi.SSID(i).c_str(), WiFi.RSSI(i), WiFi.encryptionType(i) == WIFI_AUTH_OPEN ? "OPEN" : "ENCRYPTED", i == networks - 1 ? '\n' : ' ');
         if (WiFi.SSID(i) == ssid) {
           ssid_ok = true;
@@ -58,25 +56,25 @@ bool connectWiFi() { // sets WiFi mode and tx power (var wifipow), performs conn
         }
       }
 
-      if (ssid_ok) { // Begin connection
+      if (ssid_ok) {  // Begin connection
         log_i("%s found!\n", ssid.c_str());
-		String foundNet = ssid + " OK!";
+        String foundNet = ssid + " OK!";
         log_i("Connecting to %s, please wait...", ssid.c_str());
 
         WiFi.begin(ssid.c_str(), passw.c_str());
-        auto start = millis(); // starting time
+        auto start = millis();  // starting time
         while (WiFi.status() != WL_CONNECTED) {
           auto timeout = millis() - start;
           if (timeout > 10000) {
             WiFi.disconnect();
-			log_e("Can't connect to network!\n");
+            log_e("Can't connect to network!\n");
             drawLine("WiFi connect err!", 2);
             break;
           }
         }
-        
-        if (WiFi.status() == WL_CONNECTED) { // Connection successful
 
+        if (WiFi.status() == WL_CONNECTED) {  // Connection successful
+          log_i("Connection to WiFi made successfully!");
           return true;
         }
       } else {
@@ -89,7 +87,7 @@ bool connectWiFi() { // sets WiFi mode and tx power (var wifipow), performs conn
       drawLine("No networks found!", 2);
     }
 
-    if (retry < 3) { // Print remaining tries
+    if (retry < 3) {  // Print remaining tries
       log_i("Retrying, %d retries left\n", 3 - retry);
       String remain = String(3 - retry) + " tries remain.";
       drawTwoLines("Retrying...", remain.c_str(), 2);
@@ -100,7 +98,6 @@ bool connectWiFi() { // sets WiFi mode and tx power (var wifipow), performs conn
   }
 
   return false;
-
 }
 
 //+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
@@ -111,8 +108,7 @@ void disconnectWiFi() {
   WiFi.disconnect();
   WiFi.mode(WIFI_OFF);
   connected_ok = false;
-  delay(1000); // Waiting a bit for Wifi mode set
-
+  delay(1000);  // Waiting a bit for Wifi mode set
 }
 
 //+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
@@ -139,17 +135,14 @@ void initializeModem() {
 
 //+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
-bool connectToGPRS() {
+bool connectModem() {
 
   initializeModem();
-  
+
   short retries = 0;
   while (retries < 2) {
     log_i("Waiting for network...");
-    if (modem.waitForNetwork()) {
-      log_i("Connected to network!");
-      break;
-    }
+    if (modem.waitForNetwork()) break;
     log_e("Couldn't find network!");
     if (retries < 1) {
       log_i("Retrying in 10 seconds...");
@@ -163,13 +156,12 @@ bool connectToGPRS() {
     return false;
   }
 
+  log_i("Mobile network found!");
+
   retries = 0;
   while (retries < 4) {
     log_i("Connecting to GPRS...");
-    if (modem.gprsConnect(apn.c_str(), "", "")) {
-      log_i("GPRS connected!");
-      break;
-    }
+    if (modem.gprsConnect(apn.c_str(), "", "")) break;
     log_e("Connection failed!");
     if (retries < 3) {
       log_i("Retrying in 5 seconds...");
@@ -183,6 +175,8 @@ bool connectToGPRS() {
     return false;
   }
 
+  log_i("Connection to GPRS made successfully!");
+
   log_d("CCID: %s", modem.getSimCCID().c_str());
 
   log_d("IMEI: %s", modem.getIMEI().c_str());
@@ -191,65 +185,75 @@ bool connectToGPRS() {
 
   log_d("Operator: %s", modem.getOperator().c_str());
 
-  log_d("Signal quality: &d", modem.getSignalQuality());
+  log_d("Signal quality: %d", modem.getSignalQuality());
 
   return true;
-
 }
 
 //+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
-void connAndGetTime() { // connects to the internet and retrieves time from NTP server
-  
-  datetime_ok = false; // resetting the date&time var
-  sntp_set_time_sync_notification_cb(timeavailable);
-  configTime(0, 0, "pool.ntp.org", "time.nist.gov"); // configTime(gmtOffset_sec, daylightOffset_sec, ntpServer1, ntpServer2)
-  if (use_modem && !connected_ok) {
-    Serial.println("Connecting to GPRS...\n");
-    drawTwoLines("Connecting to", "GPRS...", 1);
-    connected_ok = connectToGPRS();
-  } else {
+void connAndGetTime() {  // connects to the internet and retrieves time from NTP server
+
+  datetime_ok = false;  // resetting the date&time var
+  if (!use_modem) {
+    sntp_set_time_sync_notification_cb(timeavailable);
+    configTime(0, 0, "pool.ntp.org", "time.nist.gov");  // configTime(gmtOffset_sec, daylightOffset_sec, ntpServer1, ntpServer2)
     Serial.println("Connecting to WiFi...\n");
     drawTwoLines("Connecting to", "WiFi...", 1);
     connected_ok = connectWiFi();
+  } else if (!modem.isNetworkConnected() || !modem.isGprsConnected()) {  // reconnect only if network is lost
+    Serial.println("Connecting to GPRS...\n");
+    drawTwoLines("Connecting to", "GPRS...", 1);
+    connected_ok = connectModem();
   }
   if (connected_ok) {
-    Serial.println("Connection made successfully!\n");
-    drawLine("Connected!", 1);
-    Serial.println("Retrieving date&time from NTP...");
+    Serial.println("Retrieving date&time...");
     drawTwoLines("Getting date&time...", "Please wait...", 1);
     auto start = millis();
-    while (!datetime_ok) { // Connecting with NTP server and retrieving date&time
+    while (!datetime_ok) {  // Retrieving date&time
       auto timeout = millis() - start;
-      datetime_ok = getLocalTime(&timeinfo);
-      if (datetime_ok || timeout > 120000) break;
+      if (!use_modem) {
+        datetime_ok = getLocalTime(&timeinfo);
+      } else {
+        int hh = 0, mm = 0, ss = 0, yyyy = 0, mon = 0, day = 0;
+        float tz = 0;
+        modem.NTPServerSync("pool.ntp.org", 0);
+        datetime_ok = modem.getNetworkTime(&yyyy, &mon, &day, &hh, &mm, &ss, &tz);
+        timeinfo.tm_hour = hh;
+        timeinfo.tm_min = mm;
+        timeinfo.tm_sec = ss;
+        timeinfo.tm_year = yyyy - 1900;
+        timeinfo.tm_mon = mon - 1;
+        timeinfo.tm_mday = day;
+        timeinfo.tm_isdst = -1;
+      }
+      if (timeout > 90000) break;
     }
     if (datetime_ok) {
       drawTwoLines("Getting date&time...", "OK!", 1);
-      strftime(Date, sizeof(Date), "%d/%m/%Y", &timeinfo); // Formatting date as DD/MM/YYYY
-      strftime(Time, sizeof(Time), "%T", &timeinfo); // Formatting time as HH:MM:SS
+      strftime(Date, sizeof(Date), "%d/%m/%Y", &timeinfo);  // Formatting date as DD/MM/YYYY
+      strftime(Time, sizeof(Time), "%T", &timeinfo);        // Formatting time as HH:MM:SS
       String tempT = String(Date) + " " + String(Time);
       Serial.println("Current date&time: " + tempT);
       drawTwoLines("Date & Time:", tempT.c_str(), 0);
     } else {
-      log_e("Failed to obtain date&time! Is this network connected to the internet?\n");
+      log_e("Failed to obtain date&time! Are you connected to the internet?\n");
       drawTwoLines("Date & time err!", "Is internet ok?", 0);
     }
     Serial.println();
     delay(3000);
   }
-
 }
 
 //+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
 void connectToServer(SSLClient *client) {
 
-  time_t epochTime = mktime(&timeinfo); // converting UTC date&time in UNIX Epoch Time format
+  time_t epochTime = mktime(&timeinfo);  // converting UTC date&time in UNIX Epoch Time format
 
-  client->setVerificationTime((epochTime / 86400UL) + 719528UL, epochTime % 86400UL); // setting SLLClient's verification time to current time while converting UNIX Epoch Time to BearSSL's expected format
+  client->setVerificationTime((epochTime / 86400UL) + 719528UL, epochTime % 86400UL);  // setting SLLClient's verification time to current time while converting UNIX Epoch Time to BearSSL's expected format
 
-  auto start = millis(); // time for connection
+  auto start = millis();  // time for connection
   Serial.println("Uploading data to server through HTTPS in progress...\n");
   drawTwoLines("Uploading data", "to server...", 0);
 
@@ -311,7 +315,7 @@ void connectToServer(SSLClient *client) {
         auto timeout = millis() - start;
         if (timeout > 10000) break;
       }
-      client->stop(); // Stopping the client
+      client->stop();  // Stopping the client
 
       // Check server answer
       if (answLine.startsWith("HTTP/1.1 201 Created", 0)) {
@@ -323,7 +327,7 @@ void connectToServer(SSLClient *client) {
         log_e("The full answer is:\n%s\n", answLine.c_str());
         drawTwoLines("Serv answ error!", "Data not sent!", 10);
       }
-      break; // exit
+      break;  // exit
 
     } else {
       log_e("Error while connecting to server!");
@@ -337,7 +341,6 @@ void connectToServer(SSLClient *client) {
       }
       drawTwoLines("Serv conn error!", mesg.c_str(), 10);
       retries++;
-
     }
   }
 }
