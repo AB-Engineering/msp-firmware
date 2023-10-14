@@ -25,13 +25,6 @@ void printWiFiMACAddr() {
 
 //+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
-void timeavailable(struct timeval *t) {  // Callback function (gets called when time adjusts via NTP)
-
-  Serial.println("Got time adjustment from NTP!\n");
-}
-
-//+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-
 bool connectWiFi() {  // sets WiFi mode and tx power (var wifipow), performs connection to WiFi network (vars ssid, passw)
 
   log_i("Setting WiFi STATION mode...");
@@ -196,7 +189,6 @@ void connAndGetTime() {  // connects to the internet and retrieves time from NTP
 
   datetime_ok = false;  // resetting the date&time var
   if (!use_modem) {
-    sntp_set_time_sync_notification_cb(timeavailable);
     configTime(0, 0, "pool.ntp.org", "time.nist.gov");  // configTime(gmtOffset_sec, daylightOffset_sec, ntpServer1, ntpServer2)
     Serial.println("Connecting to WiFi...\n");
     drawTwoLines("Connecting to", "WiFi...", 1);

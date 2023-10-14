@@ -10,8 +10,8 @@
 #mics_calibration_values=RED:955,OX:900,NH3:163;
 #mics_measurements_offsets=RED:0,OX:0,NH3:0;
 #compensation_factors=compH:0.6,compT:1.352,compP:0.0132;
-
-o3_zero_value disables the O3 sensor when set to -1. For normal operation the default offset is 1489.
+#use_modem=false;
+#modem_apn=;
 
 Accepted wifi_power values are: -1, 2, 5, 7, 8.5, 11, 13, 15, 17, 18.5, 19, 19.5 dBm.
 

@@ -47,10 +47,12 @@ bool initializeSD() { // checks for SD Card presence and type
 
 bool parseConfig(File fl) { // parses the configuration file on the SD Card
 
-#define LINES 12
+#define LINES 14
 
   bool outcome = true;
   String command[LINES];
+  short line_cnt = 0;
+  bool have_ssid = false;
   String temp;
   int i = 0;
   unsigned long lastpos = 0;
@@ -66,29 +68,30 @@ bool parseConfig(File fl) { // parses the configuration file on the SD Card
   fl.close();
   // Importing variables from the string array.
   //ssid
-  if (command[0].startsWith("ssid", 0)) {
-    ssid = command[0].substring(command[0].indexOf('=') + 1, command[0].length());
-    if (ssid.length() == 0) {
-      log_e("SSID value is empty!");
-      outcome = false;
-    } else {
+  if (command[line_cnt].startsWith("ssid", 0)) {
+    ssid = command[line_cnt].substring(command[line_cnt].indexOf('=') + 1, command[line_cnt].length());
+    if (ssid.length() > 0) {
       log_i("ssid = *%s*", ssid.c_str());
+      have_ssid = true;
+    } else {
+      log_i("SSID value is empty");
     }
   } else {
     log_e("Error parsing SSID line!");
     outcome = false;
   }
+  line_cnt++;
   //passw
-  if (command[1].startsWith("password", 0)) {
-    passw = command[1].substring(command[1].indexOf('=') + 1, command[1].length());
+  if (command[line_cnt].startsWith("password", 0)) {
+    passw = command[line_cnt].substring(command[line_cnt].indexOf('=') + 1, command[line_cnt].length());
     log_i("passw = *%s*", passw.c_str());
   } else {
-    log_e("Error parsing PASSW line!");
-    outcome = false;
+    log_e("Error parsing PASSWORD line!");
   }
+  line_cnt++;
   //deviceid
-  if (command[2].startsWith("device_id", 0)) {
-    deviceid = command[2].substring(command[2].indexOf('=') + 1, command[2].length());
+  if (command[line_cnt].startsWith("device_id", 0)) {
+    deviceid = command[line_cnt].substring(command[line_cnt].indexOf('=') + 1, command[line_cnt].length());
     if (deviceid.length() == 0) {
       log_e("DEVICEID value is empty!");
       outcome = false;
@@ -96,13 +99,14 @@ bool parseConfig(File fl) { // parses the configuration file on the SD Card
       log_i("deviceid = *%s*", deviceid.c_str());
     }
   } else {
-    log_e("Error parsing DEVICEID line!");
+    log_e("Error parsing DEVICE_ID line!");
     outcome = false;
   }
+  line_cnt++;
   //wifipow
-  if (command[3].startsWith("wifi_power", 0)) {
+  if (command[line_cnt].startsWith("wifi_power", 0)) {
     temp = "";
-    temp = command[3].substring(command[3].indexOf('=') + 1, command[3].length());
+    temp = command[line_cnt].substring(command[line_cnt].indexOf('=') + 1, command[line_cnt].length());
     if (temp.indexOf("19.5dBm") == 0) {
       wifipow = WIFI_POWER_19_5dBm;
       log_i("wifipow = *WIFI_POWER_19_5dBm*");
@@ -143,85 +147,119 @@ bool parseConfig(File fl) { // parses the configuration file on the SD Card
       log_e("Invalid WIFIPOW value. Falling back to default value");
     }
   } else {
-    log_e("Error parsing WIFIPOW line. Falling back to default value");
+    log_e("Error parsing WIFI_POWER line. Falling back to default value");
   }
+  line_cnt++;
   //o3zeroval
-  if (command[4].startsWith("o3_zero_value", 0)) {
-    o3zeroval = command[4].substring(command[4].indexOf('=') + 1, command[4].length()).toInt();
+  if (command[line_cnt].startsWith("o3_zero_value", 0)) {
+    o3zeroval = command[line_cnt].substring(command[line_cnt].indexOf('=') + 1, command[line_cnt].length()).toInt();
   } else {
-    log_e("Error parsing O3ZEROVAL line. Falling back to default value");
+    log_e("Error parsing O3_ZERO_VALUE line. Falling back to default value");
   }
   log_i("o3zeroval = *%d*", o3zeroval);
+  line_cnt++;
   //avg_measurements
-  if (command[5].startsWith("average_measurements", 0)) {
-    avg_measurements = command[5].substring(command[5].indexOf('=') + 1, command[5].length()).toInt();
+  if (command[line_cnt].startsWith("average_measurements", 0)) {
+    avg_measurements = command[line_cnt].substring(command[line_cnt].indexOf('=') + 1, command[line_cnt].length()).toInt();
   } else {
-    log_e("Error parsing AVG_MEASUREMENTS line. Falling back to default value");
+    log_e("Error parsing AVERAGE_MEASUREMENTS line. Falling back to default value");
   }
   log_i("avg_measurements = *%d*", avg_measurements);
+  line_cnt++;
   //avg_delay
-  if (command[6].startsWith("average_delay(seconds)", 0)) {
-    avg_delay = command[6].substring(command[6].indexOf('=') + 1, command[6].length()).toInt();
+  if (command[line_cnt].startsWith("average_delay(seconds)", 0)) {
+    avg_delay = command[line_cnt].substring(command[line_cnt].indexOf('=') + 1, command[line_cnt].length()).toInt();
   } else {
-    log_e("Error parsing AVG_DELAY line. Falling back to default value");
+    log_e("Error parsing AVERAGE_DELAY(SECONDS) line. Falling back to default value");
   }
   log_i("avg_delay = *%d*", avg_delay);
+  line_cnt++;
   //sealevelalt
-  if (command[7].startsWith("sea_level_altitude", 0)) {
-    sealevelalt = command[7].substring(command[7].indexOf('=') + 1, command[7].length()).toFloat();
+  if (command[line_cnt].startsWith("sea_level_altitude", 0)) {
+    sealevelalt = command[line_cnt].substring(command[line_cnt].indexOf('=') + 1, command[line_cnt].length()).toFloat();
   } else {
-    log_e("Error parsing SEALEVELALT line. Falling back to default value");
+    log_e("Error parsing SEA_LEVEL_ALTITUDE line. Falling back to default value");
   }
   log_i("sealevelalt = *%.2f*", sealevelalt);
+  line_cnt++;
   //server
-  if (command[8].startsWith("upload_server", 0)) {
+  if (command[line_cnt].startsWith("upload_server", 0)) {
     temp = "";
-    temp = command[8].substring(command[8].indexOf('=') + 1, command[8].length());
+    temp = command[line_cnt].substring(command[line_cnt].indexOf('=') + 1, command[line_cnt].length());
     if (temp.length() > 0) {
       server = temp;
       server_ok = true;
     } else {
 #ifdef API_SERVER
-      log_e("SERVER value is empty. Falling back to value defined at compile time");
+      log_i("SERVER value is empty. Falling back to value defined at compile time");
 #else
       log_e("SERVER value is empty!");
 #endif
     }
   } else {
 #ifdef API_SERVER
-    log_e("Error parsing SERVER line. Falling back to value defined at compile time");
+    log_i("Error parsing UPLOAD_SERVER line. Falling back to value defined at compile time");
 #else
-    log_e("Error parsing SERVER line!");
+    log_e("Error parsing UPLOAD_SERVER line!");
 #endif
   }
   log_i("server = *%s*", server.c_str());
+  line_cnt++;
   //mics_calibration_values
-  if (command[9].startsWith("mics_calibration_values", 0)) {
-    MICSCal[0] = command[9].substring(command[9].indexOf("RED:") + 4, command[9].indexOf(",OX:")).toInt();
-    MICSCal[1] = command[9].substring(command[9].indexOf(",OX:") + 4, command[9].indexOf(",NH3:")).toInt();
-    MICSCal[2] = command[9].substring(command[9].indexOf(",NH3:") + 5, command[9].length()).toInt();
+  if (command[line_cnt].startsWith("mics_calibration_values", 0)) {
+    MICSCal[0] = command[line_cnt].substring(command[line_cnt].indexOf("RED:") + 4, command[line_cnt].indexOf(",OX:")).toInt();
+    MICSCal[1] = command[line_cnt].substring(command[line_cnt].indexOf(",OX:") + 4, command[line_cnt].indexOf(",NH3:")).toInt();
+    MICSCal[2] = command[line_cnt].substring(command[line_cnt].indexOf(",NH3:") + 5, command[line_cnt].length()).toInt();
   } else {
-    log_e("Error parsing MICSCal[] line. Falling back to default value");
+    log_e("Error parsing MICS_CALIBRATION_VALUES line. Falling back to default value");
   }
   log_i("MICSCal[] = *%d*, *%d*, *%d*", MICSCal[0], MICSCal[1], MICSCal[2]);
+  line_cnt++;
   //mics_measurements_offsets
-  if (command[10].startsWith("mics_measurements_offsets", 0)) {
-    MICSOffset[0] = command[10].substring(command[10].indexOf("RED:") + 4, command[10].indexOf(",OX:")).toInt();
-    MICSOffset[1] = command[10].substring(command[10].indexOf(",OX:") + 4, command[10].indexOf(",NH3:")).toInt();
-    MICSOffset[2] = command[10].substring(command[10].indexOf(",NH3:") + 5, command[10].length()).toInt();
+  if (command[line_cnt].startsWith("mics_measurements_offsets", 0)) {
+    MICSOffset[0] = command[line_cnt].substring(command[line_cnt].indexOf("RED:") + 4, command[line_cnt].indexOf(",OX:")).toInt();
+    MICSOffset[1] = command[line_cnt].substring(command[line_cnt].indexOf(",OX:") + 4, command[line_cnt].indexOf(",NH3:")).toInt();
+    MICSOffset[2] = command[line_cnt].substring(command[line_cnt].indexOf(",NH3:") + 5, command[line_cnt].length()).toInt();
   } else {
-    log_e("Error parsing MICSOffset[] line. Falling back to default value");
+    log_e("Error parsing MICS_MEASUREMENTS_OFFSETS line. Falling back to default value");
   }
   log_i("MICSOffset[] = *%d*, *%d*, *%d*", MICSOffset[0], MICSOffset[1], MICSOffset[2]);
+  line_cnt++;
   //compensation_factors
-  if (command[11].startsWith("compensation_factors", 0)) {
-    compH = command[11].substring(command[11].indexOf("compH:") + 6, command[11].indexOf(",compT:")).toFloat();
-    compT = command[11].substring(command[11].indexOf(",compT:") + 7, command[11].indexOf(",compP:")).toFloat();
-    compP = command[11].substring(command[11].indexOf(",compP:") + 7, command[11].length()).toFloat();
+  if (command[line_cnt].startsWith("compensation_factors", 0)) {
+    compH = command[line_cnt].substring(command[line_cnt].indexOf("compH:") + 6, command[line_cnt].indexOf(",compT:")).toFloat();
+    compT = command[line_cnt].substring(command[line_cnt].indexOf(",compT:") + 7, command[line_cnt].indexOf(",compP:")).toFloat();
+    compP = command[line_cnt].substring(command[line_cnt].indexOf(",compP:") + 7, command[line_cnt].length()).toFloat();
   } else {
-    log_e("Error parsing compensation_factors line. Falling back to default value");
+    log_e("Error parsing COMPENSATION_FACTORS line. Falling back to default value");
   }
-  log_i("compH = *%.4f*, compT = *%.4f*, compP = *%.4f*\n", compH, compT, compP);
+  log_i("compH = *%.4f*, compT = *%.4f*, compP = *%.4f*", compH, compT, compP);
+  line_cnt++;
+  //use_modem
+  if (command[line_cnt].startsWith("use_modem", 0)) {
+    temp = "";
+    temp = command[line_cnt].substring(command[line_cnt].indexOf('=') + 1, command[line_cnt].length());
+    if (temp.startsWith("true", 0)) use_modem = true;
+  } else {
+    log_e("Error parsing USE_MODEM line. Falling back to default value");
+  }
+  log_i("use_modem = *%s*", (use_modem) ? "true" : "false");
+  if (!use_modem && !have_ssid) outcome = false;
+  line_cnt++;
+  //modem_apn
+  if (command[line_cnt].startsWith("modem_apn", 0)) {
+    temp = "";
+    temp = command[line_cnt].substring(command[line_cnt].indexOf('=') + 1, command[line_cnt].length());
+    if (temp.length() > 0) {
+      apn = temp;
+    } else {
+      log_i("APN value is empty");
+    }
+  } else {
+    log_e("Error parsing MODEM_APN line!");
+  }
+  log_i("apn = *%s*\n", apn.c_str());
+  if (use_modem && apn.length() == 0) outcome = false;
 
   return outcome;
 
@@ -268,8 +306,10 @@ bool checkConfig(const char *configpath) { // verifies the existance of the conf
       conftemplate += "RED:" + String(MICSOffset[0]) + ",OX:" + String(MICSOffset[1]) + ",NH3:" + String(MICSOffset[2]);
       conftemplate += ";\n#compensation_factors=";
       conftemplate += "compH:" + String(compH, 1) + ",compT:" + String(compT, 3) + ",compP:" + String(compP, 4);
-      conftemplate += ";\n\no3_zero_value disables the O3 sensor when set to -1. For normal operation the default offset is 1489.\n";
-      conftemplate += "\nAccepted wifi_power values are: -1, 2, 5, 7, 8.5, 11, 13, 15, 17, 18.5, 19, 19.5 dBm.\n";
+      conftemplate += ";\n#use_modem=";
+      conftemplate += (use_modem) ? "true" : "false";
+      conftemplate += ";\n#modem_apn=";
+      conftemplate += ";\n\nAccepted wifi_power values are: -1, 2, 5, 7, 8.5, 11, 13, 15, 17, 18.5, 19, 19.5 dBm.\n";
       conftemplate += "\nsea_level_altitude is in meters and it must be changed according to the current location of the device. 122.0 meters is the average altitude in Milan, Italy.\n";
       cfgfile.println(conftemplate);
       log_i("New config file with template created!\n");

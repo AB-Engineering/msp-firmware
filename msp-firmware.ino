@@ -95,7 +95,7 @@ TinyGsm        modem(gsmSerial);
 
 // Pin to get semi-random data from for SSL
 // Pick a pin that's not connected or attached to a randomish voltage source
-const int rand_pin = 27;
+const int rand_pin = 35;
 
 // Initialize the SSL client library
 // We input a client, our trust anchors, and the analog pin
@@ -116,11 +116,11 @@ U8G2_SH1106_128X64_NONAME_F_HW_I2C u8g2(U8G2_R0, U8X8_PIN_NONE, I2C_SCL_PIN, I2C
 bool SD_ok = false;
 bool cfg_ok = false;
 bool connected_ok = false;
-bool use_modem = true;
+bool use_modem = false;
 bool datetime_ok = false;
 String ssid = "";
 String passw = "";
-String apn = "TM";
+String apn = "";
 String deviceid = "";
 String logpath = "";
 wifi_power_t wifipow = WIFI_POWER_17dBm;
