@@ -217,9 +217,9 @@ bool parseConfig(File fl) { // parses the configuration file on the SD Card
   line_cnt++;
   //mics_measurements_offsets
   if (command[line_cnt].startsWith("mics_measurements_offsets", 0)) {
-    MICSOffset[0] = command[line_cnt].substring(command[line_cnt].indexOf("RED:") + 4, command[line_cnt].indexOf(",OX:")).toInt();
-    MICSOffset[1] = command[line_cnt].substring(command[line_cnt].indexOf(",OX:") + 4, command[line_cnt].indexOf(",NH3:")).toInt();
-    MICSOffset[2] = command[line_cnt].substring(command[line_cnt].indexOf(",NH3:") + 5, command[line_cnt].length()).toInt();
+    MICSOffset[0] = (int16_t) command[line_cnt].substring(command[line_cnt].indexOf("RED:") + 4, command[line_cnt].indexOf(",OX:")).toInt();
+    MICSOffset[1] = (int16_t) command[line_cnt].substring(command[line_cnt].indexOf(",OX:") + 4, command[line_cnt].indexOf(",NH3:")).toInt();
+    MICSOffset[2] = (int16_t) command[line_cnt].substring(command[line_cnt].indexOf(",NH3:") + 5, command[line_cnt].length()).toInt();
   } else {
     log_e("Error parsing MICS_MEASUREMENTS_OFFSETS line. Falling back to default value");
   }

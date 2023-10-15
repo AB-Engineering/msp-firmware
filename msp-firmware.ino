@@ -149,7 +149,7 @@ int PM25 = 0;
 
 // Variables for MICS
 uint16_t MICSCal[3] = {955, 900, 163}; // default R0 values for the sensor (in order: RED, OX, NH3)
-int MICSOffset[3] = {0, 0, 0}; // default ppm offset values for sensor measurements (in order: RED, OX, NH3)
+int16_t MICSOffset[3] = {0, 0, 0}; // default point offset values for sensor measurements (in order: RED, OX, NH3)
 const float MICSmm[3] = {28.01, 46.01, 17.03}; // molar mass of (in order): CO, NO2, NH3
 float MICS_CO = 0.0;
 float MICS_NO2 = 0.0;
@@ -287,6 +287,7 @@ void setup() {
       drawLine("Done!", 1);
     }
     drawMicsValues(gas.getBaseResistance(CH_RED), gas.getBaseResistance(CH_OX), gas.getBaseResistance(CH_NH3));
+    gas.setOffsets(MICSOffset);
   } else {
     log_e("MICS6814 sensor not detected!\n");
     drawTwoLines("Detecting MICS6814...", "MICS6814 -> Err!", 1);
@@ -493,7 +494,6 @@ void loop() {
         log_v("CO(ug/m3): %.3f", micsread[0]);
         MICS_CO += micsread[0];
 
-        micsread[1] += MICSOffset[1]; //add ppm offset
         micsread[1] = convertPpmToUgM3(micsread[1], MICSmm[1]);
         if (BME_run) micsread[1] = no2AndVocCompensation(micsread[1], currtemp, currpre, currhum); // NO2 Compensation
         log_v("NOx(ug/m3): %.3f", micsread[1]);
