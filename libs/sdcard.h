@@ -352,7 +352,7 @@ bool checkLogFile() { // verifies the existance of the csv log using the logpath
 
 //+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
-bool addToLog(const char *path, const char *oldpath, String *message) { // adds new line to the log file at the top, after the header lines
+bool addToLog(const char *path, const char *oldpath, const char *errpath, String *message) { // adds new line to the log file at the top, after the header lines
   
   String temp = "";
   log_v("Log file is located at: %s\n", path);
@@ -360,7 +360,7 @@ bool addToLog(const char *path, const char *oldpath, String *message) { // adds 
   if (!SD.exists(oldpath)) {
     SD.rename(path, oldpath);
   } else {
-    if (SD.exists(path)) SD.remove(path);
+    if (SD.exists(path)) SD.rename(path, errpath);
     log_e("An error occurred, resuming logging from the old log...\n");
   }
   File oldfile = SD.open(oldpath, FILE_READ); // opening the renamed log
@@ -373,16 +373,15 @@ bool addToLog(const char *path, const char *oldpath, String *message) { // adds 
     log_e("Error recreating the log file!");
     return false;
   }
-  bool newline_ok = false;
+  temp = oldfile.readStringUntil('\r'); // reads until CR character
+  logfile.println(temp);
+  oldfile.readStringUntil('\n'); // consumes LF character (uses DOS-style CRLF)
+  logfile.println(*message); // printing the new string, only once and after the header
+  log_v("New line added!\n");
   while (oldfile.available()) { // copy the old log file with new string added
     temp = oldfile.readStringUntil('\r'); // reads until CR character
     logfile.println(temp);
     oldfile.readStringUntil('\n'); // consumes LF character (uses DOS-style CRLF)
-    if (!newline_ok) {
-      logfile.println(*message); // printing the new string, only once and after the header
-      log_v("New line added!\n");
-      newline_ok = true;
-    }
   }
   oldfile.close();
   logfile.close();
@@ -461,8 +460,9 @@ void logToSD() { // builds a new logfile line and calls addToLog() (using logpat
   logvalue += String(MSP);
 
   String oldlogpath = logpath + ".old";
+  String errorpath = "logerror_" + String(timeFormat) + ".txt";
 
-  if (addToLog(logpath.c_str(), oldlogpath.c_str(), &logvalue)) {
+  if (addToLog(logpath.c_str(), oldlogpath.c_str(), errorpath.c_str(), &logvalue)) {
     log_i("SD Card log file updated successfully!\n");
   } else {
     log_e("Error updating SD Card log file!\n");
