@@ -124,6 +124,8 @@ void initializeModem() {
 
   log_d("Modem Info: %s", modem.getModemInfo().c_str());
 
+  log_d("IMEI: %s", modem.getIMEI().c_str());
+
 }
 
 //+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
@@ -131,6 +133,19 @@ void initializeModem() {
 bool connectModem() {
 
   initializeModem();
+
+  String CCID = modem.getSimCCID();
+  String IMSI = modem.getIMSI();
+
+  log_d("CCID: %s", CCID.c_str());
+
+  log_d("IMSI: %s", IMSI.c_str());
+
+  if (CCID.startsWith("ERROR", 0) || IMSI.startsWith("ERROR", 0)) {
+    log_e("No SIM found or SIM not inserted!");
+    drawTwoLines("ERROR:", "NO SIM!", 3);
+    return false;    
+  }
 
   short retries = 0;
   while (retries < 2) {
@@ -146,6 +161,7 @@ bool connectModem() {
 
   if (!modem.isNetworkConnected()) {
     log_e("Network is not connected!");
+    drawTwoLines("ERROR:", "NO NETWORK!", 3);
     return false;
   }
 
@@ -165,16 +181,11 @@ bool connectModem() {
 
   if (!modem.isGprsConnected()) {
     log_e("GPRS is not connected!");
+    drawTwoLines("ERROR:", "NO GPRS!", 3);
     return false;
   }
 
   log_i("Connection to GPRS made successfully!");
-
-  log_d("CCID: %s", modem.getSimCCID().c_str());
-
-  log_d("IMEI: %s", modem.getIMEI().c_str());
-
-  log_d("IMSI: %s", modem.getIMSI().c_str());
 
   log_d("Operator: %s", modem.getOperator().c_str());
 
