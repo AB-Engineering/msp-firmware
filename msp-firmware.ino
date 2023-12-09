@@ -195,7 +195,6 @@ void setup() {
 
   // SET PIN MODES ++++++++++++++++++++++++++++++++++++
   pinMode(33, OUTPUT);
-  pinMode(13, OUTPUT);
   pinMode(26, OUTPUT);
   pinMode(25, OUTPUT);
   pinMode(O3_ADC_PIN, INPUT_PULLDOWN);
