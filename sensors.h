@@ -12,8 +12,10 @@
 #define SENSORS_H
 
 // -- includes --
-#include "msp_hal/data.h"
+#include "shared_values.h"
 
+// -- Sensors management libraries
+#include <bsec.h>
 // #include "network/network.h"
 
 
@@ -52,7 +54,7 @@ void vMspHal_writeMicsValues(sensorData_t *p_tData);
  * @param p_tData
  * @return mspStatus_t
  **********************************************************/
-mspStatus_t tMspHal_checkMicsValues(sensorData_t *p_tData,MiCS6814 *ptr);
+mspStatus_t tMspHal_checkMicsValues(sensorData_t *p_tData, sensorR0Value_t *ptr);
 
 /*********************************************************************************
  * @brief compensate gas sensor readings (specifically for NO₂ and VOCs)

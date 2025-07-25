@@ -11,11 +11,11 @@
 #define PMSERIAL_RX 14
 #define PMSERIAL_TX 12
 
-// Select modem type
-#define TINY_GSM_MODEM_SIM800
-
 // Serial modem pins
 #define MODEM_RST 4
+
+// Select modem type
+#define TINY_GSM_MODEM_SIM800
 
 // Basic system libraries
 #include <Arduino.h>
@@ -45,28 +45,29 @@
 #include <U8g2lib.h>
 
 // -- shared folders includes --
-#include "msp_hal/data.h"
-#include "msp_hal/display/display.h"
-#include "msp_hal/trust_anchor/trust_anchor.h"
-#include "msp_hal/network/network.h"
-#include "msp_hal/sensors/sensors.h"
-#include "msp_hal/genericFunctions/generic_functions.h"
-#include "msp_hal/sdCard/sdcard.h"
-
-#include "msp_tasks/display_task.h"
+#include "shared_values.h"
+#include "display.h"
+#include "sensors.h"
+#include "network.h"
+#include "generic_functions.h"
+#include "sdcard.h"
+#include "trust_anchor.h"
+#include "display_task.h"
 
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include "freertos/queue.h"
 #include "freertos/event_groups.h"
-#include "freertos/idf_additions.h"
-#include "freertos/portmacro.h"
+// #include "freertos/idf_additions.h"
+// #include "freertos/portmacro.h"
 
 
 // Hardware UART definitions. Modes: UART0=0(debug out); UART1=1; UART2=2
 
 HardwareSerial pmsSerial(2);
 
+// Pin to get semi-random data from for SSL
+// Pick a pin that's not connected or attached to a randomish voltage source
 const int rand_pin = 35;
 
 // Initialize the SSL client library
@@ -134,7 +135,7 @@ PMS::DATA data;
 
 displayData_t displayData;
 
-
+send_data_t dataToSend;
 
 void vMsp_updateDataAndEvent(displayEvents_t event)
 {
@@ -142,11 +143,17 @@ void vMsp_updateDataAndEvent(displayEvents_t event)
   
   tMsp_takeDataAccessMutex();
 
-  memcpy(&displayData.sensorData,&sensorData,sizeof(sensorData_t));
-  memcpy(&displayData.devInfo, &devinfo, sizeof(deviceNetworkInfo_t));
-  memcpy(&displayData.measStat, &measStat, sizeof(deviceMeasurement_t));
-  memcpy(&displayData.sysData, &sysData, sizeof(systemData_t));
-  memcpy(&displayData.sysStat, &sysStat, sizeof(systemStatus_t));
+  displayData.sensorData = sensorData;
+  displayData.devInfo = devinfo;
+  displayData.measStat = measStat;
+  displayData.sysData = sysData;
+  displayData.sysStat = sysStat;
+
+  // memcpy(&displayData.sensorData,&sensorData,sizeof(sensorData_t));
+  // memcpy(&displayData.devInfo, &devinfo, sizeof(deviceNetworkInfo_t));
+  // memcpy(&displayData.measStat, &measStat, sizeof(deviceMeasurement_t));
+  // memcpy(&displayData.sysData, &sysData, sizeof(systemData_t));
+  // memcpy(&displayData.sysStat, &sysStat, sizeof(systemStatus_t));
 
   vMsp_giveDataAccessMutex();
 
@@ -406,7 +413,13 @@ void setup()
     gas.powerOn(); // turn on heating element and led
     gas.ledOn();
     delay(1500);
-    if (tMspHal_checkMicsValues(&sensorData,&gas) == STATUS_OK)
+
+    sensorR0Value_t r0Values;
+    r0Values.redSensor = gas.getBaseResistance(CH_RED);
+    r0Values.oxSensor = gas.getBaseResistance(CH_OX);
+    r0Values.nh3Sensor = gas.getBaseResistance(CH_NH3);
+
+    if (tMspHal_checkMicsValues(&sensorData,&r0Values) == STATUS_OK)
     {
       log_i("MICS6814 R0 values are already as default!\n");
       vMsp_updateDataAndEvent(DISP_EVENT_MICS6814_VALUES_OKAY);
@@ -475,8 +488,9 @@ void setup()
   measStat.avg_measurements = 0;
 
   sysData.sent_ok = false;
-  memset(&sysData.Date, 0, sizeof(sysData.Date));
-  memset(&sysData.Time, 0, sizeof(sysData.Date));
+
+  memset(sysData.Date, 0, sizeof(sysData.Date));
+  memset(sysData.Time, 0, sizeof(sysData.Time));
 
   measStat.measurement_count = 0; /*!< Number of measurements in the current cycle */
   measStat.curr_minutes = 0;
@@ -521,8 +535,7 @@ void setup()
 void sendDataTask(void *pvParameters)
 {
   log_i("Send Data Task started on core %d", xPortGetCoreID());
-  send_data_t data;
-  memset(&data, 0, sizeof(send_data_t)); // Initialize the data structure
+  memset(&dataToSend, 0, sizeof(send_data_t)); // Initialize the data structure
   uint8_t isConnectionInited = false;
   int8_t ntpSyncExpired = NTP_SYNC_TX_COUNT;
   while (1)
@@ -552,7 +565,7 @@ void sendDataTask(void *pvParameters)
     }
     else
     {
-      if (dequeueSendData(&data, portMAX_DELAY))
+      if (dequeueSendData(&dataToSend, portMAX_DELAY))
       {
         if (sysStat.connection == false)
         {
@@ -584,7 +597,7 @@ void sendDataTask(void *pvParameters)
         {
           SSLClient* client = getGSMClient();
           client = (sysStat.use_modem) ? client : &wificlient;
-          connectToServer(client,&data,&devinfo,&sensorData,&sysData);
+          connectToServer(client,&dataToSend,&devinfo,&sensorData,&sysData);
         }
 
         Serial.println("Writing log to SD card...");
@@ -592,12 +605,12 @@ void sendDataTask(void *pvParameters)
         {
           if (checkLogFile(&devinfo))
           {
-            logToSD(&data,&sysData,&sysStat,&sensorData,&devinfo);
+            logToSD(&dataToSend,&sysData,&sysStat,&sensorData,&devinfo);
           }
         }
 
         // Print measurements to serial and draw them on the display
-        printMeasurementsOnSerial(&data, &sensorData);
+        printMeasurementsOnSerial(&dataToSend, &sensorData);
 
         if (sysStat.use_modem)
         {

@@ -1,19 +1,10 @@
-/**
- * @file display.c
- * @author your name (you@domain.com)
- * @brief 
- * @version 0.1
- * @date 2025-07-08
- * 
- * @copyright Copyright (c) 2025
- * 
- */
 
 
  // -- includes --
-#include "icons/icons.h"
-#include "display/display.h"
-#include "genericFunctions/generic_functions.h"
+#include "icons.h"
+#include "generic_functions.h"
+#include "display.h"
+
 
 #include <Wire.h>
 // OLED display library
@@ -222,56 +213,186 @@ void drawCountdown(short startsec, const char message[],systemStatus_t *statPtr,
 }
 
 /**
- * @brief  draws measurements on the U8g2 display
+ * @brief 
  * 
- * @param _temp 
- * @param _hum 
- * @param _pre 
- * @param _VOC 
- * @param _PM1 
- * @param _PM25 
- * @param _PM10 
- * @param _MICS_CO 
- * @param _MICS_NO2 
- * @param _MICS_NH3 
- * @param _ozone 
+ * @param p_tData 
+ * @param statPtr 
+ * @param devinfoPtr 
  */
-void drawMeasurements(sensorData_t *p_tData,systemStatus_t *statPtr, deviceNetworkInfo_t *devinfoPtr)
+void vMsp_drawBme680GasSensorData(sensorData_t *p_tData,systemStatus_t *statPtr, deviceNetworkInfo_t *devinfoPtr)
 {
-
-  log_i("Printing measurements on display...");
+  log_i("Printing BME680Sensor data on display...");
+  char sensorStringData[16] = {0};
 
   // page 1
   drawScrHead(statPtr,devinfoPtr);
-  u8g2.setCursor(5, 28); u8g2.print("Temp:  " + ((p_tData->status.BME680Sensor) ? (dspFloatToComma(p_tData->gasData.temperature) + "*C") : ""));
-  u8g2.setCursor(5, 39); u8g2.print("Hum:  " + ((p_tData->status.BME680Sensor) ? (dspFloatToComma(p_tData->gasData.humidity) + "%" ) : ""));
-  u8g2.setCursor(5, 50); u8g2.print("Pre:  " + ((p_tData->status.BME680Sensor) ? (dspFloatToComma(p_tData->gasData.pressure) + "hPa") : ""));
-  u8g2.setCursor(5, 61); u8g2.print("VOC:  " + ((p_tData->status.BME680Sensor) ? (dspFloatToComma(p_tData->gasData.volatileOrganicCompounds) + "kOhm") : ""));
-  u8g2.sendBuffer();
-  delay(7000);
+  if (p_tData->status.BME680Sensor)
+  {
+    dspFloatToComma(p_tData->gasData.temperature,sensorStringData,sizeof(sensorStringData));
+    u8g2.setCursor(5, 28); 
+    u8g2.print("Temp:  ");
+    u8g2.print(sensorStringData);
+    u8g2.print(" °C");
+
+    dspFloatToComma(p_tData->gasData.humidity,sensorStringData,sizeof(sensorStringData));
+    u8g2.setCursor(5, 39);
+    u8g2.print("Hum:  ");
+    u8g2.print(sensorStringData);
+    u8g2.print(" %");
+
+    dspFloatToComma(p_tData->gasData.pressure,sensorStringData,sizeof(sensorStringData));
+    u8g2.setCursor(5, 50);
+    u8g2.print("Pre:  ");
+    u8g2.print(sensorStringData);
+    u8g2.print("hPa");
+
+    dspFloatToComma(p_tData->gasData.volatileOrganicCompounds,sensorStringData,sizeof(sensorStringData));
+    u8g2.setCursor(5, 61);
+    u8g2.print("VOC:  ");
+    u8g2.print(sensorStringData);
+    u8g2.print("kOhm");
+
+  } 
+  else 
+  {
+    u8g2.setCursor(5, 28);
+    u8g2.print("Temp: --");
+
+    u8g2.setCursor(5, 39);
+    u8g2.print("Hum: --");
+
+    u8g2.setCursor(5, 50);
+    u8g2.print("Pre: --");
+
+    u8g2.setCursor(5, 61);
+    u8g2.print("VOC: --");
+  }  
+  u8g2.sendBuffer();  
+}
+
+/**
+ * @brief 
+ * 
+ * @param p_tData 
+ * @param statPtr 
+ * @param devinfoPtr 
+ */
+void vMsp_drawPMS5003AirQualitySensorData(sensorData_t *p_tData,systemStatus_t *statPtr, deviceNetworkInfo_t *devinfoPtr)
+{
+  log_i("Printing PMS5003Sensor data on display...");
+  char sensorStringData[16] = {0};
 
   // page 2
   drawScrHead(statPtr,devinfoPtr);
-  u8g2.setCursor(5, 28); u8g2.print("PM1:  " + ((p_tData->status.PMS5003Sensor) ? (String(p_tData->airQualityData.particleMicron1) + "ug/m3") : ""));
-  u8g2.setCursor(5, 39); u8g2.print("PM2,5:  " + ((p_tData->status.PMS5003Sensor) ? (String(p_tData->airQualityData.particleMicron25) + "ug/m3") : ""));
-  u8g2.setCursor(5, 50); u8g2.print("PM10:  " + ((p_tData->status.PMS5003Sensor) ? (String(p_tData->airQualityData.particleMicron10) + "ug/m3") : ""));
-  u8g2.sendBuffer();
-  delay(5000);
+  if (p_tData->status.PMS5003Sensor)
+  {
+    dspFloatToComma(p_tData->airQualityData.particleMicron1,sensorStringData,sizeof(sensorStringData));
+    u8g2.setCursor(5, 28);
+    u8g2.print("PM1:  ");
+    u8g2.print(sensorStringData);
+    u8g2.print("ug/m3");
 
-  // page 3
-  drawScrHead(statPtr,devinfoPtr);
-  u8g2.setCursor(5, 28); u8g2.print("CO:  " + ((p_tData->status.MICS6814Sensor) ? (dspFloatToComma(p_tData->pollutionData.data.carbonMonoxide) + "ug/m3") : ""));
-  u8g2.setCursor(5, 39); u8g2.print("NOx:  " + ((p_tData->status.MICS6814Sensor) ? (dspFloatToComma(p_tData->pollutionData.data.nitrogenDioxide) + "ug/m3") : ""));
-  u8g2.setCursor(5, 50); u8g2.print("NH3:  " + ((p_tData->status.MICS6814Sensor) ? (dspFloatToComma(p_tData->pollutionData.data.ammonia) + "ug/m3") : ""));
+    dspFloatToComma(p_tData->airQualityData.particleMicron25,sensorStringData,sizeof(sensorStringData));
+    u8g2.setCursor(5, 39);
+    u8g2.print("PM2,5:  ");
+    u8g2.print(sensorStringData);
+    u8g2.print("ug/m3");
+
+    dspFloatToComma(p_tData->airQualityData.particleMicron10,sensorStringData,sizeof(sensorStringData));
+    u8g2.setCursor(5, 50);
+    u8g2.print("PM10:  ");
+    u8g2.print(sensorStringData);
+    u8g2.print("ug/m3");
+  }
+  else 
+  {
+    u8g2.setCursor(5, 28);
+    u8g2.print("PM1:--");
+
+    u8g2.setCursor(5, 39);
+    u8g2.print("PM2,5:--");
+
+    u8g2.setCursor(5, 50);
+    u8g2.print("PM10:--");
+  }
   u8g2.sendBuffer();
-  delay(5000);
+}
+
+/**
+ * @brief 
+ * 
+ * @param p_tData 
+ * @param statPtr 
+ * @param devinfoPtr 
+ */
+void vMsp_drawMICS6814PollutionSensorData(sensorData_t *p_tData,systemStatus_t *statPtr, deviceNetworkInfo_t *devinfoPtr)
+{
+  log_i("Printing MICS6814Sensor data on display...");
+  char sensorStringData[16] = {0};
+
+  drawScrHead(statPtr,devinfoPtr);
+  if (p_tData->status.MICS6814Sensor)
+  {
+    dspFloatToComma(p_tData->pollutionData.data.carbonMonoxide,sensorStringData,sizeof(sensorStringData));
+    u8g2.setCursor(5, 28);
+    u8g2.print("CO:  ");
+    u8g2.print(sensorStringData);
+    u8g2.print("ug/m3");
+
+    dspFloatToComma(p_tData->pollutionData.data.nitrogenDioxide,sensorStringData,sizeof(sensorStringData));
+    u8g2.setCursor(5, 39);
+    u8g2.print("NOx:  ");
+    u8g2.print(sensorStringData);
+    u8g2.print("ug/m3");
+
+    dspFloatToComma(p_tData->pollutionData.data.ammonia,sensorStringData,sizeof(sensorStringData));
+    u8g2.setCursor(5, 50);
+    u8g2.print("NH3:  ");
+    u8g2.print(sensorStringData);
+    u8g2.print("ug/m3");
+  }
+  else 
+  {
+    u8g2.setCursor(5, 28);
+    u8g2.print("CO:--");
+
+    u8g2.setCursor(5, 39);
+    u8g2.print("NOx:--");
+
+    u8g2.setCursor(5, 50);
+    u8g2.print("NH3:--");
+  }
+  u8g2.sendBuffer();
+}
+
+/**
+ * @brief 
+ * 
+ * @param p_tData 
+ * @param statPtr 
+ * @param devinfoPtr 
+ */
+void vMsp_drawOzoneSensorData(sensorData_t *p_tData,systemStatus_t *statPtr, deviceNetworkInfo_t *devinfoPtr)
+{
+  log_i("Printing OzoneSensor data on display...");
+  char sensorStringData[16] = {0};
 
   // page 4
   drawScrHead(statPtr,devinfoPtr);
-  u8g2.setCursor(5, 39); u8g2.print("O3:  " + ((p_tData->status.O3Sensor) ? (dspFloatToComma(p_tData->ozoneData.ozone) + "ug/m3") : ""));
-  u8g2.sendBuffer();
-  delay(3000);
-  
+  if (p_tData->status.O3Sensor)
+  {
+    dspFloatToComma(p_tData->ozoneData.ozone,sensorStringData,sizeof(sensorStringData));
+    u8g2.setCursor(5, 39);
+    u8g2.print("O3:  ");
+    u8g2.print(sensorStringData);
+    u8g2.print("ug/m3");
+  }
+  else 
+  {
+    u8g2.setCursor(5, 39);
+    u8g2.print("O3:--");
+  }
+  u8g2.sendBuffer(); 
 }
 
 

@@ -14,12 +14,11 @@
 
 // -- includes --
 #include <Arduino.h>
-#include <WiFi.h>
-
+#include <WiFiGeneric.h>
 
 // -- defines -- 
-#define ENABLED   1
-#define DISABLED  0
+// #define ENABLED   1
+// #define DISABLED  0
 
 #define TRUE  1
 #define FALSE 0
@@ -226,6 +225,23 @@ typedef struct __NTP_TIMEZONE_ {
   char Date[11];
   char Time[9];
 }systemData_t;
+
+typedef struct __SEND_DATA__
+{
+  struct tm sendTimeInfo; /*!< Date and time of the data to be sent */
+  float temp;
+  float hum;
+  float pre;
+  float VOC;
+  int32_t PM1;
+  int32_t PM25;
+  int32_t PM10;
+  float MICS_CO;
+  float MICS_NO2;
+  float MICS_NH3;
+  float ozone;
+  int8_t MSP; /*!< MSP# Index */
+} send_data_t;
 
 
 static SemaphoreHandle_t	dataAccessMutex;	/*!< Mutex used to manage the data Access */

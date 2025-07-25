@@ -8,22 +8,40 @@
  * @copyright Copyright (c) 2025
  * 
  ****************************************************/
+// Select modem type
+#define TINY_GSM_MODEM_SIM800
 
-#include "network.h"
-#include "WiFi.h"
-#include "TinyGsmClient.h"
-#include "SSLClient.h"
-#include "esp_sntp.h"
+#include <Arduino.h>
+#include <FS.h>
+#include <SD.h>
+#include <Wire.h>
+
+#include <stdint.h>
+#include <stdio.h>
+
+// WiFi Client, NTP time management, Modem and SSL libraries
+#include <WiFi.h>
 #include "time.h"
-#include "trust_anchor/trust_anchor.h"
-#include "stdlib.h"
-#include "display/display.h"
-#include "msp_tasks/display_task.h"
+#include "esp_sntp.h"
+#include <TinyGsmClient.h>
+#include <SSLClient.h>
+#include <TinyGSM.h>
+
+// #include <Arduino.h>
+#include "network.h"
+// #include "WiFi.h"
+// #include "TinyGsmClient.h"
+// #include "SSLClient.h"
+// #include "esp_sntp.h"
+// #include "time.h"
+#include "trust_anchor.h"
+// #include "stdlib.h"
+#include "display.h"
+#include "display_task.h"
 
 
 #define MODEM_TX 13
 #define MODEM_RX 15
-
 
 // Modem stuff
 #if !defined(TINY_GSM_RX_BUFFER) // Increase RX buffer to capture the entire response
@@ -47,8 +65,8 @@ TinyGsm        modem(debugger);
 TinyGsm modem(gsmSerial);
 // #endif
 TinyGsmClient gsm_base(modem);
-SSLClient gsmclient(gsm_base, TAs, (size_t)TAs_NUM, rand_pin, 1, SSLClient::SSL_ERROR);
 
+SSLClient gsmclient(gsm_base, TAs, (size_t)TAs_NUM, rand_pin, 1, SSLClient::SSL_ERROR);
 // -- queue data to display task 
 static displayData_t displayData;
 
@@ -58,8 +76,11 @@ static void vMsp_updateNetworkData(deviceNetworkInfo_t *p_tDev,systemStatus_t *p
   
   tMsp_takeDataAccessMutex();
 
-  memcpy(&displayData.devInfo, p_tDev, sizeof(deviceNetworkInfo_t));
-  memcpy(&displayData.sysStat, p_tSys, sizeof(systemStatus_t));
+  displayData.devInfo = *p_tDev;
+  displayData.sysStat = *p_tSys;
+
+  // memcpy(&displayData.devInfo, p_tDev, sizeof(deviceNetworkInfo_t));
+  // memcpy(&displayData.sysStat, p_tSys, sizeof(systemStatus_t));
 
   vMsp_giveDataAccessMutex();
 }
@@ -143,7 +164,7 @@ uint8_t connectWiFi(deviceNetworkInfo_t *p_tDev,systemStatus_t *p_tSys)
 
       if (ssid_ok)
       { // Begin connection
-        log_i("%s found!\n", ssid.c_str());
+        log_i("%s found!\n",  p_tDev->ssid.c_str());
         p_tDev->foundNet = p_tDev->ssid + " OK!";
         log_i("Connecting to %s, please wait...", p_tDev->ssid.c_str());
 
@@ -411,7 +432,7 @@ void connAndGetTime(systemStatus_t *p_tSys,deviceNetworkInfo_t *p_tDev, systemDa
         p_tm->tm_mday = day;
         p_tm->tm_isdst = -1;
         time_t t = mktime(p_tm);
-        struct timeval now = { .tv_sec = t };
+        timeval now = { .tv_sec = t };
         settimeofday(&now, NULL);
       }
       else
@@ -488,9 +509,9 @@ void connectToServer(SSLClient *p_tClient, send_data_t *p_tDataToSent, deviceNet
   Serial.println("Uploading data to server through HTTPS in progress...\n");
   // drawTwoLines("Uploading data", "to server...", 0);
 
-  log_i("Connecting to %s...\n", server.c_str());
-  log_i("Device ID: %s\n", deviceid.c_str());
-  log_i("api_secret_salt: %s\n", api_secret_salt.c_str());
+  log_i("Connecting to %s...\n", p_tSysData->server.c_str());
+  log_i("Device ID: %s\n", p_tDev->deviceid.c_str());
+  log_i("api_secret_salt: %s\n", p_tSysData->api_secret_salt.c_str());
 
   short retries = 0;
   while (retries < 4)

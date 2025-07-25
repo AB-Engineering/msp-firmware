@@ -14,18 +14,23 @@
 
 
  // -------------------------- includes ---------------------
-#include "sdCard.h"
-#include "data.h"
+#include "sdcard.h"
+
 #include <U8g2lib.h>
 #include <WiFi.h>
 #include <FS.h>
 #include <SD.h>
-#include "generic_functions.h"
-#include "msp_tasks/display_task.h"
- //-------------------------- functions --------------------
 
- // -- queue data to display task 
+#include "generic_functions.h"
+#include "display_task.h"
+#include "display.h"
+#include "network.h"
+//-------------------------- functions --------------------
+
+// -- queue data to display task 
 static displayData_t displayData;
+
+static uint8_t parseConfig(File fl, deviceNetworkInfo_t *p_tDev, sensorData_t *p_tData, deviceMeasurement_t *pDev, systemStatus_t *sysStat, systemData_t *p_tSysData);
 
 /**********************************************************************
  * @brief update data required for network events into display data queue 
@@ -104,7 +109,7 @@ uint8_t initializeSD(systemStatus_t *p_tSys, deviceNetworkInfo_t *p_tDev)
  * @param p_tSysData 
  * @return uint8_t 
  *********************************************************/
-uint8_t parseConfig(File fl, deviceNetworkInfo_t *p_tDev, sensorData_t *p_tData, deviceMeasurement_t *pDev, systemStatus_t *sysStat, systemData_t *p_tSysData) 
+static uint8_t parseConfig(File fl, deviceNetworkInfo_t *p_tDev, sensorData_t *p_tData, deviceMeasurement_t *pDev, systemStatus_t *sysStat, systemData_t *p_tSysData) 
 { // parses the configuration file on the SD Card
 
   uint8_t outcome = TRUE;
@@ -131,7 +136,7 @@ uint8_t parseConfig(File fl, deviceNetworkInfo_t *p_tDev, sensorData_t *p_tData,
   {
     p_tDev->ssid = command[line_cnt].substring(command[line_cnt].indexOf('=') + 1, command[line_cnt].length());
     if (p_tDev->ssid.length() > 0) {
-      log_i("ssid = *%s*", ssid.c_str());
+      log_i("ssid = *%s*", p_tDev->ssid.c_str());
       have_ssid = TRUE;
     } else {
       log_i("SSID value is empty");
@@ -144,7 +149,7 @@ uint8_t parseConfig(File fl, deviceNetworkInfo_t *p_tDev, sensorData_t *p_tData,
   //passw
   if (command[line_cnt].startsWith("password", 0)) {
     p_tDev->passw = command[line_cnt].substring(command[line_cnt].indexOf('=') + 1, command[line_cnt].length());
-    log_i("passw = *%s*", passw.c_str());
+    log_i("passw = *%s*", p_tDev->passw.c_str());
   } else {
     log_e("Error parsing PASSWORD line!");
   }
@@ -156,7 +161,7 @@ uint8_t parseConfig(File fl, deviceNetworkInfo_t *p_tDev, sensorData_t *p_tData,
       log_e("DEVICEID value is empty!");
       outcome = FALSE;
     } else {
-      log_i("deviceid = *%s*", deviceid.c_str());
+      log_i("deviceid = *%s*", p_tDev->deviceid.c_str());
     }
   } else {
     log_e("Error parsing DEVICE_ID line!");
@@ -240,7 +245,7 @@ uint8_t parseConfig(File fl, deviceNetworkInfo_t *p_tDev, sensorData_t *p_tData,
   } else {
     log_e("Error parsing SEA_LEVEL_ALTITUDE line. Falling back to default value");
   }
-  log_i("sealevelalt = *%.2f*", p_tData->gasData.sealevelalt);
+  log_i("sealevelalt = *%.2f*", p_tData->gasData.seaLevelAltitude);
   line_cnt++;
   //server
   if (command[line_cnt].startsWith("upload_server", 0)) {
@@ -263,7 +268,7 @@ uint8_t parseConfig(File fl, deviceNetworkInfo_t *p_tDev, sensorData_t *p_tData,
     log_e("Error parsing UPLOAD_SERVER line!");
 #endif
   }
-  log_i("server = *%s*", server.c_str());
+  log_i("server = *%s*", p_tSysData->server.c_str());
   line_cnt++;
   //mics_calibration_values
   if (command[line_cnt].startsWith("mics_calibration_values", 0)) {
@@ -320,7 +325,7 @@ uint8_t parseConfig(File fl, deviceNetworkInfo_t *p_tDev, sensorData_t *p_tData,
   } else {
     log_e("Error parsing MODEM_APN line!");
   }
-  log_i("apn = *%s*\n", apn.c_str());
+  log_i("apn = *%s*\n", p_tDev->apn.c_str());
   if (sysStat->use_modem && p_tDev->apn.length() == 0) outcome = FALSE;
   line_cnt++;
   // Timezone and NTP server

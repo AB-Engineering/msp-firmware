@@ -11,7 +11,7 @@
 #ifndef DISPLAY_H
 #define DISPLAY_H
 
-#include "msp_hal/data.h"
+#include "shared_values.h"
 
 void initSerialAndI2cDisplay(void);
 /******************************************************
@@ -64,22 +64,19 @@ void drawTwoLines(const char message1[], const char message2[], short secdelay, 
  *****************************************************/
 void drawCountdown(short startsec, const char message[],systemStatus_t *statPtr, deviceNetworkInfo_t *devinfoPtr);
 
-/*****************************************************
- * @brief  draws measurements on the U8g2 display
+/**
+ * @brief draw input values to screen
  * 
- * @param _temp 
- * @param _hum 
- * @param _pre 
- * @param _VOC 
- * @param _PM1 
- * @param _PM25 
- * @param _PM10 
- * @param _MICS_CO 
- * @param _MICS_NO2 
- * @param _MICS_NH3 
- * @param _ozone 
- *****************************************************/
+ * @param redval 
+ * @param oxval 
+ * @param nh3val 
+ */
 void drawMicsValues(uint16_t redval, uint16_t oxval, uint16_t nh3val,systemStatus_t *statPtr, deviceNetworkInfo_t *devinfoPtr);
 
-void drawMeasurements(sensorData_t *p_tData,systemStatus_t *statPtr, deviceNetworkInfo_t *devinfoPtr);
+
+void vMsp_drawBme680GasSensorData(sensorData_t *p_tData,systemStatus_t *statPtr, deviceNetworkInfo_t *devinfoPtr);
+void vMsp_drawPMS5003AirQualitySensorData(sensorData_t *p_tData,systemStatus_t *statPtr, deviceNetworkInfo_t *devinfoPtr);
+void vMsp_drawMICS6814PollutionSensorData(sensorData_t *p_tData,systemStatus_t *statPtr, deviceNetworkInfo_t *devinfoPtr);
+void vMsp_drawOzoneSensorData(sensorData_t *p_tData,systemStatus_t *statPtr, deviceNetworkInfo_t *devinfoPtr);
+
 #endif

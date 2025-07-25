@@ -12,7 +12,8 @@
 #ifndef GENERIC_FUNCTIONS_H
 #define GENERIC_FUNCTIONS_H
 
-
+#include <stddef.h>
+#include <Arduino.h>
 
 /*************************************************
  * @brief   converts float values in strings,
@@ -22,7 +23,7 @@
  * @param   value 
  * @return  String 
  *************************************************/
-static String dspFloatToComma(float value);
+void dspFloatToComma(float value, char *buffer, size_t bufferSize);
 
 /*************************************************
  * @brief   converts float values in strings 
@@ -33,7 +34,6 @@ static String dspFloatToComma(float value);
  * @return  String 
  ************************************************/
 String floatToComma(float value);
-
 
 /************************************************************
  * @brief calculates ug/m3 from a gas ppm concentration

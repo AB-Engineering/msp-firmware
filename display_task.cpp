@@ -13,12 +13,12 @@
 #include "freertos/task.h"
 #include "freertos/queue.h"
 #include "freertos/event_groups.h"
-#include "freertos/idf_additions.h"
-#include "freertos/portmacro.h"
-
+// #include "freertos/idf_additions.h"
+// #include "freertos/portmacro.h"
 
 #include "display_task.h"
-#include "msp_hal/display/display.h"
+#include "display.h"
+
 //--------------------------------------------------------------------------------------------------
 //------------------ DISPLAY TASK SECTION ----------------------------------------------------------
 //--------------------------------------------------------------------------------------------------
@@ -45,7 +45,7 @@ static QueueHandle_t displayTaskQueue;	/*!< DISPLAY Task Events queue */
 
 state_machine_t dispFSM;
 
-displayData_t data;
+static displayData_t data{};
 
 
 // -- queue initialization --
@@ -58,12 +58,12 @@ void initDisplayDataQueue()
 }
 
 // -- event send-receive -- 
-inline BaseType_t tMsp_sendDisplayEvent(displayData_t* data)
+BaseType_t tMsp_sendDisplayEvent(displayData_t* data)
 {
 	return (BaseType_t)xQueueSend(displayTaskQueue, data, 0);
 }
 
-inline BaseType_t tMsp_receiveDisplayEvent(displayData_t* data, TickType_t xTicksToWait)
+BaseType_t tMsp_receiveDisplayEvent(displayData_t* data, TickType_t xTicksToWait)
 {
 	return xQueueReceive(displayTaskQueue, data, xTicksToWait);
 }
@@ -78,10 +78,8 @@ void displayTask(void *pvParameters)
     dispFSM.returnState = DISP_EVENT_WAIT_FOR_EVENT;
     dispFSM.isFirstTransition = true;
 
-    Ticktype_t eventWaitTimeout   = portMAX_DELAY;
+    TickType_t eventWaitTimeout   = portMAX_DELAY;
     displayEvents_t displayEvents = DISP_EVENT_WAIT_FOR_EVENT;
-
-    memset(&data,0,sizeof(displayData_t));
     
   while(1)
   {
@@ -181,6 +179,7 @@ void displayTask(void *pvParameters)
         dispFSM.next_state = dispFSM.returnState;
         break;
       case DISP_EVENT_WAIT_FOR_TIMEOUT:
+      {
         char firstRow[17] = {0};
         char secondRow[22] = {0};
         sprintf(firstRow, "meas:%d of %d", data.measStat.measurement_count, data.measStat.avg_measurements);
@@ -188,6 +187,7 @@ void displayTask(void *pvParameters)
         drawTwoLines(firstRow, secondRow, 0,&data.sysStat,&data.devInfo);
         dispFSM.next_state = dispFSM.returnState;
         break;
+      }
       case DISP_EVENT_PREHEAT_STAT:
         drawCountdown(PMS_PREHEAT_TIME_IN_SEC, "Preheating PMS5003...",&data.sysStat,&data.devInfo);
         dispFSM.next_state = dispFSM.returnState;
@@ -229,13 +229,13 @@ void displayTask(void *pvParameters)
         drawLine("WiFi connect err!", 2,&data.sysStat,&data.devInfo);
         break;
       case DISP_EVENT_SSID_NOT_FOUND:
-        drawLine(&data.devInfo.noNet.c_str(), 2,&data.sysStat,&data.devInfo);
+        drawLine(data.devInfo.noNet.c_str(), 2,&data.sysStat,&data.devInfo);
         break;
       case DISP_EVENT_NO_NETWORKS_FOUND:
         drawLine("No networks found!", 2,&data.sysStat,&data.devInfo);
         break;
       case DISP_EVENT_CONN_RETRY:
-        drawTwoLines("Retrying...", &data.devInfo.remain.c_str(), 2,&data.sysStat,&data.devInfo);
+        drawTwoLines("Retrying...", data.devInfo.remain.c_str(), 2,&data.sysStat,&data.devInfo);
         break;
       case DISP_EVENT_NO_INTERNET:
         drawLine("No internet!", 2,&data.sysStat,&data.devInfo);
@@ -254,7 +254,7 @@ void displayTask(void *pvParameters)
       default:
         dispFSM.current_state = dispFSM.next_state = dispFSM.returnState;
     }
-    dispFSM.current_state = dispFSM.next_state
+    dispFSM.current_state = dispFSM.next_state;
   }
 }
 

@@ -73,8 +73,14 @@
     "cinttypes": "cpp",
     "typeinfo": "cpp",
     "variant": "cpp",
-    "display.h": "c",
-    "data.h": "c"
+    "data.h": "c",
+    "generic_functions.h": "c",
+    "shared_values.h": "c",
+    "wifi.h": "c",
+    "math.h": "c",
+    "display_task.h": "c",
+    "wifitype.h": "c",
+    "print.h": "c"
   },
   "arduino.useArduinoCli": true,
   "arduino.path": "C:\\Users\\BasheeS\\arduino-cli_1.2.2_Windows_64bit",

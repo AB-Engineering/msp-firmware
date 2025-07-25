@@ -12,29 +12,14 @@
 #define NETWORK_H
 
 
-#include "msp_hal/data.h"
+#include "shared_values.h"
 #include "SSLClient.h"
 #include <WiFi.h>
 
 #define TIME_SYNC_MAX_RETRY 5
 
 
-typedef struct __SEND_DATA__
-{
-  struct tm sendTimeInfo; /*!< Date and time of the data to be sent */
-  float temp;
-  float hum;
-  float pre;
-  float VOC;
-  int32_t PM1;
-  int32_t PM25;
-  int32_t PM10;
-  float MICS_CO;
-  float MICS_NO2;
-  float MICS_NH3;
-  float ozone;
-  int8_t MSP; /*!< MSP# Index */
-} send_data_t;
+
 
 SSLClient* getGSMClient();
 

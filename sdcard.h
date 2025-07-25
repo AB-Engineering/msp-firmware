@@ -11,14 +11,11 @@
 #ifndef SDCARD_H
 #define SDCARD_H
 
-#include "msp_hal/display/display.h"
-#include "msp_hal/network/network.h"
-#include "msp_hal/data.h"
+
+#include "shared_values.h"
 
 
 uint8_t initializeSD(systemStatus_t *p_tSys, deviceNetworkInfo_t *p_tDev);
-
-uint8_t parseConfig(File fl, deviceNetworkInfo_t *p_tDev, sensorData_t *p_tData, deviceMeasurement_t *pDev, systemStatus_t *sysStat, systemData_t *p_tSysData);
 
 uint8_t checkConfig(const char *configpath, deviceNetworkInfo_t *p_tDev, sensorData_t *p_tData, deviceMeasurement_t *pDev, systemStatus_t *p_tSys, systemData_t *p_tSysData);
 

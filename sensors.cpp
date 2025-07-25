@@ -14,12 +14,11 @@
 // -- includes 
 #include <stdint.h>
 #include <stdio.h>
-
 #include "generic_functions.h"
+
 #include "sensors.h"
 
-// -- Sensors management libraries
-#include <bsec.h>
+
 // for MICS6814
 #include <MiCS6814-I2C.h>
 
@@ -105,15 +104,11 @@ void vMspHal_writeMicsValues(sensorData_t *p_tData)
  * @param p_tData 
  * @return mspStatus_t 
  **********************************************************/
-mspStatus_t tMspHal_checkMicsValues(sensorData_t *p_tData, MiCS6814 *ptr)
+mspStatus_t tMspHal_checkMicsValues(sensorData_t *p_tData, sensorR0Value_t *ptr)
 {
-  sensorR0Value_t r0Values;
-  r0Values.redSensor = ptr->getBaseResistance(CH_RED);
-  r0Values.oxSensor = ptr->getBaseResistance(CH_OX);
-  r0Values.nh3Sensor = ptr->getBaseResistance(CH_NH3);
-  if (r0Values.redSensor == p_tData->pollutionData.sensingResInAir.redSensor
-    && r0Values.oxSensor  == p_tData->pollutionData.sensingResInAir.oxSensor
-    && r0Values.nh3Sensor == p_tData->pollutionData.sensingResInAir.nh3Sensor)
+  if (ptr->redSensor == p_tData->pollutionData.sensingResInAir.redSensor
+    && ptr->oxSensor  == p_tData->pollutionData.sensingResInAir.oxSensor
+    && ptr->nh3Sensor == p_tData->pollutionData.sensingResInAir.nh3Sensor)
   {
     return STATUS_OK;
   }

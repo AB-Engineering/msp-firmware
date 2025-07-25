@@ -12,7 +12,8 @@
 #ifndef TASKS_H
 #define TASKS_H
 
-
+#include "shared_values.h"
+#include "freertos/portmacro.h"
 
 // -- display events --
 typedef enum _DISPLAY_EVENTS_ {
@@ -95,8 +96,8 @@ typedef struct _DISP_TASK_DATA_{
 void initDisplayDataQueue();
 void vTaskDisplay_createTask(void);
 
-inline BaseType_t tMsp_sendDisplayEvent(displayData_t* data);
-inline BaseType_t tMsp_receiveDisplayEvent(displayData_t* data, TickType_t xTicksToWait);
+BaseType_t tMsp_sendDisplayEvent(displayData_t* data);
+BaseType_t tMsp_receiveDisplayEvent(displayData_t* data, TickType_t xTicksToWait);
 
 
 #endif

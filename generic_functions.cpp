@@ -10,11 +10,10 @@
  */
 
 #include "stdio.h"
-#include "stdint.h"
-#include "string.h"
+#include "math.h"
 #include "generic_functions.h"
-#include "msp_hal/data.h"
-
+#include "shared_values.h"
+#include <Arduino.h>
 
 
 /*************************************************
@@ -25,11 +24,11 @@
  * @param   value 
  * @return  String 
  *************************************************/
-static String dspFloatToComma(float value) 
-{  
-  String convert = String(value, 3);
-  convert.replace(STR_DOT, STR_COMMA);
-  return convert;
+void dspFloatToComma(float value, char *buffer, size_t bufferSize)
+{
+  int intPart = (int)value;
+  int decimalPart = (int) (fabs(value - intPart) * 100);
+  snprintf(buffer,bufferSize,"%d,%02d",intPart,decimalPart);
 }
 
 /*************************************************
