@@ -1,13 +1,13 @@
-/**
- * @file data.h
- * @author your name (you@domain.com)
- * @brief 
+/****************************************************************************************
+ * @file    shared_values.h
+ * @author  AB-Engineering - https://ab-engineering.it
+ * @brief   Shared values and definitions for the Milano Smart Park project
  * @version 0.1
- * @date 2025-07-09
+ * @date    2025-07-26
  * 
  * @copyright Copyright (c) 2025
  * 
- */
+ ****************************************************************************************/
 
 #ifndef DATA_H
 #define DATA_H
@@ -15,10 +15,6 @@
 // -- includes --
 #include <Arduino.h>
 #include <WiFiGeneric.h>
-
-// -- defines -- 
-// #define ENABLED   1
-// #define DISABLED  0
 
 #define TRUE  1
 #define FALSE 0
@@ -38,11 +34,8 @@
 #define HUMIDITY_OFFSET             50.0              // humidity offset 
 #define PERCENT_DIVISOR             100.0             // percent divisor
 
-#define CELIUS_TO_KELVIN              273.15 // Conversion from Celsius to Kelvin
+#define CELIUS_TO_KELVIN            273.15 // Conversion from Celsius to Kelvin
 #define MICROGRAMS_PER_GRAM         1000.0 // µg in 1 gram
-
-
-
 
 
 typedef struct __STATE_MACHINE__ {
@@ -242,26 +235,6 @@ typedef struct __SEND_DATA__
   float ozone;
   int8_t MSP; /*!< MSP# Index */
 } send_data_t;
-
-
-static SemaphoreHandle_t	dataAccessMutex;	/*!< Mutex used to manage the data Access */
-
-inline void vMsp_createOsMutex(void)
-{
-    dataAccessMutex = xSemaphoreCreateMutex();
-}
-
-inline BaseType_t tMsp_takeDataAccessMutex()
-{
-	return xSemaphoreTake( dataAccessMutex, portMAX_DELAY);
-}
-
-inline void vMsp_giveDataAccessMutex(void)
-{
-	xSemaphoreGive(dataAccessMutex);
-}
-
-
 
 
 #endif

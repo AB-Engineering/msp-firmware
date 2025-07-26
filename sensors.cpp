@@ -1,13 +1,13 @@
-/**
- * @file sensors.c
- * @author your name (you@domain.com)
- * @brief 
+/****************************************************************************
+ * @file    sensors.cpp
+ * @author  Refactored by AB-Engineering - https://ab-engineering.it
+ * @brief   functions to fetch the data from sensors and process
  * @version 0.1
- * @date 2025-07-12
+ * @date    2025-07-26
  * 
  * @copyright Copyright (c) 2025
  * 
- */
+ ***************************************************************************/
 
 
 
@@ -15,14 +15,8 @@
 #include <stdint.h>
 #include <stdio.h>
 #include "generic_functions.h"
-
-#include "sensors.h"
-
-
-// for MICS6814
 #include <MiCS6814-I2C.h>
-
-
+#include "sensors.h"
 
 #define true     1
 #define false    0
@@ -32,7 +26,7 @@
  * @return true 
  * @return false 
  ***************************************************/
-mspStatus_t tMspHal_checkBMESensor(Bsec *ptr)
+mspStatus_t tHalSensor_checkBMESensor(Bsec *ptr)
 { 
   if (ptr->bsecStatus < BSEC_OK)
   {
@@ -64,7 +58,7 @@ mspStatus_t tMspHal_checkBMESensor(Bsec *ptr)
  *
  * @return mspStatus_t
  ***************************************************/
-mspStatus_t tMspHal_isAnalogO3Connected()
+mspStatus_t tHalSensor_isAnalogO3Connected()
 {
   u_int16_t detect = 0;
   detect = analogRead(O3_ADC_PIN);
@@ -83,7 +77,7 @@ mspStatus_t tMspHal_isAnalogO3Connected()
  *  
  * @param p_tData 
  ********************************************************************/
-void vMspHal_writeMicsValues(sensorData_t *p_tData)
+void vHalSensor_writeMicsValues(sensorData_t *p_tData)
 {
   Wire.beginTransmission(DATA_I2C_ADDR);
   Wire.write(CMD_V2_SET_R0);
@@ -104,7 +98,7 @@ void vMspHal_writeMicsValues(sensorData_t *p_tData)
  * @param p_tData 
  * @return mspStatus_t 
  **********************************************************/
-mspStatus_t tMspHal_checkMicsValues(sensorData_t *p_tData, sensorR0Value_t *ptr)
+mspStatus_t tHalSensor_checkMicsValues(sensorData_t *p_tData, sensorR0Value_t *ptr)
 {
   if (ptr->redSensor == p_tData->pollutionData.sensingResInAir.redSensor
     && ptr->oxSensor  == p_tData->pollutionData.sensingResInAir.oxSensor
@@ -126,7 +120,7 @@ mspStatus_t tMspHal_checkMicsValues(sensorData_t *p_tData, sensorR0Value_t *ptr)
 * @param p_tData 
 * @return float 
 **********************************************************************************/
-float fMspHal_no2AndVocCompensation(float inputGas, bme680Data_t* p_tcurrData, sensorData_t* p_tData)
+float fHalSensor_no2AndVocCompensation(float inputGas, bme680Data_t* p_tcurrData, sensorData_t* p_tData)
 {
   return (inputGas * (((p_tcurrData->humidity + HUMIDITY_OFFSET) / PERCENT_DIVISOR) * p_tData->compParams.currentHumidity)) + 
         ((p_tcurrData->temperature - REFERENCE_TEMP_C) * p_tData->compParams.currentTemperature) - 
@@ -138,9 +132,10 @@ float fMspHal_no2AndVocCompensation(float inputGas, bme680Data_t* p_tcurrData, s
  * @brief reads and calculates ozone ppm value from analog ozone sensor
  *
  * @param intemp
+ * @param p_tData 
  * @return float
  *******************************************************************************/
-float analogUgM3O3Read(float *intemp, sensorData_t *p_tData)
+float fHalSensor_analogUgM3O3Read(float *intemp, sensorData_t *p_tData)
 {
 
   int points = 0;
@@ -164,15 +159,15 @@ float analogUgM3O3Read(float *intemp, sensorData_t *p_tData)
   points -= p_tData->ozoneData.o3ZeroOffset;
   if (points <= 0)
     return 0.0;
-  return (((points * 2.03552924) * 12.187 * 48) / (273.15 + currTemp)); // temperature compensated
+  return (((points * 2.03552924) * 12.187 * 48) / (CELIUS_TO_KELVIN + currTemp)); // temperature compensated
 }
 
 /******************************************************************************
- * @brief   serial print function 
+ * @brief   print measurements to serial output
  * 
  * @param data 
  *****************************************************************************/
-void printMeasurementsOnSerial(send_data_t *data, sensorData_t *p_tPtr )
+void vHalSensor_printMeasurementsOnSerial(send_data_t *data, sensorData_t *p_tPtr )
 {
 
   char locDate[11] = {0};
@@ -185,10 +180,10 @@ void printMeasurementsOnSerial(send_data_t *data, sensorData_t *p_tPtr )
   Serial.println("Date&time: " + String(locDate) + " " + String(locTime) + "\n");
   if (p_tPtr->status.BME680Sensor)
   {
-    Serial.println("Temperature: " + floatToComma(data->temp) + "°C");
-    Serial.println("Humidity: " + floatToComma(data->hum) + "%");
-    Serial.println("Pressure: " + floatToComma(data->pre) + "hPa");
-    Serial.println("VOC: " + floatToComma(data->VOC) + "kOhm");
+    Serial.println("Temperature: " + vGeneric_floatToComma(data->temp) + "°C");
+    Serial.println("Humidity: " + vGeneric_floatToComma(data->hum) + "%");
+    Serial.println("Pressure: " + vGeneric_floatToComma(data->pre) + "hPa");
+    Serial.println("VOC: " + vGeneric_floatToComma(data->VOC) + "kOhm");
   }
   if (p_tPtr->status.PMS5003Sensor)
   {
@@ -198,13 +193,13 @@ void printMeasurementsOnSerial(send_data_t *data, sensorData_t *p_tPtr )
   }
   if (p_tPtr->status.O3Sensor)
   {
-    Serial.println("O3: " + floatToComma(data->ozone) + "ug/m3");
+    Serial.println("O3: " + vGeneric_floatToComma(data->ozone) + "ug/m3");
   }
   if (p_tPtr->status.MICS6814Sensor)
   {
-    Serial.println("NOx: " + floatToComma(data->MICS_NO2) + "ug/m3");
-    Serial.println("CO: " + floatToComma(data->MICS_CO) + "ug/m3");
-    Serial.println("NH3: " + floatToComma(data->MICS_NH3) + "ug/m3");
+    Serial.println("NOx: " + vGeneric_floatToComma(data->MICS_NO2) + "ug/m3");
+    Serial.println("CO: " + vGeneric_floatToComma(data->MICS_CO) + "ug/m3");
+    Serial.println("NH3: " + vGeneric_floatToComma(data->MICS_NH3) + "ug/m3");
   }
   Serial.println();
 }
@@ -218,7 +213,7 @@ void printMeasurementsOnSerial(send_data_t *data, sensorData_t *p_tPtr )
  * @param p_tData 
  * @param number_of_measurements 
  *****************************************************************************************************/
-void performAverages(errorVars_t *p_tErr, sensorData_t *p_tData, deviceMeasurement_t *p_tMeas)
+void vHalSensor_performAverages(errorVars_t *p_tErr, sensorData_t *p_tData, deviceMeasurement_t *p_tMeas)
 {
 
   log_i("Performing averages...\n");
@@ -320,7 +315,7 @@ void performAverages(errorVars_t *p_tErr, sensorData_t *p_tData, deviceMeasureme
  * @param  p_tData  pointer to sensor data
  * @return short 
  *******************************************************************************************************/
-short evaluateMSPIndex(sensorData_t *p_tData)
+short sHalSensor_evaluateMSPIndex(sensorData_t *p_tData)
 {
   log_i("Evaluating MSP# index...\n");
 

@@ -1,36 +1,39 @@
-/**
- * @file sdCard.cpp
- * @author your name (you@domain.com)
- * @brief 
+/************************************************************************************************
+ * @file    sdCard.cpp
+ * @author  AB-Engineering - https://ab-engineering.it
+ * @brief   Management of the SD Card functionalities for the Milano Smart Park project
  * @version 0.1
- * @date 2025-07-17
+ * @date    2025-07-25
  * 
  * @copyright Copyright (c) 2025
  * 
- */
+ ************************************************************************************************/
 
-
-
-
-
- // -------------------------- includes ---------------------
-#include "sdcard.h"
-
+// -- includes --
 #include <U8g2lib.h>
 #include <WiFi.h>
-#include <FS.h>
 #include <SD.h>
 
+#include "sdcard.h"
 #include "generic_functions.h"
 #include "display_task.h"
-#include "display.h"
 #include "network.h"
-//-------------------------- functions --------------------
+#include "mspOs.h"
+
+// --defines --
+#define LINES 16
+
 
 // -- queue data to display task 
 static displayData_t displayData;
 
+//-------------------------- functions --------------------
+
 static uint8_t parseConfig(File fl, deviceNetworkInfo_t *p_tDev, sensorData_t *p_tData, deviceMeasurement_t *pDev, systemStatus_t *sysStat, systemData_t *p_tSysData);
+uint8_t initializeSD(systemStatus_t *p_tSys, deviceNetworkInfo_t *p_tDev);
+uint8_t checkConfig(const char *configpath, deviceNetworkInfo_t *p_tDev, sensorData_t *p_tData, deviceMeasurement_t *pDev, systemStatus_t *p_tSys, systemData_t *p_tSysData);
+uint8_t addToLog(const char *path, const char *oldpath, const char *errpath, String *message);
+
 
 /**********************************************************************
  * @brief update data required for network events into display data queue 
@@ -42,14 +45,10 @@ static uint8_t parseConfig(File fl, deviceNetworkInfo_t *p_tDev, sensorData_t *p
 static void vMsp_updateNetworkData(deviceNetworkInfo_t *p_tDev,systemStatus_t *p_tSys,displayEvents_t event)
 {
   displayData.currentEvent = event;
-  
-  tMsp_takeDataAccessMutex();
-
-  memcpy(&displayData.devInfo, p_tDev, sizeof(deviceNetworkInfo_t));
-  memcpy(&displayData.sysStat, p_tSys, sizeof(systemStatus_t));
-
-  vMsp_giveDataAccessMutex();
-
+  vMspOs_takeDataAccessMutex();
+  displayData.devInfo = *p_tDev;
+  displayData.sysStat = *p_tSys;
+  vMspOs_giveDataAccessMutex();
 }
 
 /**********************************************************************
@@ -70,7 +69,7 @@ uint8_t initializeSD(systemStatus_t *p_tSys, deviceNetworkInfo_t *p_tDev)
     { // errors after 10 seconds
       log_e("No SD Card detected! No internet connection possible!\n");
       vMsp_updateNetworkData(p_tDev,p_tSys,DISP_EVENT_SD_CARD_NOT_PRESENT);
-      tMsp_sendDisplayEvent(&displayData);
+      tTaskDisplay_sendEvent(&displayData);
       
       return FALSE;
     }
@@ -87,7 +86,7 @@ uint8_t initializeSD(systemStatus_t *p_tSys, deviceNetworkInfo_t *p_tDev)
   } else {
     log_e("Unidentified Card type, format the SD Card!  No internet connection possible!\n");
     vMsp_updateNetworkData(p_tDev,p_tSys,DISP_EVENT_SD_CARD_FORMAT);
-    tMsp_sendDisplayEvent(&displayData);
+    tTaskDisplay_sendEvent(&displayData);
     return FALSE;
   }
   delay(300);
@@ -96,7 +95,6 @@ uint8_t initializeSD(systemStatus_t *p_tSys, deviceNetworkInfo_t *p_tDev)
 
 }
 
-#define LINES 16
 
 /*********************************************************
  * @brief parse configuratuion 
@@ -380,13 +378,16 @@ uint8_t checkConfig(const char *configpath, deviceNetworkInfo_t *p_tDev, sensorD
       return TRUE;
     } else {
       log_e("Error parsing config file! No network configuration!\n");
-      drawTwoLines("Cfg error!", "No web!", 3,p_tSys,p_tDev);
+      vMsp_updateNetworkData(p_tDev,p_tSys,DISP_EVENT_SD_CARD_CONFIG_ERROR);
+      tTaskDisplay_sendEvent(&displayData);
+      
       return FALSE;
     }
 
   } else {
     log_e("Couldn't find config file! Creating a new one with template...");
-    drawTwoLines("No cfg found!", "Creating...", 2,p_tSys,p_tDev);
+    vMsp_updateNetworkData(p_tDev,p_tSys,DISP_EVENT_SD_CARD_CONFIG_CREATE);
+    tTaskDisplay_sendEvent(&displayData);
     cfgfile = SD.open(configpath, FILE_WRITE); // open r/w
 
     if (cfgfile) {
@@ -417,10 +418,12 @@ uint8_t checkConfig(const char *configpath, deviceNetworkInfo_t *p_tDev, sensorD
       cfgfile.println(conftemplate);
       log_i("New config file with template created!\n");
       cfgfile.close();
-      drawTwoLines("Done! Please", "insert data!", 2,p_tSys,p_tDev);
+      vMsp_updateNetworkData(p_tDev,p_tSys,DISP_EVENT_SD_CARD_CONFIG_INS_DATA);
+      tTaskDisplay_sendEvent(&displayData);
     } else {
       log_e("Error writing to SD Card!\n");
-      drawTwoLines("Error while", "writing SD Card!", 2,p_tSys,p_tDev);
+      vMsp_updateNetworkData(p_tDev,p_tSys,DISP_EVENT_SD_CARD_WRITE_DATA);
+      tTaskDisplay_sendEvent(&displayData);
     }
 
     return FALSE;
@@ -434,7 +437,7 @@ uint8_t checkConfig(const char *configpath, deviceNetworkInfo_t *p_tDev, sensorD
  * @param p_tDev 
  * @return uint8_t 
  *********************************************************/
-uint8_t checkLogFile(deviceNetworkInfo_t *p_tDev) 
+uint8_t uHalSdcard_checkLogFile(deviceNetworkInfo_t *p_tDev) 
 { // verifies the existance of the csv log using the logpath var, creates the file if not found
 
   if (!SD.exists(p_tDev->logpath)) {
@@ -517,7 +520,7 @@ uint8_t addToLog(const char *path, const char *oldpath, const char *errpath, Str
  * @param p_tData 
  * @param p_tDev 
  ******************************************************************************/
-void logToSD(send_data_t *data, systemData_t *p_tSysData, systemStatus_t *p_tSys, sensorData_t *p_tData, deviceNetworkInfo_t *p_tDev) 
+void vHalSdcard_logToSD(send_data_t *data, systemData_t *p_tSysData, systemStatus_t *p_tSys, sensorData_t *p_tData, deviceNetworkInfo_t *p_tDev) 
 { // builds a new logfile line and calls addToLog() (using logpath global var) to add it
 
   log_i("Logging data to the .csv on the SD Card...\n");
@@ -541,11 +544,11 @@ void logToSD(send_data_t *data, systemData_t *p_tSysData, systemStatus_t *p_tSys
   logvalue += String(p_tSysData->Time);
   logvalue += ";";
   if (p_tData->status.BME680Sensor) {
-    logvalue += floatToComma(data->temp);
+    logvalue += vGeneric_floatToComma(data->temp);
   }
   logvalue += ";";
   if (p_tData->status.BME680Sensor) {
-    logvalue += floatToComma(data->hum);
+    logvalue += vGeneric_floatToComma(data->hum);
   }
   logvalue += ";";
   if (p_tData->status.PMS5003Sensor) {
@@ -561,28 +564,28 @@ void logToSD(send_data_t *data, systemData_t *p_tSysData, systemStatus_t *p_tSys
   }
   logvalue += ";";
   if (p_tData->status.BME680Sensor) {
-    logvalue += floatToComma(data->pre);
+    logvalue += vGeneric_floatToComma(data->pre);
   }
   logvalue += ";";
   logvalue += ";"; // for "radiation"
   if (p_tData->status.MICS6814Sensor) {
-    logvalue += floatToComma(data->MICS_NO2);
+    logvalue += vGeneric_floatToComma(data->MICS_NO2);
   }
   logvalue += ";";
   if (p_tData->status.MICS6814Sensor) {
-    logvalue += floatToComma(data->MICS_CO);
+    logvalue += vGeneric_floatToComma(data->MICS_CO);
   }
   logvalue += ";";
   if (p_tData->status.MICS6814Sensor) {
-    logvalue += floatToComma(data->MICS_NH3);
+    logvalue += vGeneric_floatToComma(data->MICS_NH3);
   }
   logvalue += ";";
   if (p_tData->status.O3Sensor) {
-    logvalue += floatToComma(data->ozone);
+    logvalue += vGeneric_floatToComma(data->ozone);
   }
   logvalue += ";";
   if (p_tData->status.BME680Sensor) {
-    logvalue += floatToComma(data->VOC);
+    logvalue += vGeneric_floatToComma(data->VOC);
   }
   logvalue += ";";
   logvalue += String(data->MSP);
@@ -594,7 +597,9 @@ void logToSD(send_data_t *data, systemData_t *p_tSysData, systemStatus_t *p_tSys
     log_i("SD Card log file updated successfully!\n");
   } else {
     log_e("Error updating SD Card log file!\n");
-    drawTwoLines("SD Card log", "error!", 3,p_tSys,p_tDev);
+    vMsp_updateNetworkData(p_tDev,p_tSys,DISP_EVENT_SD_CARD_LOG_ERROR);
+    tTaskDisplay_sendEvent(&displayData);
+    
   }
 
 }
@@ -608,34 +613,34 @@ void logToSD(send_data_t *data, systemData_t *p_tSysData, systemStatus_t *p_tSys
  * @param pDev 
  * @param p_tSysData 
  *****************************************************/
-void readSD(systemStatus_t *p_tSys,deviceNetworkInfo_t *p_tDev,sensorData_t *p_tData,deviceMeasurement_t *pDev,systemData_t *p_tSysData) 
+void vHalSdcard_readSD(systemStatus_t *p_tSys,deviceNetworkInfo_t *p_tDev,sensorData_t *p_tData,deviceMeasurement_t *pDev,systemData_t *p_tSysData) 
 {
 
   log_i("Initializing SD Card...\n");
   vMsp_updateNetworkData(p_tDev,p_tSys,DISP_EVENT_SD_CARD_INIT);
-  tMsp_sendDisplayEvent(&displayData);
+  tTaskDisplay_sendEvent(&displayData);
   p_tSys->sdCard = initializeSD(p_tSys,p_tDev);
   if (p_tSys->sdCard) 
   {
     log_i("SD Card ok! Reading configuration...\n");
     vMsp_updateNetworkData(p_tDev,p_tSys,DISP_EVENT_CONFIG_READ);
-    tMsp_sendDisplayEvent(&displayData);
+    tTaskDisplay_sendEvent(&displayData);
     p_tSys->configuration = checkConfig("/config_v3.txt",p_tDev,p_tData,pDev,p_tSys,p_tSysData);
     if (p_tSys->server) 
     {
       log_e("No server URL defined. Can't upload data!\n");
       vMsp_updateNetworkData(p_tDev,p_tSys,DISP_EVENT_URL_UPLOAD_STAT);
-      tMsp_sendDisplayEvent(&displayData);
+      tTaskDisplay_sendEvent(&displayData);
     }
     // if (avg_delay < 50) {
     //   log_e("AVG_DELAY should be at least 50 seconds! Setting to 50...\n");
-    //   drawTwoLines("AVG_DELAY less than 50!", "Setting to 50...", 5);
+    //   vHalDisplay_drawTwoLines("AVG_DELAY less than 50!", "Setting to 50...", 5);
     //   avg_delay = 50; // must be at least 45 for PMS5003 compensation routine, 5 seconds extra for reading cycle messages
     // }
     // setting the logpath variable
     p_tDev->logpath = "/log_" + p_tDev->deviceid + "_" + p_tSysData->ver + ".csv";
     // checking logfile existance
-    checkLogFile(p_tDev);
+    uHalSdcard_checkLogFile(p_tDev);
   }
 
 }

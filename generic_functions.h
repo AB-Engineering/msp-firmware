@@ -1,17 +1,19 @@
-/**
- * @file generic_functions.h
- * @author your name (you@domain.com)
- * @brief 
+/**************************************************************************************
+ * @file    generic_functions.h
+ * @author  AB-Engineering - https://ab-engineering.it
+ * @brief   Generic functions for the Milano Smart Park project
+ * @details This file contains generic functions used across the project.
  * @version 0.1
  * @date 2025-07-12
  * 
  * @copyright Copyright (c) 2025
  * 
- */
+ *************************************************************************************/
 
 #ifndef GENERIC_FUNCTIONS_H
 #define GENERIC_FUNCTIONS_H
 
+//-- includes --
 #include <stddef.h>
 #include <Arduino.h>
 
@@ -23,7 +25,7 @@
  * @param   value 
  * @return  String 
  *************************************************/
-void dspFloatToComma(float value, char *buffer, size_t bufferSize);
+void vGeneric_dspFloatToComma(float value, char *buffer, size_t bufferSize);
 
 /*************************************************
  * @brief   converts float values in strings 
@@ -33,7 +35,7 @@ void dspFloatToComma(float value, char *buffer, size_t bufferSize);
  * @param   value 
  * @return  String 
  ************************************************/
-String floatToComma(float value);
+String vGeneric_floatToComma(float value);
 
 /************************************************************
  * @brief calculates ug/m3 from a gas ppm concentration
@@ -42,7 +44,7 @@ String floatToComma(float value);
  * @param mm 
  * @return float 
  ***********************************************************/
-float convertPpmToUgM3(float ppm, float mm);
+float vGeneric_convertPpmToUgM3(float ppm, float mm);
 
 
 #endif

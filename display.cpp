@@ -1,15 +1,22 @@
-
+/*********************************************************
+ * @file    display.cpp
+ * @author  AB-Engineering - https://ab-engineering.it
+ * @brief 
+ * @version 0.1
+ * @date    2025-07-25
+ * 
+ * @copyright Copyright (c) 2025
+ * 
+ *********************************************************/
 
  // -- includes --
 #include "icons.h"
 #include "generic_functions.h"
 #include "display.h"
-
-
 #include <Wire.h>
-// OLED display library
 #include <U8g2lib.h>
 
+// -- defines --
 #define XBM_X_POS_MSPICON 0
 #define XBM_Y_POS_MSPICON 0
 #define XBM__MSPICON_W    64
@@ -72,21 +79,31 @@
 static U8G2_SH1106_128X64_NONAME_F_HW_I2C u8g2(U8G2_R0, U8X8_PIN_NONE, I2C_SCL_PIN, I2C_SDA_PIN); // ESP32 Thing, HW I2C with pin remapping
 
 
-void initSerialAndI2cDisplay(void)
+// -------------------------------local function prototype -------------------------------
+static void vHal_displayDrawScrHead(systemStatus_t *statPtr, deviceNetworkInfo_t *devinfoPtr);
+static short sHalDisplay_getLineHOffset(const char string[]);
+
+// ------------------------------- functions declerations---------------------------------
+
+/******************************************************
+ * @brief function to initialize the serial and I2C display.
+ * 
+ ******************************************************/ 
+void vHalDisplay_initSerialAndI2c(void)
 {
-  // INIT SERIAL, I2C, DISPLAY ++++++++++++++++++++++++++++++++++++
+  // INIT SERIAL, I2C, DISPLAY
   Serial.begin(115200);
   delay(2000); // give time to serial to initialize properly
   Wire.begin(I2C_SDA_PIN, I2C_SCL_PIN);
   u8g2.begin();
 }
 
-/**
+/******************************************************
  * @brief  draws the boot screen on the U8G2 display
  * 
  * @param fwver 
- */
- void drawBoot(String *fwver) 
+ *****************************************************/
+ void vHalDisplay_DrawBoot(String *fwver) 
  { 
   u8g2.firstPage();
   u8g2.clearBuffer();
@@ -99,14 +116,15 @@ void initSerialAndI2cDisplay(void)
   u8g2.setCursor(SET_CRSR_X_POS_AUTHOR,SET_CRSR_Y_POS_AUTHOR); u8g2.print(STR_AUTHOR);
   u8g2.setCursor(SET_CRSR_X_POS_FWVER,SET_CRSR_Y_POS_FWVER); u8g2.print(*fwver);
   u8g2.sendBuffer();
-//   delay(5000);
 }
 
-/**********************************************************
- * @brief  draws the screen header on the U8G2 display
+/***********************************************************************
+ * @brief function to draw the screen header on the U8G2 display
  * 
- **********************************************************/
-void drawScrHead(systemStatus_t *statPtr, deviceNetworkInfo_t *devinfoPtr)
+ * @param statPtr 
+ * @param devinfoPtr 
+ **********************************************************************/
+static void vHal_displayDrawScrHead(systemStatus_t *statPtr, deviceNetworkInfo_t *devinfoPtr)
 { 
   u8g2.clearBuffer();
   u8g2.setFont(u8g2_font_6x13_tf);
@@ -148,7 +166,7 @@ void drawScrHead(systemStatus_t *statPtr, deviceNetworkInfo_t *devinfoPtr)
  * @param string 
  * @return short 
  ******************************************************************************/
-short getLineHOffset(const char string[]) 
+static short sHalDisplay_getLineHOffset(const char string[]) 
 { 
   short offset = 0;
   u8g2_uint_t x = (u8g2.getDisplayWidth() - u8g2.getStrWidth(string)) / 2;
@@ -159,48 +177,54 @@ short getLineHOffset(const char string[])
 }
 
 
-/***************************************************************************
- * @brief draws a text line on the U8G2 display
- * 
- * @param message 
- * @param secdelay 
- ***************************************************************************/
-void drawLine(const char message[], short secdelay,systemStatus_t *statPtr, deviceNetworkInfo_t *devinfoPtr)
+/*******************************************************
+* @brief draws a text line on the U8G2 display
+* 
+* @param message 
+* @param secdelay 
+* @param statPtr 
+* @param devinfoPtr 
+*******************************************************/
+void vHalDisplay_drawLine(const char message[], short secdelay,systemStatus_t *statPtr, deviceNetworkInfo_t *devinfoPtr)
 {
-  short offset = getLineHOffset(message);
-  drawScrHead(statPtr,devinfoPtr);
+  short offset = sHalDisplay_getLineHOffset(message);
+  vHal_displayDrawScrHead(statPtr,devinfoPtr);
   u8g2.setCursor(offset, 45); u8g2.print(message);
   u8g2.sendBuffer();
   delay(secdelay * 1000);
-
 }
 
-/******************************************************
+
+/********************************************************
  * @brief draws two text lines on the U8G2 display
  * 
  * @param message1 
  * @param message2 
  * @param secdelay 
- ******************************************************/
-void drawTwoLines(const char message1[], const char message2[], short secdelay,systemStatus_t *statPtr, deviceNetworkInfo_t *devinfoPtr) 
+ * @param statPtr 
+ * @param devinfoPtr 
+ ********************************************************/
+void vHalDisplay_drawTwoLines(const char message1[], const char message2[], short secdelay,systemStatus_t *statPtr, deviceNetworkInfo_t *devinfoPtr) 
 {
-  short offset1 = getLineHOffset(message1);
-  short offset2 = getLineHOffset(message2);
+  short offset1 = sHalDisplay_getLineHOffset(message1);
+  short offset2 = sHalDisplay_getLineHOffset(message2);
 
-  drawScrHead(statPtr,devinfoPtr);
+  vHal_displayDrawScrHead(statPtr,devinfoPtr);
   u8g2.setCursor(offset1, 35); u8g2.print(message1);
   u8g2.setCursor(offset2, 55); u8g2.print(message2);
   u8g2.sendBuffer();
   delay(secdelay * 1000);
 }
 
-/***********************************************************
+/*******************************************************
  * @brief draws a countdown on the U8G2 display
  * 
  * @param startsec 
  * @param message 
- ***********************************************************/
-void drawCountdown(short startsec, const char message[],systemStatus_t *statPtr, deviceNetworkInfo_t *devinfoPtr)
+ * @param statPtr 
+ * @param devinfoPtr 
+ *******************************************************/
+void vHalDisplay_drawCountdown(short startsec, const char message[],systemStatus_t *statPtr, deviceNetworkInfo_t *devinfoPtr)
 {
   for (short i = startsec; i >= 0; i--) 
   {
@@ -208,45 +232,45 @@ void drawCountdown(short startsec, const char message[],systemStatus_t *statPtr,
 
     sprintf(output, "WAIT %02d:%02d MIN.", i / 60, i % 60);
 
-    drawTwoLines(message,output,1,statPtr,devinfoPtr);
+    vHalDisplay_drawTwoLines(message,output,1,statPtr,devinfoPtr);
   }
 }
 
-/**
- * @brief 
+/*********************************************************************************
+ * @brief function to draw the BME680 gas sensor data on the display.
  * 
  * @param p_tData 
  * @param statPtr 
  * @param devinfoPtr 
- */
-void vMsp_drawBme680GasSensorData(sensorData_t *p_tData,systemStatus_t *statPtr, deviceNetworkInfo_t *devinfoPtr)
+ ********************************************************************************/
+void vHalDisplay_drawBme680GasSensorData(sensorData_t *p_tData,systemStatus_t *statPtr, deviceNetworkInfo_t *devinfoPtr)
 {
   log_i("Printing BME680Sensor data on display...");
   char sensorStringData[16] = {0};
 
   // page 1
-  drawScrHead(statPtr,devinfoPtr);
+  vHal_displayDrawScrHead(statPtr,devinfoPtr);
   if (p_tData->status.BME680Sensor)
   {
-    dspFloatToComma(p_tData->gasData.temperature,sensorStringData,sizeof(sensorStringData));
+    vGeneric_dspFloatToComma(p_tData->gasData.temperature,sensorStringData,sizeof(sensorStringData));
     u8g2.setCursor(5, 28); 
     u8g2.print("Temp:  ");
     u8g2.print(sensorStringData);
     u8g2.print(" °C");
 
-    dspFloatToComma(p_tData->gasData.humidity,sensorStringData,sizeof(sensorStringData));
+    vGeneric_dspFloatToComma(p_tData->gasData.humidity,sensorStringData,sizeof(sensorStringData));
     u8g2.setCursor(5, 39);
     u8g2.print("Hum:  ");
     u8g2.print(sensorStringData);
     u8g2.print(" %");
 
-    dspFloatToComma(p_tData->gasData.pressure,sensorStringData,sizeof(sensorStringData));
+    vGeneric_dspFloatToComma(p_tData->gasData.pressure,sensorStringData,sizeof(sensorStringData));
     u8g2.setCursor(5, 50);
     u8g2.print("Pre:  ");
     u8g2.print(sensorStringData);
     u8g2.print("hPa");
 
-    dspFloatToComma(p_tData->gasData.volatileOrganicCompounds,sensorStringData,sizeof(sensorStringData));
+    vGeneric_dspFloatToComma(p_tData->gasData.volatileOrganicCompounds,sensorStringData,sizeof(sensorStringData));
     u8g2.setCursor(5, 61);
     u8g2.print("VOC:  ");
     u8g2.print(sensorStringData);
@@ -270,35 +294,35 @@ void vMsp_drawBme680GasSensorData(sensorData_t *p_tData,systemStatus_t *statPtr,
   u8g2.sendBuffer();  
 }
 
-/**
- * @brief 
+/*********************************************************************************
+ * @brief function to draw the PMS5003 air quality sensor data on the display.
  * 
  * @param p_tData 
  * @param statPtr 
  * @param devinfoPtr 
- */
-void vMsp_drawPMS5003AirQualitySensorData(sensorData_t *p_tData,systemStatus_t *statPtr, deviceNetworkInfo_t *devinfoPtr)
+ *********************************************************************************/
+void vHalDisplay_drawPMS5003AirQualitySensorData(sensorData_t *p_tData,systemStatus_t *statPtr, deviceNetworkInfo_t *devinfoPtr)
 {
   log_i("Printing PMS5003Sensor data on display...");
   char sensorStringData[16] = {0};
 
   // page 2
-  drawScrHead(statPtr,devinfoPtr);
+  vHal_displayDrawScrHead(statPtr,devinfoPtr);
   if (p_tData->status.PMS5003Sensor)
   {
-    dspFloatToComma(p_tData->airQualityData.particleMicron1,sensorStringData,sizeof(sensorStringData));
+    vGeneric_dspFloatToComma(p_tData->airQualityData.particleMicron1,sensorStringData,sizeof(sensorStringData));
     u8g2.setCursor(5, 28);
     u8g2.print("PM1:  ");
     u8g2.print(sensorStringData);
     u8g2.print("ug/m3");
 
-    dspFloatToComma(p_tData->airQualityData.particleMicron25,sensorStringData,sizeof(sensorStringData));
+    vGeneric_dspFloatToComma(p_tData->airQualityData.particleMicron25,sensorStringData,sizeof(sensorStringData));
     u8g2.setCursor(5, 39);
     u8g2.print("PM2,5:  ");
     u8g2.print(sensorStringData);
     u8g2.print("ug/m3");
 
-    dspFloatToComma(p_tData->airQualityData.particleMicron10,sensorStringData,sizeof(sensorStringData));
+    vGeneric_dspFloatToComma(p_tData->airQualityData.particleMicron10,sensorStringData,sizeof(sensorStringData));
     u8g2.setCursor(5, 50);
     u8g2.print("PM10:  ");
     u8g2.print(sensorStringData);
@@ -318,34 +342,34 @@ void vMsp_drawPMS5003AirQualitySensorData(sensorData_t *p_tData,systemStatus_t *
   u8g2.sendBuffer();
 }
 
-/**
- * @brief 
+/*******************************************************************************************
+ * @brief function to draw the MICS6814 pollution sensor data on the display.
  * 
  * @param p_tData 
  * @param statPtr 
  * @param devinfoPtr 
- */
-void vMsp_drawMICS6814PollutionSensorData(sensorData_t *p_tData,systemStatus_t *statPtr, deviceNetworkInfo_t *devinfoPtr)
+ ******************************************************************************************/
+void vHalDisplay_drawMICS6814PollutionSensorData(sensorData_t *p_tData,systemStatus_t *statPtr, deviceNetworkInfo_t *devinfoPtr)
 {
   log_i("Printing MICS6814Sensor data on display...");
   char sensorStringData[16] = {0};
 
-  drawScrHead(statPtr,devinfoPtr);
+  vHal_displayDrawScrHead(statPtr,devinfoPtr);
   if (p_tData->status.MICS6814Sensor)
   {
-    dspFloatToComma(p_tData->pollutionData.data.carbonMonoxide,sensorStringData,sizeof(sensorStringData));
+    vGeneric_dspFloatToComma(p_tData->pollutionData.data.carbonMonoxide,sensorStringData,sizeof(sensorStringData));
     u8g2.setCursor(5, 28);
     u8g2.print("CO:  ");
     u8g2.print(sensorStringData);
     u8g2.print("ug/m3");
 
-    dspFloatToComma(p_tData->pollutionData.data.nitrogenDioxide,sensorStringData,sizeof(sensorStringData));
+    vGeneric_dspFloatToComma(p_tData->pollutionData.data.nitrogenDioxide,sensorStringData,sizeof(sensorStringData));
     u8g2.setCursor(5, 39);
     u8g2.print("NOx:  ");
     u8g2.print(sensorStringData);
     u8g2.print("ug/m3");
 
-    dspFloatToComma(p_tData->pollutionData.data.ammonia,sensorStringData,sizeof(sensorStringData));
+    vGeneric_dspFloatToComma(p_tData->pollutionData.data.ammonia,sensorStringData,sizeof(sensorStringData));
     u8g2.setCursor(5, 50);
     u8g2.print("NH3:  ");
     u8g2.print(sensorStringData);
@@ -365,23 +389,23 @@ void vMsp_drawMICS6814PollutionSensorData(sensorData_t *p_tData,systemStatus_t *
   u8g2.sendBuffer();
 }
 
-/**
- * @brief 
+/******************************************************************************************
+ * @brief function to draw the Ozone sensor data on the display.
  * 
  * @param p_tData 
  * @param statPtr 
  * @param devinfoPtr 
- */
-void vMsp_drawOzoneSensorData(sensorData_t *p_tData,systemStatus_t *statPtr, deviceNetworkInfo_t *devinfoPtr)
+ *****************************************************************************************/
+void vHalDisplay_drawOzoneSensorData(sensorData_t *p_tData,systemStatus_t *statPtr, deviceNetworkInfo_t *devinfoPtr)
 {
   log_i("Printing OzoneSensor data on display...");
   char sensorStringData[16] = {0};
 
   // page 4
-  drawScrHead(statPtr,devinfoPtr);
+  vHal_displayDrawScrHead(statPtr,devinfoPtr);
   if (p_tData->status.O3Sensor)
   {
-    dspFloatToComma(p_tData->ozoneData.ozone,sensorStringData,sizeof(sensorStringData));
+    vGeneric_dspFloatToComma(p_tData->ozoneData.ozone,sensorStringData,sizeof(sensorStringData));
     u8g2.setCursor(5, 39);
     u8g2.print("O3:  ");
     u8g2.print(sensorStringData);
@@ -396,19 +420,21 @@ void vMsp_drawOzoneSensorData(sensorData_t *p_tData,systemStatus_t *statPtr, dev
 }
 
 
-/**
- * @brief draw input values to screen
+/*********************************************************************************
+ * @brief function to draw the MICS6814 sensor values on the display.
  * 
  * @param redval 
  * @param oxval 
  * @param nh3val 
- */
-void drawMicsValues(uint16_t redval, uint16_t oxval, uint16_t nh3val,systemStatus_t *statPtr, deviceNetworkInfo_t *devinfoPtr)
+ * @param statPtr 
+ * @param devinfoPtr 
+ *********************************************************************************/
+void vHalDisplay_drawMicsValues(uint16_t redval, uint16_t oxval, uint16_t nh3val,systemStatus_t *statPtr, deviceNetworkInfo_t *devinfoPtr)
 {
 
   log_d("MICS6814 stored base resistance values:");
   log_d("RED: %d | OX: %d | NH3: %d\n", redval, oxval, nh3val);
-  drawScrHead(statPtr,devinfoPtr);
+  vHal_displayDrawScrHead(statPtr,devinfoPtr);
   u8g2.setCursor(2, 28); u8g2.print("MICS6814 Res0 values:");
   u8g2.setCursor(30, 39); u8g2.print("RED: " + String(redval));
   u8g2.setCursor(30, 50); u8g2.print("OX: " + String(oxval));

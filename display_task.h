@@ -1,17 +1,18 @@
-/**
- * @file library.h
- * @author your name (you@domain.com)
+/*******************************************************************************
+ * @file    display_task.h
+ * @author  AB-Engineering - https://ab-engineering.it
  * @brief 
  * @version 0.1
- * @date 2025-07-09
+ * @date    2025-07-25
  * 
  * @copyright Copyright (c) 2025
  * 
- */
+ *******************************************************************************/
 
-#ifndef TASKS_H
-#define TASKS_H
+#ifndef DISPLAY_TASKS_H
+#define DISPLAY_TASKS_H
 
+// -- includes --
 #include "shared_values.h"
 #include "freertos/portmacro.h"
 
@@ -27,6 +28,11 @@ typedef enum _DISPLAY_EVENTS_ {
   DISP_EVENT_URL_UPLOAD_STAT,
   DISP_EVENT_SD_CARD_NOT_PRESENT,
   DISP_EVENT_SD_CARD_FORMAT,
+  DISP_EVENT_SD_CARD_LOG_ERROR,
+  DISP_EVENT_SD_CARD_CONFIG_CREATE,
+  DISP_EVENT_SD_CARD_CONFIG_ERROR,
+  DISP_EVENT_SD_CARD_CONFIG_INS_DATA,
+  DISP_EVENT_SD_CARD_WRITE_DATA,
 
   DISP_EVENT_BME680_SENSOR_INIT,
   DISP_EVENT_BME680_SENSOR_OKAY,
@@ -83,21 +89,43 @@ typedef enum _DISPLAY_EVENTS_ {
 
 // -- display task queue data
 typedef struct _DISP_TASK_DATA_{
-  displayEvents_t currentEvent; 
-  sensorData_t sensorData;       
-  systemStatus_t sysStat;           
-  deviceNetworkInfo_t devInfo;
-  systemData_t sysData;
-  deviceMeasurement_t measStat;
+  displayEvents_t currentEvent;   /*!< Current event to be displayed */
+  sensorData_t sensorData;        /*!< Sensor data to be displayed */
+  systemStatus_t sysStat;         /*!< System status to be displayed */   
+  deviceNetworkInfo_t devInfo;    /*!< Device network information to be displayed */
+  systemData_t sysData;           /*!< System data to be displayed */
+  deviceMeasurement_t measStat;   /*!< Device measurement status to be displayed */
 }displayData_t;
 
 
+/*********************************************************
+ * @brief function to initialize the display task queue.
+ * 
+ *********************************************************/
+void vTaskDisplay_initDataQueue(void);
 
-void initDisplayDataQueue();
+/******************************************************
+ * @brief   Function to create the display task.
+ * 
+ ******************************************************/
 void vTaskDisplay_createTask(void);
 
-BaseType_t tMsp_sendDisplayEvent(displayData_t* data);
-BaseType_t tMsp_receiveDisplayEvent(displayData_t* data, TickType_t xTicksToWait);
+/******************************************************************
+ * @brief function to send display events and data to the queue.
+ * 
+ * @param data 
+ * @return BaseType_t 
+ ******************************************************************/
+BaseType_t tTaskDisplay_sendEvent(displayData_t* data);
+
+/**********************************************************************
+ * @brief function to receive display events and data from the queue.
+ * 
+ * @param data 
+ * @param xTicksToWait 
+ * @return BaseType_t 
+ **********************************************************************/
+BaseType_t tTaskDisplay_receiveEvent(displayData_t* data, TickType_t xTicksToWait);
 
 
 #endif
