@@ -83,7 +83,7 @@ void vHalDisplay_drawMicsValues(uint16_t redval, uint16_t oxval, uint16_t nh3val
  * @param statPtr 
  * @param devinfoPtr 
  ********************************************************************************/
-void vHalDisplay_drawBme680GasSensorData(sensorData_t *p_tData,systemStatus_t *statPtr, deviceNetworkInfo_t *devinfoPtr);
+void vHalDisplay_drawBme680GasSensorData(sensorData_t *p_tData,systemStatus_t *statPtr, deviceNetworkInfo_t *devinfoPtr, short secdelay);
 
 /*********************************************************************************
  * @brief function to draw the PMS5003 air quality sensor data on the display.
@@ -92,7 +92,7 @@ void vHalDisplay_drawBme680GasSensorData(sensorData_t *p_tData,systemStatus_t *s
  * @param statPtr 
  * @param devinfoPtr 
  *********************************************************************************/
-void vHalDisplay_drawPMS5003AirQualitySensorData(sensorData_t *p_tData,systemStatus_t *statPtr, deviceNetworkInfo_t *devinfoPtr);
+void vHalDisplay_drawPMS5003AirQualitySensorData(sensorData_t *p_tData,systemStatus_t *statPtr, deviceNetworkInfo_t *devinfoPtr, short secdelay);
 
 /*******************************************************************************************
  * @brief function to draw the MICS6814 pollution sensor data on the display.
@@ -101,7 +101,7 @@ void vHalDisplay_drawPMS5003AirQualitySensorData(sensorData_t *p_tData,systemSta
  * @param statPtr 
  * @param devinfoPtr 
  ******************************************************************************************/
-void vHalDisplay_drawMICS6814PollutionSensorData(sensorData_t *p_tData,systemStatus_t *statPtr, deviceNetworkInfo_t *devinfoPtr);
+void vHalDisplay_drawMICS6814PollutionSensorData(sensorData_t *p_tData,systemStatus_t *statPtr, deviceNetworkInfo_t *devinfoPtr, short secdelay);
 
 /******************************************************************************************
  * @brief function to draw the Ozone sensor data on the display.
@@ -110,6 +110,6 @@ void vHalDisplay_drawMICS6814PollutionSensorData(sensorData_t *p_tData,systemSta
  * @param statPtr 
  * @param devinfoPtr 
  *****************************************************************************************/
-void vHalDisplay_drawOzoneSensorData(sensorData_t *p_tData,systemStatus_t *statPtr, deviceNetworkInfo_t *devinfoPtr);
+void vHalDisplay_drawOzoneSensorData(sensorData_t *p_tData,systemStatus_t *statPtr, deviceNetworkInfo_t *devinfoPtr, short secdelay);
 
 #endif

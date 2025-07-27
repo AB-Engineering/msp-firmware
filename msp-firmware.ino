@@ -330,8 +330,6 @@ void setup()
   if (tHalSensor_checkBMESensor(&bme680))
   {
     log_i("BME680 sensor detected, initializing...\n");
-    vMsp_updateDataAndEvent(DISP_EVENT_BME680_SENSOR_OKAY);
-    tTaskDisplay_sendEvent(&displayData);
     bsec_virtual_sensor_t sensor_list[] = {
         BSEC_OUTPUT_RAW_TEMPERATURE,
         BSEC_OUTPUT_RAW_PRESSURE,
@@ -342,11 +340,13 @@ void setup()
     };
     bme680.updateSubscription(sensor_list, sizeof(sensor_list) / sizeof(sensor_list[0]), BSEC_SAMPLE_RATE_LP);
     sensorData.status.BME680Sensor = true;
+    vMsp_updateDataAndEvent(DISP_EVENT_BME680_SENSOR_OKAY);
+    tTaskDisplay_sendEvent(&displayData);
   }
   else
   {
     log_e("BME680 sensor not detected!\n");
-    vMsp_updateDataAndEvent(DISP_EVENT_BME680_SENSOR_OKAY);
+    vMsp_updateDataAndEvent(DISP_EVENT_BME680_SENSOR_ERR);
     tTaskDisplay_sendEvent(&displayData);
 
   }
@@ -354,18 +354,16 @@ void setup()
 
   // PMS5003 ++++++++++++++++++++++++++++++++++++
   pmsSerial.begin(9600, SERIAL_8N1, PMSERIAL_RX, PMSERIAL_TX); // baud, type, ESP_RX, ESP_TX
-  delay(1500);
   vMsp_updateDataAndEvent(DISP_EVENT_PMS5003_SENSOR_INIT);
   tTaskDisplay_sendEvent(&displayData);
   
   pms.wakeUp(); // Waking up sensor after sleep
-  delay(1500);
   if (pms.readUntil(data))
   {
     log_i("PMS5003 sensor detected, initializing...\n");
+    sensorData.status.PMS5003Sensor = true;
     vMsp_updateDataAndEvent(DISP_EVENT_PMS5003_SENSOR_OKAY);
     tTaskDisplay_sendEvent(&displayData);
-    sensorData.status.PMS5003Sensor = true;
     pms.sleep(); // Putting sensor to sleep
   }
   else
@@ -384,12 +382,11 @@ void setup()
   if (gas.begin())
   { // Connect to sensor using default I2C address (0x04)
     log_i("MICS6814 sensor detected, initializing...\n");
-    vMsp_updateDataAndEvent(DISP_EVENT_MICS6814_SENSOR_OKAY);
-    tTaskDisplay_sendEvent(&displayData);
     sensorData.status.MICS6814Sensor = true;
     gas.powerOn(); // turn on heating element and led
     gas.ledOn();
-    delay(1500);
+    vMsp_updateDataAndEvent(DISP_EVENT_MICS6814_SENSOR_OKAY);
+    tTaskDisplay_sendEvent(&displayData);
 
     sensorR0Value_t r0Values;
     r0Values.redSensor = gas.getBaseResistance(CH_RED);
@@ -441,11 +438,10 @@ void setup()
   else
   {
     log_i("O3 sensor detected, running...\n");
+    sensorData.status.O3Sensor = true;
     vMsp_updateDataAndEvent(DISP_EVENT_O3_SENSOR_OKAY);
     tTaskDisplay_sendEvent(&displayData);
-    sensorData.status.O3Sensor = true;
   }
-  delay(1500);
   //+++++++++++++++++++++++++++++++++++++++++++++++++++++
 
   if (sensorData.status.PMS5003Sensor)
@@ -645,12 +641,23 @@ void loop()
 
         vMsp_updateDataAndEvent(DISP_EVENT_READING_SENSORS);
         tTaskDisplay_sendEvent(&displayData);
+
         mainStateMachine.next_state = SYS_STATE_READ_SENSORS; // go to read sensors state
       }
       else
       {
-        vMsp_updateDataAndEvent(DISP_EVENT_WAIT_FOR_TIMEOUT);
-        tTaskDisplay_sendEvent(&displayData);
+        if (!mainStateMachine.isFirstTransition)
+        {
+          //show the already captured data
+          vMsp_updateDataAndEvent(DISP_EVENT_SHOW_MEAS_DATA);
+          tTaskDisplay_sendEvent(&displayData);
+        }
+        else
+        {
+          vMsp_updateDataAndEvent(DISP_EVENT_WAIT_FOR_TIMEOUT);
+          tTaskDisplay_sendEvent(&displayData);
+        }
+        
       }
     }
     else

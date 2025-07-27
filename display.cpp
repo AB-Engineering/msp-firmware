@@ -243,7 +243,7 @@ void vHalDisplay_drawCountdown(short startsec, const char message[],systemStatus
  * @param statPtr 
  * @param devinfoPtr 
  ********************************************************************************/
-void vHalDisplay_drawBme680GasSensorData(sensorData_t *p_tData,systemStatus_t *statPtr, deviceNetworkInfo_t *devinfoPtr)
+void vHalDisplay_drawBme680GasSensorData(sensorData_t *p_tData,systemStatus_t *statPtr, deviceNetworkInfo_t *devinfoPtr, short secdelay)
 {
   log_i("Printing BME680Sensor data on display...");
   char sensorStringData[16] = {0};
@@ -291,7 +291,8 @@ void vHalDisplay_drawBme680GasSensorData(sensorData_t *p_tData,systemStatus_t *s
     u8g2.setCursor(5, 61);
     u8g2.print("VOC: --");
   }  
-  u8g2.sendBuffer();  
+  u8g2.sendBuffer();
+  delay(secdelay * 1000);  
 }
 
 /*********************************************************************************
@@ -301,7 +302,7 @@ void vHalDisplay_drawBme680GasSensorData(sensorData_t *p_tData,systemStatus_t *s
  * @param statPtr 
  * @param devinfoPtr 
  *********************************************************************************/
-void vHalDisplay_drawPMS5003AirQualitySensorData(sensorData_t *p_tData,systemStatus_t *statPtr, deviceNetworkInfo_t *devinfoPtr)
+void vHalDisplay_drawPMS5003AirQualitySensorData(sensorData_t *p_tData,systemStatus_t *statPtr, deviceNetworkInfo_t *devinfoPtr, short secdelay)
 {
   log_i("Printing PMS5003Sensor data on display...");
   char sensorStringData[16] = {0};
@@ -340,6 +341,7 @@ void vHalDisplay_drawPMS5003AirQualitySensorData(sensorData_t *p_tData,systemSta
     u8g2.print("PM10:--");
   }
   u8g2.sendBuffer();
+  delay(secdelay * 1000);
 }
 
 /*******************************************************************************************
@@ -349,7 +351,7 @@ void vHalDisplay_drawPMS5003AirQualitySensorData(sensorData_t *p_tData,systemSta
  * @param statPtr 
  * @param devinfoPtr 
  ******************************************************************************************/
-void vHalDisplay_drawMICS6814PollutionSensorData(sensorData_t *p_tData,systemStatus_t *statPtr, deviceNetworkInfo_t *devinfoPtr)
+void vHalDisplay_drawMICS6814PollutionSensorData(sensorData_t *p_tData,systemStatus_t *statPtr, deviceNetworkInfo_t *devinfoPtr, short secdelay)
 {
   log_i("Printing MICS6814Sensor data on display...");
   char sensorStringData[16] = {0};
@@ -387,6 +389,7 @@ void vHalDisplay_drawMICS6814PollutionSensorData(sensorData_t *p_tData,systemSta
     u8g2.print("NH3:--");
   }
   u8g2.sendBuffer();
+  delay(secdelay * 1000);
 }
 
 /******************************************************************************************
@@ -396,7 +399,7 @@ void vHalDisplay_drawMICS6814PollutionSensorData(sensorData_t *p_tData,systemSta
  * @param statPtr 
  * @param devinfoPtr 
  *****************************************************************************************/
-void vHalDisplay_drawOzoneSensorData(sensorData_t *p_tData,systemStatus_t *statPtr, deviceNetworkInfo_t *devinfoPtr)
+void vHalDisplay_drawOzoneSensorData(sensorData_t *p_tData,systemStatus_t *statPtr, deviceNetworkInfo_t *devinfoPtr, short secdelay)
 {
   log_i("Printing OzoneSensor data on display...");
   char sensorStringData[16] = {0};
@@ -416,7 +419,8 @@ void vHalDisplay_drawOzoneSensorData(sensorData_t *p_tData,systemStatus_t *statP
     u8g2.setCursor(5, 39);
     u8g2.print("O3:--");
   }
-  u8g2.sendBuffer(); 
+  u8g2.sendBuffer();
+  delay(secdelay * 1000); 
 }
 
 

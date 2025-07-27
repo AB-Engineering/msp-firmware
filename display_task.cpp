@@ -123,133 +123,158 @@ void displayTask(void *pvParameters)
       }
       case DISP_EVENT_WIFI_MAC_ADDR:
       {
-        vHalDisplay_drawTwoLines("WIFI MAC ADDRESS:",  data.devInfo.baseMacChr, 6,&data.sysStat,&data.devInfo);
+        vHalDisplay_drawTwoLines("WIFI MAC ADDRESS:",  data.devInfo.baseMacChr, 3,&data.sysStat,&data.devInfo);
         dispFSM.next_state = dispFSM.returnState;
         break;
       }
       case DISP_EVENT_SD_CARD_INIT:
       {
         vHalDisplay_drawTwoLines("Initializing", "SD Card...", 1,&data.sysStat,&data.devInfo);
+        dispFSM.next_state = dispFSM.returnState;
         break;
       }
       case DISP_EVENT_CONFIG_READ:
       {
         vHalDisplay_drawTwoLines("SD Card ok!", "Reading config...", 1,&data.sysStat,&data.devInfo);
+        dispFSM.next_state = dispFSM.returnState;
         break;
       }
       case DISP_EVENT_URL_UPLOAD_STAT:
       {
         vHalDisplay_drawTwoLines("No URL defined!", "No upload!", 6,&data.sysStat,&data.devInfo);
+        dispFSM.next_state = dispFSM.returnState;
         break;
       }  
       case DISP_EVENT_SD_CARD_NOT_PRESENT:
       {
         vHalDisplay_drawTwoLines("No SD Card!", "No web!", 3,&data.sysStat,&data.devInfo);
+        dispFSM.next_state = dispFSM.returnState;
         break;
       }
       case DISP_EVENT_SD_CARD_FORMAT:
       {
         vHalDisplay_drawTwoLines("SD Card format!", "No web!", 3,&data.sysStat,&data.devInfo);
+        dispFSM.next_state = dispFSM.returnState;
         break;
       }
       case DISP_EVENT_SD_CARD_LOG_ERROR:
       {
         vHalDisplay_drawTwoLines("SD Card log", "error!", 3,&data.sysStat,&data.devInfo);
+        dispFSM.next_state = dispFSM.returnState;
         break;  
       }
       case DISP_EVENT_SD_CARD_CONFIG_CREATE:
       {
         vHalDisplay_drawTwoLines("No cfg found!", "Creating...", 2,&data.sysStat,&data.devInfo);
+        dispFSM.next_state = dispFSM.returnState;
         break;  
       }
       case DISP_EVENT_SD_CARD_CONFIG_ERROR:
       {
         vHalDisplay_drawTwoLines("Cfg error!", "No web!", 3,&data.sysStat,&data.devInfo);
+        dispFSM.next_state = dispFSM.returnState;
         break;
       }
       case DISP_EVENT_SD_CARD_CONFIG_INS_DATA:
       {
         vHalDisplay_drawTwoLines("Done! Please", "insert data!", 2,&data.sysStat,&data.devInfo);
+        dispFSM.next_state = dispFSM.returnState;
         break;
       }
       case DISP_EVENT_SD_CARD_WRITE_DATA:
       {
         vHalDisplay_drawTwoLines("Error while", "writing SD Card!", 2,&data.sysStat,&data.devInfo);
+        dispFSM.next_state = dispFSM.returnState;
         break;
       }
       case DISP_EVENT_BME680_SENSOR_INIT:
       {
         vHalDisplay_drawTwoLines("Detecting BME680...", "", 0,&data.sysStat,&data.devInfo);
+        dispFSM.next_state = dispFSM.returnState;
         break;
       }
       case DISP_EVENT_BME680_SENSOR_OKAY:
       {
         vHalDisplay_drawTwoLines("Detecting BME680...", "BME680 -> Ok!",1,&data.sysStat,&data.devInfo);
+        dispFSM.next_state = dispFSM.returnState;
         break;
       }
       case DISP_EVENT_BME680_SENSOR_ERR:
       {
         vHalDisplay_drawTwoLines("Detecting BME680...", "BME680 -> Err!", 1,&data.sysStat,&data.devInfo);
+        dispFSM.next_state = dispFSM.returnState;
         break;
       }
       case DISP_EVENT_PMS5003_SENSOR_INIT:
       {
         vHalDisplay_drawTwoLines("Detecting PMS5003...", "", 0,&data.sysStat,&data.devInfo);
+        dispFSM.next_state = dispFSM.returnState;
         break;
       }
       case DISP_EVENT_PMS5003_SENSOR_OKAY:
       {
         vHalDisplay_drawTwoLines("Detecting PMS5003...", "PMS5003 -> Ok!", 1,&data.sysStat,&data.devInfo);
+        dispFSM.next_state = dispFSM.returnState;
         break;
       }
       case DISP_EVENT_PMS5003_SENSOR_ERR:
       {
         vHalDisplay_drawTwoLines("Detecting PMS5003...", "PMS5003 -> Err!", 1,&data.sysStat,&data.devInfo);
+        dispFSM.next_state = dispFSM.returnState;
         break;
       }
       case DISP_EVENT_MICS6814_SENSOR_INIT:
       {
         vHalDisplay_drawTwoLines("Detecting MICS6814...", "", 0,&data.sysStat,&data.devInfo);
+        dispFSM.next_state = dispFSM.returnState;
         break;
       }
       case DISP_EVENT_MICS6814_SENSOR_OKAY:
       {
         vHalDisplay_drawTwoLines("Detecting MICS6814...", "MICS6814 -> Ok!", 0,&data.sysStat,&data.devInfo);
+        dispFSM.next_state = dispFSM.returnState;
         break;
       }
       case DISP_EVENT_MICS6814_VALUES_OKAY:
       {
         vHalDisplay_drawLine("MICS6814 values OK!", 1,&data.sysStat,&data.devInfo);
+        dispFSM.next_state = dispFSM.returnState;
         break;
       }
       case DISP_EVENT_MICS6814_DEF_SETTING:
       {
         vHalDisplay_drawLine("Setting MICS6814...", 1,&data.sysStat,&data.devInfo);
+        dispFSM.next_state = dispFSM.returnState;
         break;
       }
       case DISP_EVENT_MICS6814_DONE:
       {
         vHalDisplay_drawLine("Done!", 1,&data.sysStat,&data.devInfo);
+        dispFSM.next_state = dispFSM.returnState;
         break;
       }
       case DISP_EVENT_MICS6814_SENSOR_ERR:
       {
         vHalDisplay_drawTwoLines("Detecting MICS6814...", "MICS6814 -> Err!", 1,&data.sysStat,&data.devInfo);
+        dispFSM.next_state = dispFSM.returnState;
         break;
       }
       case DISP_EVENT_O3_SENSOR_INIT:
       {
         vHalDisplay_drawTwoLines("Detecting O3...", "", 1,&data.sysStat,&data.devInfo);
+        dispFSM.next_state = dispFSM.returnState;
         break;
       }
       case DISP_EVENT_O3_SENSOR_OKAY:
       {
-        vHalDisplay_drawTwoLines("Detecting O3...", "O3 -> Err!", 0,&data.sysStat,&data.devInfo);
+        vHalDisplay_drawTwoLines("Detecting O3...", "O3 -> Ok!" , 0,&data.sysStat,&data.devInfo);
+        dispFSM.next_state = dispFSM.returnState;
         break;
       }
       case DISP_EVENT_O3_SENSOR_ERR:
       {
-        vHalDisplay_drawTwoLines("Detecting O3...", "O3 -> Ok!", 0,&data.sysStat,&data.devInfo);
+        vHalDisplay_drawTwoLines("Detecting O3...","O3 -> Err!" , 0,&data.sysStat,&data.devInfo);
+        dispFSM.next_state = dispFSM.returnState;
         break;
       }      
       // loop cases 
@@ -309,60 +334,72 @@ void displayTask(void *pvParameters)
       case DISP_EVENT_CONN_TO_WIFI:
       {
         vHalDisplay_drawTwoLines("Connecting to", "WiFi...", 1,&data.sysStat,&data.devInfo);
+        dispFSM.next_state = dispFSM.returnState;
         break;
       }
       case DISP_EVENT_CONN_TO_GPRS:
       {
         vHalDisplay_drawTwoLines("Connecting to", "GPRS...", 1,&data.sysStat,&data.devInfo);
+        dispFSM.next_state = dispFSM.returnState;
         break;
       }
       case DISP_EVENT_RETREIVE_DATETIME:
       {
         vHalDisplay_drawTwoLines("Getting date&time...", "Please wait...", 1,&data.sysStat,&data.devInfo);
+        dispFSM.next_state = dispFSM.returnState;
         break;
       }
       case DISP_EVENT_DATETIME_OK:
       {
         vHalDisplay_drawTwoLines("Getting date&time...", "OK!", 1,&data.sysStat,&data.devInfo);
+        dispFSM.next_state = dispFSM.returnState;
         break;
       }
       case DISP_EVENT_DATETIME:
       {
         vHalDisplay_drawTwoLines("Date & Time:", data.sysData.currentDataTime.c_str(), 0,&data.sysStat,&data.devInfo);
+        dispFSM.next_state = dispFSM.returnState;
         break;
       }
       case DISP_EVENT_DATETIME_ERR:
       {
         vHalDisplay_drawTwoLines("Date & time err!", "Is internet ok?", 0,&data.sysStat,&data.devInfo);
+        dispFSM.next_state = dispFSM.returnState;
         break;
       }
       case DISP_EVENT_WIFI_CONNECTED:
       {
+        dispFSM.next_state = dispFSM.returnState;
         break;
       }
       case DISP_EVENT_WIFI_DISCONNECTED:
       {
         vHalDisplay_drawLine("WiFi connect err!", 2,&data.sysStat,&data.devInfo);
+        dispFSM.next_state = dispFSM.returnState;
         break;
       }
       case DISP_EVENT_SSID_NOT_FOUND:
       {
         vHalDisplay_drawLine(data.devInfo.noNet.c_str(), 2,&data.sysStat,&data.devInfo);
+        dispFSM.next_state = dispFSM.returnState;
         break;
       }
       case DISP_EVENT_NO_NETWORKS_FOUND:
       {
         vHalDisplay_drawLine("No networks found!", 2,&data.sysStat,&data.devInfo);
+        dispFSM.next_state = dispFSM.returnState;
         break;
       }
       case DISP_EVENT_CONN_RETRY:
       {
         vHalDisplay_drawTwoLines("Retrying...", data.devInfo.remain.c_str(), 2,&data.sysStat,&data.devInfo);
+        dispFSM.next_state = dispFSM.returnState;
         break;
       }
       case DISP_EVENT_NO_INTERNET:
       {
         vHalDisplay_drawLine("No internet!", 2,&data.sysStat,&data.devInfo);
+        dispFSM.next_state = dispFSM.returnState;
         break;
       }
 
@@ -370,16 +407,29 @@ void displayTask(void *pvParameters)
       case DISP_EVENT_SIM_ERROR:
       {
         vHalDisplay_drawTwoLines("ERROR:", "NO SIM!", 3,&data.sysStat,&data.devInfo);
+        dispFSM.next_state = dispFSM.returnState;
         break;
       }
       case DISP_EVENT_NETWORK_ERROR:
       {
         vHalDisplay_drawTwoLines("ERROR:", "NO NETWORK!", 3,&data.sysStat,&data.devInfo);
+        dispFSM.next_state = dispFSM.returnState;
         break;
       }
       case DISP_EVENT_GPRS_ERROR:
       {
         vHalDisplay_drawTwoLines("ERROR:", "NO GPRS!", 3,&data.sysStat,&data.devInfo);
+        dispFSM.next_state = dispFSM.returnState;
+        break;
+      }
+      // measurement data
+      case DISP_EVENT_SHOW_MEAS_DATA:
+      {
+        vHalDisplay_drawBme680GasSensorData(&data.sensorData,&data.sysStat,&data.devInfo,3);
+        vHalDisplay_drawPMS5003AirQualitySensorData(&data.sensorData,&data.sysStat,&data.devInfo,3);
+        vHalDisplay_drawMICS6814PollutionSensorData(&data.sensorData,&data.sysStat,&data.devInfo,3);
+        vHalDisplay_drawOzoneSensorData(&data.sensorData,&data.sysStat,&data.devInfo,3);
+        dispFSM.next_state = dispFSM.returnState;
         break;
       }
       // default case
