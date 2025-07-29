@@ -66,6 +66,16 @@ static void vMsp_updateNetworkData(deviceNetworkInfo_t *p_tDev,systemStatus_t *p
   vMspOs_giveDataAccessMutex();
 }
 
+static void vMsp_updateSystemData(systemData_t *p_tSys)
+{
+  vMspOs_takeDataAccessMutex();
+
+  displayData.sysData = *p_tSys;
+
+  vMspOs_giveDataAccessMutex();
+}
+
+
 // ----------------------------- local function prototypes -----------------------------
 
 static void disconnectWiFi(systemStatus_t *p_tSys);
@@ -435,6 +445,7 @@ void vHalNetwork_connAndGetTime(systemStatus_t *p_tSys,deviceNetworkInfo_t *p_tD
       p_tSysData->currentDataTime = String(p_tSysData->Date) + " " + String(p_tSysData->Time);
       Serial.println("Current date&time: " + p_tSysData->currentDataTime);
       vMsp_updateNetworkData(p_tDev,p_tSys,DISP_EVENT_DATETIME);
+      vMsp_updateSystemData(p_tSysData);
       tTaskDisplay_sendEvent(&displayData);
       
     }

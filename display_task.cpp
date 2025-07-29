@@ -94,9 +94,9 @@ void displayTask(void *pvParameters)
     dispFSM.current_state = DISP_EVENT_WAIT_FOR_EVENT;
     dispFSM.next_state = DISP_EVENT_WAIT_FOR_EVENT;
     dispFSM.returnState = DISP_EVENT_WAIT_FOR_EVENT;
-    dispFSM.isFirstTransition = true;
+    dispFSM.isFirstTransition = TRUE;
 
-    TickType_t eventWaitTimeout   = portMAX_DELAY;
+    TickType_t eventWaitTimeout   = pdMS_TO_TICKS(1000); // 1 second timeout for waiting events
     displayEvents_t displayEvents = DISP_EVENT_WAIT_FOR_EVENT;
     
   while(1)
@@ -106,12 +106,24 @@ void displayTask(void *pvParameters)
       case DISP_EVENT_WAIT_FOR_EVENT:
         if (pdTRUE != tTaskDisplay_receiveEvent(&data, eventWaitTimeout)) 
         {
-            dispFSM.next_state = dispFSM.returnState;
+            // check if we have received the first data 
+            if (!dispFSM.isFirstTransition)
+            {
+              dispFSM.next_state = DISP_EVENT_SHOW_MEAS_DATA;
+            }
+            else
+            {
+              dispFSM.next_state = dispFSM.returnState;
+            } 
         } 
         else 
         {
             displayEvents = data.currentEvent;
             dispFSM.next_state = displayEvents;
+            if (displayEvents == DISP_EVENT_SHOW_MEAS_DATA)
+            {
+             dispFSM.isFirstTransition = FALSE;
+            }
         }
         break;
       // set up cases 
@@ -301,14 +313,14 @@ void displayTask(void *pvParameters)
         char firstRow[17] = {0};
         char secondRow[22] = {0};
         sprintf(firstRow, "meas:%d of %d", data.measStat.measurement_count, data.measStat.avg_measurements);
-        sprintf(secondRow, "WAIT %02d:%02d min", (data.measStat.delay_between_measurements - data.measStat.timeout_seconds) / 60, (data.measStat.delay_between_measurements - data.measStat.timeout_seconds) % 60);
+        sprintf(secondRow, "WAIT %02d:%02d sec", (data.measStat.delay_between_measurements - data.measStat.timeout_seconds) / 60, (data.measStat.delay_between_measurements - data.measStat.timeout_seconds) % 60);
         vHalDisplay_drawTwoLines(firstRow, secondRow, 0,&data.sysStat,&data.devInfo);
         dispFSM.next_state = dispFSM.returnState;
         break;
       }
       case DISP_EVENT_PREHEAT_STAT:
       {
-        vHalDisplay_drawCountdown(PMS_PREHEAT_TIME_IN_SEC, "Preheating PMS5003...",&data.sysStat,&data.devInfo);
+        // vHalDisplay_drawCountdown(PMS_PREHEAT_TIME_IN_SEC, "Preheating PMS5003...",&data.sysStat,&data.devInfo);
         dispFSM.next_state = dispFSM.returnState;
         break;
       }
@@ -429,6 +441,7 @@ void displayTask(void *pvParameters)
         vHalDisplay_drawPMS5003AirQualitySensorData(&data.sensorData,&data.sysStat,&data.devInfo,3);
         vHalDisplay_drawMICS6814PollutionSensorData(&data.sensorData,&data.sysStat,&data.devInfo,3);
         vHalDisplay_drawOzoneSensorData(&data.sensorData,&data.sysStat,&data.devInfo,3);
+        vHalDisplay_drawMspIndexData(&data.sensorData,&data.sysStat,&data.devInfo,3);
         dispFSM.next_state = dispFSM.returnState;
         break;
       }

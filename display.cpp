@@ -230,7 +230,7 @@ void vHalDisplay_drawCountdown(short startsec, const char message[],systemStatus
   {
     char output[17] = {0};
 
-    sprintf(output, "WAIT %02d:%02d MIN.", i / 60, i % 60);
+    sprintf(output, "WAIT %02d:%02d sec.", i / 60, i % 60);
 
     vHalDisplay_drawTwoLines(message,output,1,statPtr,devinfoPtr);
   }
@@ -422,6 +422,31 @@ void vHalDisplay_drawOzoneSensorData(sensorData_t *p_tData,systemStatus_t *statP
   u8g2.sendBuffer();
   delay(secdelay * 1000); 
 }
+
+
+/************************************************************************************
+ * @brief function to draw the MSP index data on the display.
+ * 
+ * @param p_tData 
+ * @param statPtr 
+ * @param devinfoPtr 
+ * @param secdelay 
+ ************************************************************************************/
+void vHalDisplay_drawMspIndexData(sensorData_t *p_tData,systemStatus_t *statPtr, deviceNetworkInfo_t *devinfoPtr, short secdelay)
+{
+  log_i("Printing OzoneSensor data on display...");
+  char sensorStringData[16] = {0};
+
+  // page 4
+  vHal_displayDrawScrHead(statPtr,devinfoPtr);
+  vGeneric_dspFloatToComma(p_tData->MSP,sensorStringData,sizeof(sensorStringData));
+  u8g2.setCursor(5, 39);
+  u8g2.print("MSP:  ");
+  u8g2.print(sensorStringData);
+  u8g2.sendBuffer();
+  delay(secdelay * 1000); 
+}
+
 
 
 /*********************************************************************************

@@ -112,4 +112,15 @@ void vHalDisplay_drawMICS6814PollutionSensorData(sensorData_t *p_tData,systemSta
  *****************************************************************************************/
 void vHalDisplay_drawOzoneSensorData(sensorData_t *p_tData,systemStatus_t *statPtr, deviceNetworkInfo_t *devinfoPtr, short secdelay);
 
+/******************************************************************************************
+ * @brief draws the MSP index data on the display.
+ * 
+ * @param p_tData 
+ * @param statPtr 
+ * @param devinfoPtr 
+ * @param secdelay 
+ ******************************************************************************************/
+void vHalDisplay_drawMspIndexData(sensorData_t *p_tData,systemStatus_t *statPtr, deviceNetworkInfo_t *devinfoPtr, short secdelay);
+
+
 #endif

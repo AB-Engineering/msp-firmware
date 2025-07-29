@@ -221,7 +221,7 @@ typedef struct __NTP_TIMEZONE_ {
 
 typedef struct __SEND_DATA__
 {
-  struct tm sendTimeInfo; /*!< Date and time of the data to be sent */
+  tm sendTimeInfo; /*!< Date and time of the data to be sent */
   float temp;
   float hum;
   float pre;

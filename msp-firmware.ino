@@ -607,18 +607,17 @@ void loop()
     {
       vMsp_updateDataAndEvent(DISP_EVENT_WAIT_FOR_NETWORK_CONN);
       tTaskDisplay_sendEvent(&displayData);
-    if (pdTRUE == waitForNetworkEvent(NET_EVENT_CONNECTED, portMAX_DELAY))
-    {
-      mainStateMachine.next_state = SYS_STATE_WAIT_FOR_TIMEOUT;
-    }
-    else
-    {
-      vMsp_updateDataAndEvent(DISP_EVENT_NETWORK_CONN_FAIL);
-      tTaskDisplay_sendEvent(&displayData);
-      log_e("Failed to connect to the network for date and time update!");
-      mainStateMachine.next_state = SYS_STATE_ERROR;
-    }
-
+      if (pdTRUE == waitForNetworkEvent(NET_EVENT_CONNECTED, portMAX_DELAY))
+      {
+        mainStateMachine.next_state = SYS_STATE_WAIT_FOR_TIMEOUT;
+      }
+      else
+      {
+        vMsp_updateDataAndEvent(DISP_EVENT_NETWORK_CONN_FAIL);
+        tTaskDisplay_sendEvent(&displayData);
+        log_e("Failed to connect to the network for date and time update!");
+        mainStateMachine.next_state = SYS_STATE_ERROR;
+      }
     break;
   }
 
@@ -638,26 +637,17 @@ void loop()
       {
         Serial.println("Timeout expired!");
         Serial.printf("Current time: %02d:%02d:%02d\n", timeinfo.tm_hour, measStat.curr_minutes, measStat.curr_seconds);
-
-        vMsp_updateDataAndEvent(DISP_EVENT_READING_SENSORS);
-        tTaskDisplay_sendEvent(&displayData);
-
         mainStateMachine.next_state = SYS_STATE_READ_SENSORS; // go to read sensors state
       }
       else
       {
-        if (!mainStateMachine.isFirstTransition)
-        {
-          //show the already captured data
-          vMsp_updateDataAndEvent(DISP_EVENT_SHOW_MEAS_DATA);
-          tTaskDisplay_sendEvent(&displayData);
-        }
-        else
+        // if it is not the first transition, wait for timeout
+        if (mainStateMachine.isFirstTransition)
         {
           vMsp_updateDataAndEvent(DISP_EVENT_WAIT_FOR_TIMEOUT);
           tTaskDisplay_sendEvent(&displayData);
+          delay(1000);
         }
-        
       }
     }
     else
@@ -671,6 +661,7 @@ void loop()
   case SYS_STATE_READ_SENSORS:
   {
     Serial.println("Reading sensors...");
+    unsigned long pmsStartTime = 0;
 
     if (mainStateMachine.isFirstTransition)
     {
@@ -710,20 +701,18 @@ void loop()
       // Reset also the measurement count
       measStat.measurement_count = 0;
     }
+    vMsp_updateDataAndEvent(DISP_EVENT_READING_SENSORS);
+    tTaskDisplay_sendEvent(&displayData);
 
     // WAKE UP AND PREHEAT PMS5003
     if (sensorData.status.PMS5003Sensor)
     {
       Serial.printf("Waking up and preheating PMS5003 sensor for %d seconds...\n", PMS_PREHEAT_TIME_IN_SEC);
       pms.wakeUp();
+      pmsStartTime = millis();   // record start time
       vMsp_updateDataAndEvent(DISP_EVENT_PREHEAT_STAT);
       tTaskDisplay_sendEvent(&displayData);
     }
-
-    // MEASUREMENTS MESSAGE
-    log_i("Measurements in progress...\n");
-    vMsp_updateDataAndEvent(DISP_EVENT_MEAS_IN_PROGRESS);
-    tTaskDisplay_sendEvent(&displayData);
 
     // READING BME680
     if (sensorData.status.BME680Sensor)
@@ -770,42 +759,6 @@ void loop()
         localData.volatileOrganicCompounds = fHalSensor_no2AndVocCompensation(localData.volatileOrganicCompounds, &localData, &sensorData);
         log_v("Compensated gas resistance(kOhm): %.3f\n", localData.volatileOrganicCompounds);
         sensorData.gasData.volatileOrganicCompounds += localData.volatileOrganicCompounds;
-        break;
-      }
-    }
-
-    // READING PMS5003
-    if (sensorData.status.PMS5003Sensor)
-    {
-      log_i("Sampling PMS5003 sensor...");
-      err.count = 0;
-      while (1)
-      { // TODO: add a timeout to this loop
-        while (pmsSerial.available())
-        {
-          pmsSerial.read();
-        }
-        if (!pms.readUntil(data))
-        {
-          if (err.count > 2)
-          {
-            log_e("Error while sampling PMS5003 sensor!");
-            err.PMSfails++;
-            break;
-          }
-          delay(1000);
-          err.count++;
-          continue;
-        }
-        log_v("PM1(ug/m3): %d", data.PM_AE_UG_1_0);
-        sensorData.airQualityData.particleMicron1 += data.PM_AE_UG_1_0;
-
-        log_v("PM2,5(ug/m3): %d", data.PM_AE_UG_2_5);
-        sensorData.airQualityData.particleMicron25 += data.PM_AE_UG_2_5;
-
-        log_v("PM10(ug/m3): %d\n", data.PM_AE_UG_10_0);
-        sensorData.airQualityData.particleMicron10 += data.PM_AE_UG_10_0;
-
         break;
       }
     }
@@ -885,6 +838,47 @@ void loop()
       Serial.println();
     }
 
+    // READING PMS5003
+    if (sensorData.status.PMS5003Sensor)
+    {
+      // time out until the PMS5003 sensor is preheated
+      while (millis() - pmsStartTime < PMS_PREHEAT_TIME_IN_SEC * 1000)
+      {
+        delay(1000);
+      }
+      log_i("Sampling PMS5003 sensor...");
+      err.count = 0;
+      while (1)
+      { // TODO: add a timeout to this loop
+        while (pmsSerial.available())
+        {
+          pmsSerial.read();
+        }
+        if (!pms.readUntil(data))
+        {
+          if (err.count > 2)
+          {
+            log_e("Error while sampling PMS5003 sensor!");
+            err.PMSfails++;
+            break;
+          }
+          delay(1000);
+          err.count++;
+          continue;
+        }
+        log_v("PM1(ug/m3): %d", data.PM_AE_UG_1_0);
+        sensorData.airQualityData.particleMicron1 += data.PM_AE_UG_1_0;
+
+        log_v("PM2,5(ug/m3): %d", data.PM_AE_UG_2_5);
+        sensorData.airQualityData.particleMicron25 += data.PM_AE_UG_2_5;
+
+        log_v("PM10(ug/m3): %d\n", data.PM_AE_UG_10_0);
+        sensorData.airQualityData.particleMicron10 += data.PM_AE_UG_10_0;
+
+        break;
+      }
+    }
+
     // PUT PMS5003 TO SLEEP
     if (sensorData.status.PMS5003Sensor)
     {
@@ -938,6 +932,11 @@ void loop()
     }
     else
     {
+      // MEASUREMENTS MESSAGE
+      log_i("Measurements in progress...\n");
+      vMsp_updateDataAndEvent(DISP_EVENT_MEAS_IN_PROGRESS);
+      tTaskDisplay_sendEvent(&displayData);
+      
       log_i("Not enough measurements obtained, going to wait for timeout...\n");
       mainStateMachine.next_state = SYS_STATE_WAIT_FOR_TIMEOUT;
     }
@@ -1016,6 +1015,18 @@ void loop()
     log_i("Send Time: %02d:%02d:%02d\n", sendData.sendTimeInfo.tm_hour, sendData.sendTimeInfo.tm_min, sendData.sendTimeInfo.tm_sec);
 
     enqueueSendData(sendData);
+
+    //show the already captured data
+    vMsp_updateDataAndEvent(DISP_EVENT_SHOW_MEAS_DATA);
+    tTaskDisplay_sendEvent(&displayData);
+
+    Serial.printf("Current time: %02d:%02d:%02d\n", sendData.sendTimeInfo.tm_hour, sendData.sendTimeInfo.tm_min, sendData.sendTimeInfo.tm_sec);
+    Serial.printf("temp: %.2f, hum: %.2f, pre: %.2f, VOC: %.2f, PM1: %d, PM25: %d, PM10: %d, MICS_CO: %.2f, MICS_NO2: %.2f, MICS_NH3: %.2f, ozone: %.2f, MSP: %d, measurement_count: %d vs %d\n",
+    sensorData.gasData.temperature, sensorData.gasData.humidity, sensorData.gasData.pressure,
+    sensorData.gasData.volatileOrganicCompounds, 
+    sensorData.airQualityData.particleMicron1, sensorData.airQualityData.particleMicron25, sensorData.airQualityData.particleMicron10,
+    sensorData.pollutionData.data.carbonMonoxide, sensorData.pollutionData.data.nitrogenDioxide, sensorData.pollutionData.data.ammonia,
+    sensorData.ozoneData.ozone, sensorData.MSP, measStat.measurement_count, measStat.avg_measurements);
 
     mainStateMachine.isFirstTransition = 1; // set first transition flag
     // This will clean up the sensor variables for the next cycle
@@ -1155,7 +1166,7 @@ void vMsp_updateDataAndEvent(displayEvents_t event)
   
   vMspOs_takeDataAccessMutex();
 
-  displayData.sensorData = sensorData;
+  if (event == DISP_EVENT_SHOW_MEAS_DATA) displayData.sensorData = sensorData;
   displayData.devInfo = devinfo;
   displayData.measStat = measStat;
   displayData.sysData = sysData;
