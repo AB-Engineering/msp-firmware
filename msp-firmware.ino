@@ -354,17 +354,18 @@ void setup()
 
   // PMS5003 ++++++++++++++++++++++++++++++++++++
   pmsSerial.begin(9600, SERIAL_8N1, PMSERIAL_RX, PMSERIAL_TX); // baud, type, ESP_RX, ESP_TX
+  delay(1500);
   vMsp_updateDataAndEvent(DISP_EVENT_PMS5003_SENSOR_INIT);
   tTaskDisplay_sendEvent(&displayData);
   
   pms.wakeUp(); // Waking up sensor after sleep
+  delay(1500);
   if (pms.readUntil(data))
   {
     log_i("PMS5003 sensor detected, initializing...\n");
     sensorData.status.PMS5003Sensor = true;
     vMsp_updateDataAndEvent(DISP_EVENT_PMS5003_SENSOR_OKAY);
     tTaskDisplay_sendEvent(&displayData);
-    pms.sleep(); // Putting sensor to sleep
   }
   else
   {
@@ -411,9 +412,7 @@ void setup()
       vMsp_updateDataAndEvent(DISP_EVENT_MICS6814_DONE);
       tTaskDisplay_sendEvent(&displayData);
       log_i("Done!\n");
-      
     } 
-    vHalDisplay_drawMicsValues(gas.getBaseResistance(CH_RED), gas.getBaseResistance(CH_OX), gas.getBaseResistance(CH_NH3),&sysStat,&devinfo);
     gas.setOffsets(&sensorData.pollutionData.sensingResInAirOffset.redSensor);
   }
   else
@@ -1114,6 +1113,8 @@ void vMspInit_sensorStatusAndData(sensorData_t *p_tData)
   p_tData->compParams.currentTemperature = 0.0132f;   /*!<default pressure compensation */
 
   p_tData->MSP = -1; /*!<set to -1 to distinguish from grey (0) */
+
+  devinfo.wifipow = WIFI_POWER_17dBm;
 
   vMspOs_giveDataAccessMutex();
 
