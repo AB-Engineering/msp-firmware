@@ -60,6 +60,8 @@
 #include "freertos/queue.h"
 #include "freertos/event_groups.h"
 
+#define API_SECRET_SALT "2198be9d8e83a662210ef9cd8acc5b36"
+#define API_SERVER      "milanosmartpark.info"
 
 // Hardware UART definitions. Modes: UART0=0(debug out); UART1=1; UART2=2
 
@@ -91,6 +93,7 @@ SSLClient wificlient(wifi_base, TAs, (size_t)TAs_NUM, rand_pin, 1, SSLClient::SS
 
 #define PMS_PREHEAT_TIME_IN_SEC 20 /*!<PMS5003 preheat time in seconds, defaults to 45 seconds */
 
+#define EMPTY_STR   ""
 // ------------------------------- INSTANCES  --------------------------------------------------------------------------
 
 // -- BME680 sensor instance 
@@ -149,6 +152,8 @@ void vMspInit_setApiSecSaltAndFwVer(systemData_t *p_tData);
 void vMsp_updateDataAndEvent(displayEvents_t event);
 
 void vMsp_setGpioPins(void);
+
+void vMspInit_NetworkAndMeasInfo(void);
 //*******************************************************************************************************************************
 //******************************************  SERVER CONNECTION TASK  ***********************************************************
 //*******************************************************************************************************************************
@@ -264,6 +269,9 @@ void setup()
   // init the sensor data structure /status / offset values with defualt values 
   vMspInit_sensorStatusAndData(&sensorData);
 
+  // init device network parameters
+  vMspInit_NetworkAndMeasInfo();
+
   // init the ntp server and timezone data with default values
   vMspInit_setDefaultNtpTimezoneStatus(&sysData);
 
@@ -366,6 +374,7 @@ void setup()
     sensorData.status.PMS5003Sensor = true;
     vMsp_updateDataAndEvent(DISP_EVENT_PMS5003_SENSOR_OKAY);
     tTaskDisplay_sendEvent(&displayData);
+    pms.sleep(); // Putting sensor to sleep
   }
   else
   {
@@ -630,6 +639,14 @@ void loop()
 
       // Calculate the timeout in seconds taking into account the additional delay for PMS5003 preheating
       measStat.timeout_seconds = ((measStat.curr_total_seconds + measStat.additional_delay) % measStat.delay_between_measurements);
+      
+      // kick the pms up when the timeout count starts 
+      if ((measStat.isPmsWokenUp == false) && (sensorData.status.PMS5003Sensor))
+      {
+        Serial.println("lets start the PMS sensor ");
+        measStat.isPmsWokenUp = true;
+        pms.wakeUp();
+      }
 
       // It is time for a measurement
       if ((measStat.timeout_seconds == 0) && (measStat.curr_minutes != 0))
@@ -641,7 +658,7 @@ void loop()
       else
       {
         // if it is not the first transition, wait for timeout
-        if (mainStateMachine.isFirstTransition)
+        if ((measStat.isSensorDataAvailable == false) && (mainStateMachine.isFirstTransition))
         {
           vMsp_updateDataAndEvent(DISP_EVENT_WAIT_FOR_TIMEOUT);
           tTaskDisplay_sendEvent(&displayData);
@@ -660,7 +677,6 @@ void loop()
   case SYS_STATE_READ_SENSORS:
   {
     Serial.println("Reading sensors...");
-    unsigned long pmsStartTime = 0;
 
     if (mainStateMachine.isFirstTransition)
     {
@@ -703,20 +719,9 @@ void loop()
     vMsp_updateDataAndEvent(DISP_EVENT_READING_SENSORS);
     tTaskDisplay_sendEvent(&displayData);
 
-    // WAKE UP AND PREHEAT PMS5003
-    if (sensorData.status.PMS5003Sensor)
-    {
-      Serial.printf("Waking up and preheating PMS5003 sensor for %d seconds...\n", PMS_PREHEAT_TIME_IN_SEC);
-      pms.wakeUp();
-      pmsStartTime = millis();   // record start time
-      vMsp_updateDataAndEvent(DISP_EVENT_PREHEAT_STAT);
-      tTaskDisplay_sendEvent(&displayData);
-    }
-
     // READING BME680
     if (sensorData.status.BME680Sensor)
     {
-
       log_i("Sampling BME680 sensor...");
       err.count = 0;
       while (1)
@@ -744,9 +749,9 @@ void loop()
 
         localData.pressure = bme680.pressure / PERCENT_DIVISOR;
         localData.pressure = (localData.pressure * 
-          pow(1 - (0.0065f * sensorData.gasData.seaLevelAltitude / 
-            (localData.temperature + 0.0065f *
-               sensorData.gasData.seaLevelAltitude + 273.15)), -5.257f));
+          pow(1 - (STD_TEMP_LAPSE_RATE * sensorData.gasData.seaLevelAltitude / 
+            (localData.temperature + STD_TEMP_LAPSE_RATE *
+               sensorData.gasData.seaLevelAltitude + CELIUS_TO_KELVIN)), ISA_DERIVED_EXPONENTIAL));
         log_v("Pressure(hPa): %.3f", localData.pressure);
         sensorData.gasData.pressure += localData.pressure;
 
@@ -754,7 +759,7 @@ void loop()
         log_v("Humidity(perc.): %.3f", localData.humidity);
         sensorData.gasData.humidity += localData.humidity;
 
-        localData.volatileOrganicCompounds = bme680.gasResistance / 1000.0f;
+        localData.volatileOrganicCompounds = bme680.gasResistance / MICROGRAMS_PER_GRAM;
         localData.volatileOrganicCompounds = fHalSensor_no2AndVocCompensation(localData.volatileOrganicCompounds, &localData, &sensorData);
         log_v("Compensated gas resistance(kOhm): %.3f\n", localData.volatileOrganicCompounds);
         sensorData.gasData.volatileOrganicCompounds += localData.volatileOrganicCompounds;
@@ -840,11 +845,6 @@ void loop()
     // READING PMS5003
     if (sensorData.status.PMS5003Sensor)
     {
-      // time out until the PMS5003 sensor is preheated
-      while (millis() - pmsStartTime < PMS_PREHEAT_TIME_IN_SEC * 1000)
-      {
-        delay(1000);
-      }
       log_i("Sampling PMS5003 sensor...");
       err.count = 0;
       while (1)
@@ -876,13 +876,6 @@ void loop()
 
         break;
       }
-    }
-
-    // PUT PMS5003 TO SLEEP
-    if (sensorData.status.PMS5003Sensor)
-    {
-      log_i("Putting PMS5003 sensor to sleep...\n");
-      pms.sleep();
     }
 
     measStat.measurement_count++;
@@ -970,7 +963,7 @@ void loop()
 
     Serial.println("Sending data to server...");
     send_data_t sendData;
-    memcpy(&sendData.sendTimeInfo, &timeinfo, sizeof(struct tm)); // copy time info to sendData
+    memcpy(&sendData.sendTimeInfo, &timeinfo, sizeof(tm)); // copy time info to sendData
     log_i("Current time: %02d:%02d:%02d\n", sendData.sendTimeInfo.tm_hour, sendData.sendTimeInfo.tm_min, sendData.sendTimeInfo.tm_sec);
     // The measuremente starts the minute before the timeout, so we need to add the additional delay
     // additional delay in seconds and the next minute
@@ -1029,6 +1022,8 @@ void loop()
 
     mainStateMachine.isFirstTransition = 1; // set first transition flag
     // This will clean up the sensor variables for the next cycle
+    // set the flag to true, so instead of timeout , the display is shown with previous calculated data. 
+    measStat.isSensorDataAvailable == true;
 
     mainStateMachine.next_state = SYS_STATE_WAIT_FOR_TIMEOUT; // go to wait for timeout state
     break;
@@ -1114,12 +1109,25 @@ void vMspInit_sensorStatusAndData(sensorData_t *p_tData)
 
   p_tData->MSP = -1; /*!<set to -1 to distinguish from grey (0) */
 
-  devinfo.wifipow = WIFI_POWER_17dBm;
-
   vMspOs_giveDataAccessMutex();
 
 }
 
+void vMspInit_NetworkAndMeasInfo(void)
+{
+  devinfo.wifipow = WIFI_POWER_17dBm;
+  devinfo.ssid = EMPTY_STR;
+  devinfo.passw = EMPTY_STR;
+  devinfo.apn = EMPTY_STR;
+  devinfo.deviceid = EMPTY_STR;
+  devinfo.logpath = EMPTY_STR;
+
+  memset(&measStat,0,sizeof(deviceMeasurement_t));
+  measStat.avg_measurements = 1;
+  measStat.isPmsWokenUp = false;
+  measStat.isSensorDataAvailable = false;
+
+}
 
 void vMspInit_setDefaultNtpTimezoneStatus(systemData_t *p_tData)
 {
@@ -1167,7 +1175,10 @@ void vMsp_updateDataAndEvent(displayEvents_t event)
   
   vMspOs_takeDataAccessMutex();
 
-  if (event == DISP_EVENT_SHOW_MEAS_DATA) displayData.sensorData = sensorData;
+  if (event == DISP_EVENT_SHOW_MEAS_DATA)
+  {
+    displayData.sensorData = sensorData;
+  }
   displayData.devInfo = devinfo;
   displayData.measStat = measStat;
   displayData.sysData = sysData;

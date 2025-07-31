@@ -9,8 +9,8 @@
  * 
  ****************************************************************************************/
 
-#ifndef DATA_H
-#define DATA_H
+#ifndef SHARED_VALUES_H
+#define SHARED_VALUES_H
 
 // -- includes --
 #include <Arduino.h>
@@ -28,15 +28,19 @@
 #define STR_COMMA               ","
 
 
-#define REFERENCE_TEMP_C            25.0             // Standard temperature in Celsius
-#define GAS_CONSTANT                83.1446261815324  // Ideal gas constant in L·hPa/(mol·K)
-#define REFERENCE_PRESSURE_HPA      1013.25           // Standard pressure in hPa
-#define HUMIDITY_OFFSET             50.0              // humidity offset 
-#define PERCENT_DIVISOR             100.0             // percent divisor
+#define REFERENCE_TEMP_C            25.0f             // Standard temperature in Celsius
+#define GAS_CONSTANT                83.1446261815324f  // Ideal gas constant in L·hPa/(mol·K)
+#define REFERENCE_PRESSURE_HPA      1013.25f           // Standard pressure in hPa
+#define HUMIDITY_OFFSET             50.0f              // humidity offset 
+#define PERCENT_DIVISOR             100.0f           // percent divisor
 
-#define CELIUS_TO_KELVIN            273.15 // Conversion from Celsius to Kelvin
-#define MICROGRAMS_PER_GRAM         1000.0 // µg in 1 gram
+#define CELIUS_TO_KELVIN            273.15f // Conversion from Celsius to Kelvin
+#define MICROGRAMS_PER_GRAM         1000.0f // µg in 1 gram
 
+#define STD_TEMP_LAPSE_RATE         0.0065f // Standard temperature lapse rate: Temperature decrease with altitude
+#define ISA_DERIVED_EXPONENTIAL     -5.257f //Exponent derived from ISA model: Based on gas constant, gravity, etc.
+#define DATE_LEN                    11
+#define TIME_LEN                    9
 
 typedef struct __STATE_MACHINE__ {
   uint8_t current_state;
@@ -203,6 +207,8 @@ typedef struct __MEASUREMENT__ {
   int32_t delay_between_measurements; /*!< Delay between measurements in seconds */
   int32_t additional_delay;
   uint32_t timeout_seconds;
+  uint8_t isPmsWokenUp;
+  uint8_t isSensorDataAvailable;
 }deviceMeasurement_t;
 
 
@@ -215,8 +221,8 @@ typedef struct __NTP_TIMEZONE_ {
   String api_secret_salt;
   String ver;
   String currentDataTime;
-  char Date[11];
-  char Time[9];
+  char Date[DATE_LEN];
+  char Time[TIME_LEN];
 }systemData_t;
 
 typedef struct __SEND_DATA__

@@ -170,8 +170,8 @@ float fHalSensor_analogUgM3O3Read(float *intemp, sensorData_t *p_tData)
 void vHalSensor_printMeasurementsOnSerial(send_data_t *data, sensorData_t *p_tPtr )
 {
 
-  char locDate[11] = {0};
-  char locTime[9] = {0};
+  char locDate[DATE_LEN] = {0};
+  char locTime[TIME_LEN] = {0};
 
   strftime(locDate, sizeof(locDate), "%d/%m/%Y", &data->sendTimeInfo); // Formatting date as DD/MM/YYYY
   strftime(locTime, sizeof(locDate), "%T", &data->sendTimeInfo);       // Formatting time as HH:MM:SS

@@ -65,6 +65,20 @@
 #define POS_X_DEVICE_ID           0
 #define POS_Y_DEVICE_ID           13
 
+#define DRAW_TWO_LINE_Y_OFFSET_L1    35
+#define DRAW_TWO_LINE_Y_OFFSET_L2    55
+#define DRAW_LINE_Y_OFFSET           45
+
+#define MEAS_DISP_X_OFFSET         5
+#define MEAS_DISP_Y_OFFSET_L1     28
+#define MEAS_DISP_Y_OFFSET_L2     39
+#define MEAS_DISP_Y_OFFSET_L3     50
+#define MEAS_DISP_Y_OFFSET_L4     61
+
+#define SENSOR_DATA_STR_FMT_LEN   16
+#define COUNT_DOWN_STR_FMT_LEN    17
+
+
 #define STR_FIRST_NAME        "Milano"
 #define STR_SECOND_NAME       "Smart"
 #define STR_LAST_NAME         "Park"
@@ -189,7 +203,7 @@ void vHalDisplay_drawLine(const char message[], short secdelay,systemStatus_t *s
 {
   short offset = sHalDisplay_getLineHOffset(message);
   vHal_displayDrawScrHead(statPtr,devinfoPtr);
-  u8g2.setCursor(offset, 45); u8g2.print(message);
+  u8g2.setCursor(offset, DRAW_LINE_Y_OFFSET); u8g2.print(message);
   u8g2.sendBuffer();
   delay(secdelay * 1000);
 }
@@ -210,8 +224,8 @@ void vHalDisplay_drawTwoLines(const char message1[], const char message2[], shor
   short offset2 = sHalDisplay_getLineHOffset(message2);
 
   vHal_displayDrawScrHead(statPtr,devinfoPtr);
-  u8g2.setCursor(offset1, 35); u8g2.print(message1);
-  u8g2.setCursor(offset2, 55); u8g2.print(message2);
+  u8g2.setCursor(offset1,DRAW_TWO_LINE_Y_OFFSET_L1); u8g2.print(message1);
+  u8g2.setCursor(offset2,DRAW_TWO_LINE_Y_OFFSET_L2); u8g2.print(message2);
   u8g2.sendBuffer();
   delay(secdelay * 1000);
 }
@@ -228,7 +242,7 @@ void vHalDisplay_drawCountdown(short startsec, const char message[],systemStatus
 {
   for (short i = startsec; i >= 0; i--) 
   {
-    char output[17] = {0};
+    char output[COUNT_DOWN_STR_FMT_LEN] = {0};
 
     sprintf(output, "WAIT %02d:%02d sec.", i / 60, i % 60);
 
@@ -246,32 +260,32 @@ void vHalDisplay_drawCountdown(short startsec, const char message[],systemStatus
 void vHalDisplay_drawBme680GasSensorData(sensorData_t *p_tData,systemStatus_t *statPtr, deviceNetworkInfo_t *devinfoPtr, short secdelay)
 {
   log_i("Printing BME680Sensor data on display...");
-  char sensorStringData[16] = {0};
+  char sensorStringData[SENSOR_DATA_STR_FMT_LEN] = {0};
 
   // page 1
   vHal_displayDrawScrHead(statPtr,devinfoPtr);
   if (p_tData->status.BME680Sensor)
   {
     vGeneric_dspFloatToComma(p_tData->gasData.temperature,sensorStringData,sizeof(sensorStringData));
-    u8g2.setCursor(5, 28); 
+    u8g2.setCursor(MEAS_DISP_X_OFFSET, MEAS_DISP_Y_OFFSET_L1); 
     u8g2.print("Temp:  ");
     u8g2.print(sensorStringData);
     u8g2.print(" °C");
 
     vGeneric_dspFloatToComma(p_tData->gasData.humidity,sensorStringData,sizeof(sensorStringData));
-    u8g2.setCursor(5, 39);
+    u8g2.setCursor(MEAS_DISP_X_OFFSET, MEAS_DISP_Y_OFFSET_L2);
     u8g2.print("Hum:  ");
     u8g2.print(sensorStringData);
     u8g2.print(" %");
 
     vGeneric_dspFloatToComma(p_tData->gasData.pressure,sensorStringData,sizeof(sensorStringData));
-    u8g2.setCursor(5, 50);
+    u8g2.setCursor(MEAS_DISP_X_OFFSET, MEAS_DISP_Y_OFFSET_L3);
     u8g2.print("Pre:  ");
     u8g2.print(sensorStringData);
     u8g2.print("hPa");
 
     vGeneric_dspFloatToComma(p_tData->gasData.volatileOrganicCompounds,sensorStringData,sizeof(sensorStringData));
-    u8g2.setCursor(5, 61);
+    u8g2.setCursor(MEAS_DISP_X_OFFSET, MEAS_DISP_Y_OFFSET_L4);
     u8g2.print("VOC:  ");
     u8g2.print(sensorStringData);
     u8g2.print("kOhm");
@@ -279,16 +293,16 @@ void vHalDisplay_drawBme680GasSensorData(sensorData_t *p_tData,systemStatus_t *s
   } 
   else 
   {
-    u8g2.setCursor(5, 28);
+    u8g2.setCursor(MEAS_DISP_X_OFFSET, MEAS_DISP_Y_OFFSET_L1);
     u8g2.print("Temp: --");
 
-    u8g2.setCursor(5, 39);
+    u8g2.setCursor(MEAS_DISP_X_OFFSET, MEAS_DISP_Y_OFFSET_L2);
     u8g2.print("Hum: --");
 
-    u8g2.setCursor(5, 50);
+    u8g2.setCursor(MEAS_DISP_X_OFFSET, MEAS_DISP_Y_OFFSET_L3);
     u8g2.print("Pre: --");
 
-    u8g2.setCursor(5, 61);
+    u8g2.setCursor(MEAS_DISP_X_OFFSET, MEAS_DISP_Y_OFFSET_L4);
     u8g2.print("VOC: --");
   }  
   u8g2.sendBuffer();
@@ -305,39 +319,39 @@ void vHalDisplay_drawBme680GasSensorData(sensorData_t *p_tData,systemStatus_t *s
 void vHalDisplay_drawPMS5003AirQualitySensorData(sensorData_t *p_tData,systemStatus_t *statPtr, deviceNetworkInfo_t *devinfoPtr, short secdelay)
 {
   log_i("Printing PMS5003Sensor data on display...");
-  char sensorStringData[16] = {0};
+  char sensorStringData[SENSOR_DATA_STR_FMT_LEN] = {0};
 
   // page 2
   vHal_displayDrawScrHead(statPtr,devinfoPtr);
   if (p_tData->status.PMS5003Sensor)
   {
     vGeneric_dspFloatToComma(p_tData->airQualityData.particleMicron1,sensorStringData,sizeof(sensorStringData));
-    u8g2.setCursor(5, 28);
+    u8g2.setCursor(MEAS_DISP_X_OFFSET, MEAS_DISP_Y_OFFSET_L1);
     u8g2.print("PM1:  ");
     u8g2.print(sensorStringData);
     u8g2.print("ug/m3");
 
     vGeneric_dspFloatToComma(p_tData->airQualityData.particleMicron25,sensorStringData,sizeof(sensorStringData));
-    u8g2.setCursor(5, 39);
+    u8g2.setCursor(MEAS_DISP_X_OFFSET, MEAS_DISP_Y_OFFSET_L2);
     u8g2.print("PM2,5:  ");
     u8g2.print(sensorStringData);
     u8g2.print("ug/m3");
 
     vGeneric_dspFloatToComma(p_tData->airQualityData.particleMicron10,sensorStringData,sizeof(sensorStringData));
-    u8g2.setCursor(5, 50);
+    u8g2.setCursor(MEAS_DISP_X_OFFSET, MEAS_DISP_Y_OFFSET_L3);
     u8g2.print("PM10:  ");
     u8g2.print(sensorStringData);
     u8g2.print("ug/m3");
   }
   else 
   {
-    u8g2.setCursor(5, 28);
+    u8g2.setCursor(MEAS_DISP_X_OFFSET, MEAS_DISP_Y_OFFSET_L1);
     u8g2.print("PM1:--");
 
-    u8g2.setCursor(5, 39);
+    u8g2.setCursor(MEAS_DISP_X_OFFSET, MEAS_DISP_Y_OFFSET_L2);
     u8g2.print("PM2,5:--");
 
-    u8g2.setCursor(5, 50);
+    u8g2.setCursor(MEAS_DISP_X_OFFSET, MEAS_DISP_Y_OFFSET_L3);
     u8g2.print("PM10:--");
   }
   u8g2.sendBuffer();
@@ -354,38 +368,38 @@ void vHalDisplay_drawPMS5003AirQualitySensorData(sensorData_t *p_tData,systemSta
 void vHalDisplay_drawMICS6814PollutionSensorData(sensorData_t *p_tData,systemStatus_t *statPtr, deviceNetworkInfo_t *devinfoPtr, short secdelay)
 {
   log_i("Printing MICS6814Sensor data on display...");
-  char sensorStringData[16] = {0};
+  char sensorStringData[SENSOR_DATA_STR_FMT_LEN] = {0};
 
   vHal_displayDrawScrHead(statPtr,devinfoPtr);
   if (p_tData->status.MICS6814Sensor)
   {
     vGeneric_dspFloatToComma(p_tData->pollutionData.data.carbonMonoxide,sensorStringData,sizeof(sensorStringData));
-    u8g2.setCursor(5, 28);
+    u8g2.setCursor(MEAS_DISP_X_OFFSET, MEAS_DISP_Y_OFFSET_L1);
     u8g2.print("CO:  ");
     u8g2.print(sensorStringData);
     u8g2.print("ug/m3");
 
     vGeneric_dspFloatToComma(p_tData->pollutionData.data.nitrogenDioxide,sensorStringData,sizeof(sensorStringData));
-    u8g2.setCursor(5, 39);
+    u8g2.setCursor(MEAS_DISP_X_OFFSET, MEAS_DISP_Y_OFFSET_L2);
     u8g2.print("NOx:  ");
     u8g2.print(sensorStringData);
     u8g2.print("ug/m3");
 
     vGeneric_dspFloatToComma(p_tData->pollutionData.data.ammonia,sensorStringData,sizeof(sensorStringData));
-    u8g2.setCursor(5, 50);
+    u8g2.setCursor(MEAS_DISP_X_OFFSET, MEAS_DISP_Y_OFFSET_L3);
     u8g2.print("NH3:  ");
     u8g2.print(sensorStringData);
     u8g2.print("ug/m3");
   }
   else 
   {
-    u8g2.setCursor(5, 28);
+    u8g2.setCursor(MEAS_DISP_X_OFFSET, MEAS_DISP_Y_OFFSET_L1);
     u8g2.print("CO:--");
 
-    u8g2.setCursor(5, 39);
+    u8g2.setCursor(MEAS_DISP_X_OFFSET, MEAS_DISP_Y_OFFSET_L2);
     u8g2.print("NOx:--");
 
-    u8g2.setCursor(5, 50);
+    u8g2.setCursor(MEAS_DISP_X_OFFSET, MEAS_DISP_Y_OFFSET_L3);
     u8g2.print("NH3:--");
   }
   u8g2.sendBuffer();
@@ -402,21 +416,21 @@ void vHalDisplay_drawMICS6814PollutionSensorData(sensorData_t *p_tData,systemSta
 void vHalDisplay_drawOzoneSensorData(sensorData_t *p_tData,systemStatus_t *statPtr, deviceNetworkInfo_t *devinfoPtr, short secdelay)
 {
   log_i("Printing OzoneSensor data on display...");
-  char sensorStringData[16] = {0};
+  char sensorStringData[SENSOR_DATA_STR_FMT_LEN] = {0};
 
   // page 4
   vHal_displayDrawScrHead(statPtr,devinfoPtr);
   if (p_tData->status.O3Sensor)
   {
     vGeneric_dspFloatToComma(p_tData->ozoneData.ozone,sensorStringData,sizeof(sensorStringData));
-    u8g2.setCursor(5, 39);
+    u8g2.setCursor(MEAS_DISP_X_OFFSET, MEAS_DISP_Y_OFFSET_L2);
     u8g2.print("O3:  ");
     u8g2.print(sensorStringData);
     u8g2.print("ug/m3");
   }
   else 
   {
-    u8g2.setCursor(5, 39);
+    u8g2.setCursor(MEAS_DISP_X_OFFSET, MEAS_DISP_Y_OFFSET_L2);
     u8g2.print("O3:--");
   }
   u8g2.sendBuffer();
@@ -435,12 +449,12 @@ void vHalDisplay_drawOzoneSensorData(sensorData_t *p_tData,systemStatus_t *statP
 void vHalDisplay_drawMspIndexData(sensorData_t *p_tData,systemStatus_t *statPtr, deviceNetworkInfo_t *devinfoPtr, short secdelay)
 {
   log_i("Printing OzoneSensor data on display...");
-  char sensorStringData[16] = {0};
+  char sensorStringData[SENSOR_DATA_STR_FMT_LEN] = {0};
 
   // page 4
   vHal_displayDrawScrHead(statPtr,devinfoPtr);
   vGeneric_dspFloatToComma(p_tData->MSP,sensorStringData,sizeof(sensorStringData));
-  u8g2.setCursor(5, 39);
+  u8g2.setCursor(MEAS_DISP_X_OFFSET, MEAS_DISP_Y_OFFSET_L2);
   u8g2.print("MSP:  ");
   u8g2.print(sensorStringData);
   u8g2.sendBuffer();

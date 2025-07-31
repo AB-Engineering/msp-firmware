@@ -16,6 +16,8 @@
 #include "generic_functions.h"
 #include "shared_values.h"
 
+#define LOC_STD_NUM_FMT   "%d,%02d"
+
 
 /***************************************************************
  * @brief converts float values in strings,
@@ -30,7 +32,7 @@ void vGeneric_dspFloatToComma(float value, char *buffer, size_t bufferSize)
 {
   int intPart = (int)value;
   int decimalPart = (int) (fabs(value - intPart) * 100);
-  snprintf(buffer,bufferSize,"%d,%02d",intPart,decimalPart);
+  snprintf(buffer,bufferSize,LOC_STD_NUM_FMT,intPart,decimalPart);
 }
 
 /**********************************************************
