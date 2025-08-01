@@ -71,7 +71,7 @@ uint8_t initializeSD(systemStatus_t *p_tSys, deviceNetworkInfo_t *p_tDev)
       vMsp_updateNetworkData(p_tDev,p_tSys,DISP_EVENT_SD_CARD_NOT_PRESENT);
       tTaskDisplay_sendEvent(&displayData);
       
-      return FALSE;
+      return false;
     }
     delay(1000); // giving it some time to detect the card properly
     timeout++;
@@ -87,11 +87,11 @@ uint8_t initializeSD(systemStatus_t *p_tSys, deviceNetworkInfo_t *p_tDev)
     log_e("Unidentified Card type, format the SD Card!  No internet connection possible!\n");
     vMsp_updateNetworkData(p_tDev,p_tSys,DISP_EVENT_SD_CARD_FORMAT);
     tTaskDisplay_sendEvent(&displayData);
-    return FALSE;
+    return false;
   }
   delay(300);
   log_v("SD Card size: %lluMB\n", SD.cardSize() / (1024 * 1024));
-  return TRUE;
+  return true;
 
 }
 
@@ -110,10 +110,10 @@ uint8_t initializeSD(systemStatus_t *p_tSys, deviceNetworkInfo_t *p_tDev)
 static uint8_t parseConfig(File fl, deviceNetworkInfo_t *p_tDev, sensorData_t *p_tData, deviceMeasurement_t *pDev, systemStatus_t *sysStat, systemData_t *p_tSysData) 
 { // parses the configuration file on the SD Card
 
-  uint8_t outcome = TRUE;
+  uint8_t outcome = true;
   String command[LINES];
   short line_cnt = 0;
-  uint8_t have_ssid = FALSE;
+  uint8_t have_ssid = false;
   String temp;
   int i = 0;
   unsigned long lastpos = 0;
@@ -135,13 +135,13 @@ static uint8_t parseConfig(File fl, deviceNetworkInfo_t *p_tDev, sensorData_t *p
     p_tDev->ssid = command[line_cnt].substring(command[line_cnt].indexOf('=') + 1, command[line_cnt].length());
     if (p_tDev->ssid.length() > 0) {
       log_i("ssid = *%s*", p_tDev->ssid.c_str());
-      have_ssid = TRUE;
+      have_ssid = true;
     } else {
       log_i("SSID value is empty");
     }
   } else {
     log_e("Error parsing SSID line!");
-    outcome = FALSE;
+    outcome = false;
   }
   line_cnt++;
   //passw
@@ -157,13 +157,13 @@ static uint8_t parseConfig(File fl, deviceNetworkInfo_t *p_tDev, sensorData_t *p
     p_tDev->deviceid = command[line_cnt].substring(command[line_cnt].indexOf('=') + 1, command[line_cnt].length());
     if (p_tDev->deviceid.length() == 0) {
       log_e("DEVICEID value is empty!");
-      outcome = FALSE;
+      outcome = false;
     } else {
       log_i("deviceid = *%s*", p_tDev->deviceid.c_str());
     }
   } else {
     log_e("Error parsing DEVICE_ID line!");
-    outcome = FALSE;
+    outcome = false;
   }
   line_cnt++;
   //wifipow
@@ -251,7 +251,8 @@ static uint8_t parseConfig(File fl, deviceNetworkInfo_t *p_tDev, sensorData_t *p
     temp = command[line_cnt].substring(command[line_cnt].indexOf('=') + 1, command[line_cnt].length());
     if (temp.length() > 0) {
       p_tSysData->server = temp;
-      p_tSysData->server_ok = TRUE;
+      p_tSysData->server_ok = true;
+      sysStat->server_ok = true;
     } else {
 #ifdef API_SERVER
       log_i("SERVER value is empty. Falling back to value defined at compile time");
@@ -304,12 +305,12 @@ static uint8_t parseConfig(File fl, deviceNetworkInfo_t *p_tDev, sensorData_t *p
   if (command[line_cnt].startsWith("use_modem", 0)) {
     temp = "";
     temp = command[line_cnt].substring(command[line_cnt].indexOf('=') + 1, command[line_cnt].length());
-    if (temp.startsWith("true", 0)) sysStat->use_modem = TRUE;
+    if (temp.startsWith("true", 0)) sysStat->use_modem = true;
   } else {
     log_e("Error parsing USE_MODEM line. Falling back to default value");
   }
   log_i("use_modem = *%s*", (sysStat->use_modem) ? "true" : "false");
-  if (!sysStat->use_modem && !have_ssid) outcome = FALSE;
+  if (!sysStat->use_modem && !have_ssid) outcome = false;
   line_cnt++;
   //modem_apn
   if (command[line_cnt].startsWith("modem_apn", 0)) {
@@ -324,7 +325,7 @@ static uint8_t parseConfig(File fl, deviceNetworkInfo_t *p_tDev, sensorData_t *p
     log_e("Error parsing MODEM_APN line!");
   }
   log_i("apn = *%s*\n", p_tDev->apn.c_str());
-  if (sysStat->use_modem && p_tDev->apn.length() == 0) outcome = FALSE;
+  if (sysStat->use_modem && p_tDev->apn.length() == 0) outcome = false;
   line_cnt++;
   // Timezone and NTP server
   if (command[line_cnt].startsWith("ntp_server", 0)) {
@@ -375,13 +376,13 @@ uint8_t checkConfig(const char *configpath, deviceNetworkInfo_t *p_tDev, sensorD
 
     if (parseConfig(cfgfile,p_tDev,p_tData,pDev,p_tSys,p_tSysData)) 
     {
-      return TRUE;
+      return true;
     } else {
       log_e("Error parsing config file! No network configuration!\n");
       vMsp_updateNetworkData(p_tDev,p_tSys,DISP_EVENT_SD_CARD_CONFIG_ERROR);
       tTaskDisplay_sendEvent(&displayData);
       
-      return FALSE;
+      return false;
     }
 
   } else {
@@ -426,7 +427,7 @@ uint8_t checkConfig(const char *configpath, deviceNetworkInfo_t *p_tDev, sensorD
       tTaskDisplay_sendEvent(&displayData);
     }
 
-    return FALSE;
+    return false;
   }
 
 }
@@ -450,15 +451,15 @@ uint8_t uHalSdcard_checkLogFile(deviceNetworkInfo_t *p_tDev)
       filecsv.println(heads);
       log_i("Log file created!\n");
       filecsv.close();
-      return TRUE;
+      return true;
     }
 
     log_e("Error creating log file!\n");
-    return FALSE;
+    return false;
   }
 
   log_i("Log file present!\n");
-  return TRUE;
+  return true;
 
 }
 
@@ -486,12 +487,12 @@ uint8_t addToLog(const char *path, const char *oldpath, const char *errpath, Str
   File oldfile = SD.open(oldpath, FILE_READ); // opening the renamed log
   if (!oldfile) {
     log_e("Error opening the renamed the log file!");
-    return FALSE;
+    return false;
   }
   File logfile = SD.open(path, FILE_WRITE); // recreates empty logfile
   if (!logfile) {
     log_e("Error recreating the log file!");
-    return FALSE;
+    return false;
   }
   temp = oldfile.readStringUntil('\r'); // reads until CR character
   logfile.println(temp);
@@ -507,7 +508,7 @@ uint8_t addToLog(const char *path, const char *oldpath, const char *errpath, Str
   logfile.close();
   SD.remove(oldpath); // deleting old log
 
-  return TRUE;
+  return true;
   
 }
 
@@ -626,7 +627,7 @@ void vHalSdcard_readSD(systemStatus_t *p_tSys,deviceNetworkInfo_t *p_tDev,sensor
     vMsp_updateNetworkData(p_tDev,p_tSys,DISP_EVENT_CONFIG_READ);
     tTaskDisplay_sendEvent(&displayData);
     p_tSys->configuration = checkConfig("/config_v3.txt",p_tDev,p_tData,pDev,p_tSys,p_tSysData);
-    if (p_tSys->server) 
+    if (p_tSys->server_ok) 
     {
       log_e("No server URL defined. Can't upload data!\n");
       vMsp_updateNetworkData(p_tDev,p_tSys,DISP_EVENT_URL_UPLOAD_STAT);

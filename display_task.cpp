@@ -102,7 +102,7 @@ void displayTask(void *pvParameters)
     dispFSM.current_state = DISP_EVENT_WAIT_FOR_EVENT;
     dispFSM.next_state = DISP_EVENT_WAIT_FOR_EVENT;
     dispFSM.returnState = DISP_EVENT_WAIT_FOR_EVENT;
-    dispFSM.isFirstTransition = TRUE;
+    dispFSM.isFirstTransition = true;
 
     TickType_t eventWaitTimeout   = pdMS_TO_TICKS(EVENT_WAIT_TIMEOUT); // 1 second timeout for waiting events
     displayEvents_t displayEvents = DISP_EVENT_WAIT_FOR_EVENT;
@@ -130,7 +130,7 @@ void displayTask(void *pvParameters)
             dispFSM.next_state = displayEvents;
             if (displayEvents == DISP_EVENT_SHOW_MEAS_DATA)
             {
-             dispFSM.isFirstTransition = FALSE;
+             dispFSM.isFirstTransition = false;
             }
         }
         break;

@@ -5,12 +5,12 @@
  * @details This file contains functions to manage network connections, including WiFi and GSM modem.
  * @version 0.1
  * @date    2025-07-16
- * 
+ *
  * @copyright Copyright (c) 2025
- * 
+ *
  ****************************************************/
 
- // Select modem type
+// Select modem type
 #define TINY_GSM_MODEM_SIM800
 
 #include <Arduino.h>
@@ -51,10 +51,10 @@ TinyGsmClient gsm_base(modem);
 
 SSLClient gsmclient(gsm_base, TAs, (size_t)TAs_NUM, rand_pin, 1, SSLClient::SSL_ERROR);
 
-// -- queue data to display task 
+// -- queue data to display task
 static displayData_t displayData;
 
-static void vMsp_updateNetworkData(deviceNetworkInfo_t *p_tDev,systemStatus_t *p_tSys,displayEvents_t event)
+static void vMsp_updateNetworkData(deviceNetworkInfo_t *p_tDev, systemStatus_t *p_tSys, displayEvents_t event)
 {
   displayData.currentEvent = event;
 
@@ -75,12 +75,11 @@ static void vMsp_updateSystemData(systemData_t *p_tSys)
   vMspOs_giveDataAccessMutex();
 }
 
-
 // ----------------------------- local function prototypes -----------------------------
 
 static void disconnectWiFi(systemStatus_t *p_tSys);
 
-static uint8_t connectWiFi(deviceNetworkInfo_t *p_tDev,systemStatus_t *p_tSys);
+static uint8_t connectWiFi(deviceNetworkInfo_t *p_tDev, systemStatus_t *p_tSys);
 
 static uint8_t connectModem(systemStatus_t *p_tSys, deviceNetworkInfo_t *p_tDev);
 
@@ -89,9 +88,9 @@ static void vHalNetwork_initializeModem(void);
 // ----------------------------- local function definitions -----------------------------
 
 /******************************************
- * @brief disconnect wifi 
- * 
- * @param p_tSys 
+ * @brief disconnect wifi
+ *
+ * @param p_tSys
  ******************************************/
 void disconnectWiFi(systemStatus_t *p_tSys)
 {
@@ -102,22 +101,21 @@ void disconnectWiFi(systemStatus_t *p_tSys)
   delay(1000); // Waiting a bit for Wifi mode set
 }
 
-
 /****************************************************************
- * @brief connect wifi 
- * 
- * @param p_tDev 
- * @param p_tSys 
- * @return uint8_t 
+ * @brief connect wifi
+ *
+ * @param p_tDev
+ * @param p_tSys
+ * @return uint8_t
  ****************************************************************/
-uint8_t connectWiFi(deviceNetworkInfo_t *p_tDev,systemStatus_t *p_tSys)
+uint8_t connectWiFi(deviceNetworkInfo_t *p_tDev, systemStatus_t *p_tSys)
 { // sets WiFi mode and tx power (var wifipow), performs connection to WiFi network (vars ssid, passw)
 
   log_i("Setting WiFi STATION mode...");
-  WiFi.mode(WIFI_STA);      // Set WiFi to station mode
-  delay(1000);              // Wait for mode to set
+  WiFi.mode(WIFI_STA);              // Set WiFi to station mode
+  delay(1000);                      // Wait for mode to set
   WiFi.setTxPower(p_tDev->wifipow); // Set WiFi transmission power
-  log_i("WIFIPOW set to %d",p_tDev->wifipow);
+  log_i("WIFIPOW set to %d", p_tDev->wifipow);
   log_i("Legend: -4(-1dBm), 8(2dBm), 20(5dBm), 28(7dBm), 34(8.5dBm), 44(11dBm), 52(13dBm), 60(15dBm), 68(17dBm), 74(18.5dBm), 76(19dBm), 78(19.5dBm)\n");
 
   for (short retry = 0; retry < 4; retry++)
@@ -129,20 +127,20 @@ uint8_t connectWiFi(deviceNetworkInfo_t *p_tDev,systemStatus_t *p_tSys)
     if (networks > 0)
     { // Looking through found networks
       log_i("%d networks found\n", networks);
-      uint8_t ssid_ok = FALSE; // For selected network if found
+      uint8_t ssid_ok = false; // For selected network if found
       for (short i = 0; i < networks; i++)
       { // Prints SSID and RSSI for each network found, checks against ssid
         log_v("%d: %s(%d) %s%c", i + 1, WiFi.SSID(i).c_str(), WiFi.RSSI(i), WiFi.encryptionType(i) == WIFI_AUTH_OPEN ? "OPEN" : "ENCRYPTED", i == networks - 1 ? '\n' : ' ');
         if (WiFi.SSID(i) == p_tDev->ssid)
         {
-          ssid_ok = TRUE;
+          ssid_ok = true;
           break;
         }
       }
 
       if (ssid_ok)
       { // Begin connection
-        log_i("%s found!\n",  p_tDev->ssid.c_str());
+        log_i("%s found!\n", p_tDev->ssid.c_str());
         p_tDev->foundNet = p_tDev->ssid + " OK!";
         log_i("Connecting to %s, please wait...", p_tDev->ssid.c_str());
 
@@ -155,7 +153,7 @@ uint8_t connectWiFi(deviceNetworkInfo_t *p_tDev,systemStatus_t *p_tSys)
           {
             WiFi.disconnect();
             log_e("Can't connect to network!\n");
-            vMsp_updateNetworkData(p_tDev,p_tSys,DISP_EVENT_WIFI_DISCONNECTED);
+            vMsp_updateNetworkData(p_tDev, p_tSys, DISP_EVENT_WIFI_DISCONNECTED);
             tTaskDisplay_sendEvent(&displayData);
             break;
           }
@@ -164,21 +162,21 @@ uint8_t connectWiFi(deviceNetworkInfo_t *p_tDev,systemStatus_t *p_tSys)
         if (WiFi.status() == WL_CONNECTED)
         { // Connection successful
           log_i("Connection to WiFi made successfully!");
-          return TRUE;
+          return true;
         }
       }
       else
       {
         log_e("%s not found!\n", p_tDev->ssid.c_str());
         p_tDev->noNet = "NO " + p_tDev->ssid + "!";
-        vMsp_updateNetworkData(p_tDev,p_tSys,DISP_EVENT_SSID_NOT_FOUND);
+        vMsp_updateNetworkData(p_tDev, p_tSys, DISP_EVENT_SSID_NOT_FOUND);
         tTaskDisplay_sendEvent(&displayData);
       }
     }
     else
     {
       log_e("No networks found!\n");
-      vMsp_updateNetworkData(p_tDev,p_tSys,DISP_EVENT_NO_NETWORKS_FOUND);
+      vMsp_updateNetworkData(p_tDev, p_tSys, DISP_EVENT_NO_NETWORKS_FOUND);
       tTaskDisplay_sendEvent(&displayData);
     }
 
@@ -186,26 +184,26 @@ uint8_t connectWiFi(deviceNetworkInfo_t *p_tDev,systemStatus_t *p_tSys)
     { // Print remaining tries
       log_i("Retrying, %d retries left\n", 3 - retry);
       p_tDev->remain = String(3 - retry) + " tries remain.";
-      vMsp_updateNetworkData(p_tDev,p_tSys,DISP_EVENT_CONN_RETRY);
+      vMsp_updateNetworkData(p_tDev, p_tSys, DISP_EVENT_CONN_RETRY);
       tTaskDisplay_sendEvent(&displayData);
     }
     else if (retry == 3)
     {
       log_e("No internet connection!\n");
-      vMsp_updateNetworkData(p_tDev,p_tSys,DISP_EVENT_NO_INTERNET);
+      vMsp_updateNetworkData(p_tDev, p_tSys, DISP_EVENT_NO_INTERNET);
       tTaskDisplay_sendEvent(&displayData);
     }
   }
 
-  return FALSE;
+  return false;
 }
 
 /***********************************************************************
- * @brief connect modem 
- * 
- * @param p_tSys 
- * @param p_tDev 
- * @return uint8_t 
+ * @brief connect modem
+ *
+ * @param p_tSys
+ * @param p_tDev
+ * @return uint8_t
  ***********************************************************************/
 uint8_t connectModem(systemStatus_t *p_tSys, deviceNetworkInfo_t *p_tDev)
 {
@@ -222,9 +220,9 @@ uint8_t connectModem(systemStatus_t *p_tSys, deviceNetworkInfo_t *p_tDev)
   if (CCID.startsWith("ERROR", 0) || IMSI.startsWith("ERROR", 0))
   {
     log_e("No SIM found or SIM not inserted!");
-    vMsp_updateNetworkData(p_tDev,p_tSys,DISP_EVENT_SIM_ERROR);
+    vMsp_updateNetworkData(p_tDev, p_tSys, DISP_EVENT_SIM_ERROR);
     tTaskDisplay_sendEvent(&displayData);
-    return FALSE;
+    return false;
   }
 
   short retries = 0;
@@ -245,9 +243,9 @@ uint8_t connectModem(systemStatus_t *p_tSys, deviceNetworkInfo_t *p_tDev)
   if (!modem.isNetworkConnected())
   {
     log_e("Network is not connected!");
-    vMsp_updateNetworkData(p_tDev,p_tSys,DISP_EVENT_NETWORK_ERROR);
+    vMsp_updateNetworkData(p_tDev, p_tSys, DISP_EVENT_NETWORK_ERROR);
     tTaskDisplay_sendEvent(&displayData);
-    return FALSE;
+    return false;
   }
 
   log_i("Mobile network found!");
@@ -270,9 +268,9 @@ uint8_t connectModem(systemStatus_t *p_tSys, deviceNetworkInfo_t *p_tDev)
   if (!modem.isGprsConnected())
   {
     log_e("GPRS is not connected!");
-    vMsp_updateNetworkData(p_tDev,p_tSys,DISP_EVENT_GPRS_ERROR);
+    vMsp_updateNetworkData(p_tDev, p_tSys, DISP_EVENT_GPRS_ERROR);
     tTaskDisplay_sendEvent(&displayData);
-    return FALSE;
+    return false;
   }
 
   log_i("Connection to GPRS made successfully!");
@@ -281,12 +279,12 @@ uint8_t connectModem(systemStatus_t *p_tSys, deviceNetworkInfo_t *p_tDev)
 
   log_d("Signal quality: %d", modem.getSignalQuality());
 
-  return TRUE;
+  return true;
 }
 
 /*****************************************
- * @brief initialize modem 
- * 
+ * @brief initialize modem
+ *
  *****************************************/
 static void vHalNetwork_initializeModem()
 {
@@ -310,50 +308,48 @@ static void vHalNetwork_initializeModem()
   log_d("IMEI: %s", modem.getIMEI().c_str());
 }
 
-
 //---------------------------- higher level functions -----------------------------
 
 /***********************************************************
  * @brief get the address of the structure
- * 
- * @return SSLClient* 
+ *
+ * @return SSLClient*
  ***********************************************************/
-SSLClient* tHalNetwork_getGSMClient() 
+SSLClient *tHalNetwork_getGSMClient()
 {
-    return &gsmclient;
+  return &gsmclient;
 }
 
 /*************************************************************************************
  * @brief print the WiFi MAC address to the Serial monitor and update the display
- * 
- * @param p_tSys 
- * @param p_tDev 
+ *
+ * @param p_tSys
+ * @param p_tDev
  *************************************************************************************/
 void vHalNetwork_printWiFiMACAddr(systemStatus_t *p_tSys, deviceNetworkInfo_t *p_tDev)
 {
 
   uint8_t baseMac[6];
   esp_read_mac(baseMac, ESP_MAC_WIFI_STA);
-  
+
   sprintf(p_tDev->baseMacChr, "%02X:%02X:%02X:%02X:%02X:%02X", baseMac[0], baseMac[1], baseMac[2], baseMac[3], baseMac[4], baseMac[5]);
   Serial.println("WIFI MAC ADDRESS: " + String(p_tDev->baseMacChr) + "\n");
 
-  vMsp_updateNetworkData(p_tDev,p_tSys,DISP_EVENT_WIFI_MAC_ADDR);
+  vMsp_updateNetworkData(p_tDev, p_tSys, DISP_EVENT_WIFI_MAC_ADDR);
   tTaskDisplay_sendEvent(&displayData);
-
 }
 
 /***********************************************************
  * @brief disconnect from the modem
- * 
- * @return uint8_t 
+ *
+ * @return uint8_t
  **********************************************************/
 uint8_t vHalNetwork_modemDisconnect()
 {
   log_i("Disconnecting from GPRS...");
-  uint8_t retStatus = TRUE;
+  uint8_t retStatus = true;
 
-  if(modem.isGprsConnected())
+  if (modem.isGprsConnected())
   {
     retStatus = modem.gprsDisconnect();
   }
@@ -362,14 +358,14 @@ uint8_t vHalNetwork_modemDisconnect()
 }
 
 /*************************************************************************
- * @brief connect and get time 
- * 
- * @param p_tSys 
- * @param p_tDev 
- * @param p_tSysData 
- * @param p_tm 
+ * @brief connect and get time
+ *
+ * @param p_tSys
+ * @param p_tDev
+ * @param p_tSysData
+ * @param p_tm
  *************************************************************************/
-void vHalNetwork_connAndGetTime(systemStatus_t *p_tSys,deviceNetworkInfo_t *p_tDev, systemData_t *p_tSysData, tm *p_tm)
+void vHalNetwork_connAndGetTime(systemStatus_t *p_tSys, deviceNetworkInfo_t *p_tDev, systemData_t *p_tSysData, tm *p_tm)
 { // connects to the internet and retrieves time from NTP server
 
   p_tSys->datetime = false; // resetting the date&time var
@@ -377,26 +373,26 @@ void vHalNetwork_connAndGetTime(systemStatus_t *p_tSys,deviceNetworkInfo_t *p_tD
   {
     configTime(0, 0, p_tSysData->ntp_server.c_str()); // configTime(gmtOffset_sec, daylightOffset_sec, ntpServer1, ntpServer2)
     Serial.println("Connecting to WiFi...\n");
-    vMsp_updateNetworkData(p_tDev,p_tSys,DISP_EVENT_CONN_TO_WIFI);
+    vMsp_updateNetworkData(p_tDev, p_tSys, DISP_EVENT_CONN_TO_WIFI);
     tTaskDisplay_sendEvent(&displayData);
-    p_tSys->connection = connectWiFi(p_tDev,p_tSys);
+    p_tSys->connection = connectWiFi(p_tDev, p_tSys);
   }
   else if (!modem.isNetworkConnected() || !modem.isGprsConnected())
   { // reconnect only if network is lost
     Serial.println("Connecting to GPRS...\n");
-    vMsp_updateNetworkData(p_tDev,p_tSys,DISP_EVENT_CONN_TO_GPRS);
+    vMsp_updateNetworkData(p_tDev, p_tSys, DISP_EVENT_CONN_TO_GPRS);
     tTaskDisplay_sendEvent(&displayData);
-    p_tSys->connection = connectModem(p_tSys,p_tDev);
+    p_tSys->connection = connectModem(p_tSys, p_tDev);
   }
   if (p_tSys->connection)
   {
     Serial.println("Retrieving date&time...");
-    vMsp_updateNetworkData(p_tDev,p_tSys,DISP_EVENT_RETREIVE_DATETIME);
+    vMsp_updateNetworkData(p_tDev, p_tSys, DISP_EVENT_RETREIVE_DATETIME);
     tTaskDisplay_sendEvent(&displayData);
     String tzRule = p_tSysData->timezone; // timezone rule
     if (tzRule.length() == 0)
     {
-      log_e("TIMEZONE value is empty! Use default value: CET-1CEST");
+      log_e("TIMEZONE value is empty! Use default value:%s", TZ_DEFAULT);
       tzRule = "CET-1CEST"; // Default timezone rule
     }
     else
@@ -426,72 +422,72 @@ void vHalNetwork_connAndGetTime(systemStatus_t *p_tSys,deviceNetworkInfo_t *p_tD
         p_tm->tm_mday = day;
         p_tm->tm_isdst = -1;
         time_t t = mktime(p_tm);
-        timeval now = { .tv_sec = t };
+        timeval now = {.tv_sec = t};
         settimeofday(&now, NULL);
       }
       else
       {
         p_tSys->datetime = getLocalTime(p_tm);
       }
-      if (timeout > 90000) break;
+      if (timeout > 90000)
+        break;
     }
 
     if (p_tSys->datetime)
     {
-      vMsp_updateNetworkData(p_tDev,p_tSys,DISP_EVENT_DATETIME_OK);
+      vMsp_updateNetworkData(p_tDev, p_tSys, DISP_EVENT_DATETIME_OK);
       tTaskDisplay_sendEvent(&displayData);
       strftime(p_tSysData->Date, sizeof(p_tSysData->Date), "%d/%m/%Y", p_tm); // Formatting date as DD/MM/YYYY
       strftime(p_tSysData->Time, sizeof(p_tSysData->Time), "%T", p_tm);       // Formatting time as HH:MM:SS
       p_tSysData->currentDataTime = String(p_tSysData->Date) + " " + String(p_tSysData->Time);
       Serial.println("Current date&time: " + p_tSysData->currentDataTime);
-      vMsp_updateNetworkData(p_tDev,p_tSys,DISP_EVENT_DATETIME);
+      vMsp_updateNetworkData(p_tDev, p_tSys, DISP_EVENT_DATETIME);
       vMsp_updateSystemData(p_tSysData);
-      tTaskDisplay_sendEvent(&displayData);
-      
     }
     else
     {
       log_e("Failed to obtain date&time! Are you connected to the internet?\n");
-      vMsp_updateNetworkData(p_tDev,p_tSys,DISP_EVENT_DATETIME_ERR);
-      tTaskDisplay_sendEvent(&displayData);
+      vMsp_updateNetworkData(p_tDev, p_tSys, DISP_EVENT_DATETIME_ERR);
     }
+
+    tTaskDisplay_sendEvent(&displayData);
     Serial.println();
     delay(3000);
   }
 }
 
 /***********************************************************************
- * @brief connect to internet 
- * 
- * @param p_tSys 
- * @param p_tDev 
+ * @brief connect to internet
+ *
+ * @param p_tSys
+ * @param p_tDev
  ***********************************************************************/
 void vHalNetwork_connectToInternet(systemStatus_t *p_tSys, deviceNetworkInfo_t *p_tDev)
 {
   if (p_tSys->use_modem == false)
   {
     Serial.println("Connecting to WiFi...\n");
-    vMsp_updateNetworkData(p_tDev,p_tSys,DISP_EVENT_CONN_TO_WIFI);
+    vMsp_updateNetworkData(p_tDev, p_tSys, DISP_EVENT_CONN_TO_WIFI);
     tTaskDisplay_sendEvent(&displayData);
-    p_tSys->connection = connectWiFi(p_tDev,p_tSys);
+    p_tSys->connection = connectWiFi(p_tDev, p_tSys);
   }
   else if ((modem.isNetworkConnected() == false) || (modem.isGprsConnected() == false))
   { // reconnect only if network is lost
     Serial.println("Connecting to GPRS...\n");
-    vMsp_updateNetworkData(p_tDev,p_tSys,DISP_EVENT_CONN_TO_GPRS);
+    vMsp_updateNetworkData(p_tDev, p_tSys, DISP_EVENT_CONN_TO_GPRS);
     tTaskDisplay_sendEvent(&displayData);
-    p_tSys->connection = connectModem(p_tSys,p_tDev);
+    p_tSys->connection = connectModem(p_tSys, p_tDev);
   }
 }
 
 /********************************************************
  * @brief connect to server
- * 
- * @param p_tClient 
- * @param p_tDataToSent 
- * @param p_tDev 
- * @param p_tData 
- * @param p_tSysData 
+ *
+ * @param p_tClient
+ * @param p_tDataToSent
+ * @param p_tDev
+ * @param p_tData
+ * @param p_tSysData
  ********************************************************/
 void vHalNetwork_connectToServer(SSLClient *p_tClient, send_data_t *p_tDataToSent, deviceNetworkInfo_t *p_tDev, sensorData_t *p_tData, systemData_t *p_tSysData)
 {
@@ -556,7 +552,7 @@ void vHalNetwork_connectToServer(SSLClient *p_tClient, send_data_t *p_tDataToSen
       postStr += String(epochTime);
 
       // Sending client requests
-      String postLine = "POST /api/v1/records HTTP/1.1\nHost: " + p_tSysData->server + "\nAuthorization: Bearer " + p_tSysData->api_secret_salt + ":" +p_tDev->deviceid + "\n";
+      String postLine = "POST /api/v1/records HTTP/1.1\nHost: " + p_tSysData->server + "\nAuthorization: Bearer " + p_tSysData->api_secret_salt + ":" + p_tDev->deviceid + "\n";
       postLine += "Connection: close\nUser-Agent: MilanoSmartPark\nContent-Type: application/x-www-form-urlencoded\nContent-Length: " + String(postStr.length());
       log_d("Post line:\n%s\n", postLine.c_str());
       log_d("Post string: %s\n", postStr.c_str());

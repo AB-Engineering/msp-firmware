@@ -15,6 +15,7 @@
 #include "math.h"
 #include "generic_functions.h"
 #include "shared_values.h"
+#include "sensors.h"
 
 #define LOC_STD_NUM_FMT   "%d,%02d"
 

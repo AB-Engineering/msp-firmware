@@ -270,7 +270,7 @@ void vHalDisplay_drawBme680GasSensorData(sensorData_t *p_tData,systemStatus_t *s
     u8g2.setCursor(MEAS_DISP_X_OFFSET, MEAS_DISP_Y_OFFSET_L1); 
     u8g2.print("Temp:  ");
     u8g2.print(sensorStringData);
-    u8g2.print(" °C");
+    u8g2.print(" C");
 
     vGeneric_dspFloatToComma(p_tData->gasData.humidity,sensorStringData,sizeof(sensorStringData));
     u8g2.setCursor(MEAS_DISP_X_OFFSET, MEAS_DISP_Y_OFFSET_L2);
@@ -474,7 +474,6 @@ void vHalDisplay_drawMspIndexData(sensorData_t *p_tData,systemStatus_t *statPtr,
  *********************************************************************************/
 void vHalDisplay_drawMicsValues(uint16_t redval, uint16_t oxval, uint16_t nh3val,systemStatus_t *statPtr, deviceNetworkInfo_t *devinfoPtr)
 {
-
   log_d("MICS6814 stored base resistance values:");
   log_d("RED: %d | OX: %d | NH3: %d\n", redval, oxval, nh3val);
   vHal_displayDrawScrHead(statPtr,devinfoPtr);
@@ -486,3 +485,5 @@ void vHalDisplay_drawMicsValues(uint16_t redval, uint16_t oxval, uint16_t nh3val
   delay(5000);
 
 }
+
+//************************************** EOF **************************************

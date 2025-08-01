@@ -4,30 +4,40 @@
  * @brief   functions to fetch the data from sensors and process
  * @version 0.1
  * @date    2025-07-26
- * 
+ *
  * @copyright Copyright (c) 2025
- * 
+ *
  ***************************************************************************/
 
-
-
-// -- includes 
+// -- includes
 #include <stdint.h>
 #include <stdio.h>
 #include "generic_functions.h"
 #include <MiCS6814-I2C.h>
 #include "sensors.h"
+#include <stdbool.h>
 
-#define true     1
-#define false    0
+// PM25 THRESHOLDS
+#define PM25_HIGH_LEVEL 50
+#define PM25_MID_LEVEL 25
+#define PM25_LOW_LEVEL 10
+// NO THRESHOLDS
+#define NO_HIGH_LEVEL 400
+#define NO_MID_LEVEL 200
+#define NO_LOW_LEVEL 100
+// O3 THRESHOLDS
+#define O3_HIGH_LEVEL 240
+#define O3_MID_LEVEL 180
+#define O3_LOW_LEVEL 120
+
 /***************************************************
- * @brief checks BME680 status 
- * 
- * @return true 
- * @return false 
+ * @brief checks BME680 status
+ *
+ * @return true
+ * @return false
  ***************************************************/
 mspStatus_t tHalSensor_checkBMESensor(Bsec *ptr)
-{ 
+{
   if (ptr->bsecStatus < BSEC_OK)
   {
     log_e("BSEC error, status %d!", ptr->bsecStatus);
@@ -52,7 +62,6 @@ mspStatus_t tHalSensor_checkBMESensor(Bsec *ptr)
   return STATUS_OK;
 }
 
-
 /***************************************************
  * @brief checks analog ozone sensor status
  *
@@ -74,65 +83,60 @@ mspStatus_t tHalSensor_isAnalogO3Connected()
 /********************************************************************
  * @brief write firmware calibration values into MICS6814's EEPROM
  *        Store new base resistance values in EEPROM
- *  
- * @param p_tData 
+ *
+ * @param p_tData
  ********************************************************************/
 void vHalSensor_writeMicsValues(sensorData_t *p_tData)
 {
   Wire.beginTransmission(DATA_I2C_ADDR);
   Wire.write(CMD_V2_SET_R0);
-  Wire.write(p_tData->pollutionData.sensingResInAir.nh3Sensor >> 8);    // NH3  
+  Wire.write(p_tData->pollutionData.sensingResInAir.nh3Sensor >> 8); // NH3
   Wire.write(p_tData->pollutionData.sensingResInAir.nh3Sensor & 0xFF);
-  Wire.write(p_tData->pollutionData.sensingResInAir.redSensor >> 8);    // RED
+  Wire.write(p_tData->pollutionData.sensingResInAir.redSensor >> 8); // RED
   Wire.write(p_tData->pollutionData.sensingResInAir.redSensor & 0xFF);
-  Wire.write(p_tData->pollutionData.sensingResInAir.oxSensor >> 8);     // OX
+  Wire.write(p_tData->pollutionData.sensingResInAir.oxSensor >> 8); // OX
   Wire.write(p_tData->pollutionData.sensingResInAir.oxSensor & 0xFF);
   Wire.endTransmission();
 }
 
-
 /**********************************************************
- * @brief   check if MICS6814 internal values are 
+ * @brief   check if MICS6814 internal values are
  *          the same as firmware defaults
- * 
- * @param p_tData 
- * @return mspStatus_t 
+ *
+ * @param p_tData
+ * @return mspStatus_t
  **********************************************************/
 mspStatus_t tHalSensor_checkMicsValues(sensorData_t *p_tData, sensorR0Value_t *ptr)
 {
-  if (ptr->redSensor == p_tData->pollutionData.sensingResInAir.redSensor
-    && ptr->oxSensor  == p_tData->pollutionData.sensingResInAir.oxSensor
-    && ptr->nh3Sensor == p_tData->pollutionData.sensingResInAir.nh3Sensor)
+  if (ptr->redSensor == p_tData->pollutionData.sensingResInAir.redSensor && ptr->oxSensor == p_tData->pollutionData.sensingResInAir.oxSensor && ptr->nh3Sensor == p_tData->pollutionData.sensingResInAir.nh3Sensor)
   {
     return STATUS_OK;
   }
   return STATUS_ERR;
 }
 
-
 /*********************************************************************************
-* @brief compensate gas sensor readings (specifically for NO₂ and VOCs) 
-*        based on environmental conditions: temperature, pressure, and humidity.
-*        for NO2 and VOC gas compensations
-*
-* @param inputGas 
-* @param p_tcurrData 
-* @param p_tData 
-* @return float 
-**********************************************************************************/
-float fHalSensor_no2AndVocCompensation(float inputGas, bme680Data_t* p_tcurrData, sensorData_t* p_tData)
+ * @brief compensate gas sensor readings (specifically for NO₂ and VOCs)
+ *        based on environmental conditions: temperature, pressure, and humidity.
+ *        for NO2 and VOC gas compensations
+ *
+ * @param inputGas
+ * @param p_tcurrData
+ * @param p_tData
+ * @return float
+ **********************************************************************************/
+float fHalSensor_no2AndVocCompensation(float inputGas, bme680Data_t *p_tcurrData, sensorData_t *p_tData)
 {
-  return (inputGas * (((p_tcurrData->humidity + HUMIDITY_OFFSET) / PERCENT_DIVISOR) * p_tData->compParams.currentHumidity)) + 
-        ((p_tcurrData->temperature - REFERENCE_TEMP_C) * p_tData->compParams.currentTemperature) - 
-        ((p_tcurrData->pressure - REFERENCE_PRESSURE_HPA) * p_tData->compParams.currentPressure);
+  return (inputGas * (((p_tcurrData->humidity + HUMIDITY_OFFSET) / PERCENT_DIVISOR) * p_tData->compParams.currentHumidity)) +
+         ((p_tcurrData->temperature - REFERENCE_TEMP_C) * p_tData->compParams.currentTemperature) -
+         ((p_tcurrData->pressure - REFERENCE_PRESSURE_HPA) * p_tData->compParams.currentPressure);
 }
-
 
 /********************************************************************************
  * @brief reads and calculates ozone ppm value from analog ozone sensor
  *
  * @param intemp
- * @param p_tData 
+ * @param p_tData
  * @return float
  *******************************************************************************/
 float fHalSensor_analogUgM3O3Read(float *intemp, sensorData_t *p_tData)
@@ -164,10 +168,10 @@ float fHalSensor_analogUgM3O3Read(float *intemp, sensorData_t *p_tData)
 
 /******************************************************************************
  * @brief   print measurements to serial output
- * 
- * @param data 
+ *
+ * @param data
  *****************************************************************************/
-void vHalSensor_printMeasurementsOnSerial(send_data_t *data, sensorData_t *p_tPtr )
+void vHalSensor_printMeasurementsOnSerial(send_data_t *data, sensorData_t *p_tPtr)
 {
 
   char locDate[DATE_LEN] = {0};
@@ -204,14 +208,12 @@ void vHalSensor_printMeasurementsOnSerial(send_data_t *data, sensorData_t *p_tPt
   Serial.println();
 }
 
-
-
 /*****************************************************************************************************
- * @brief 
- * 
- * @param p_tErr 
- * @param p_tData 
- * @param number_of_measurements 
+ * @brief
+ *
+ * @param p_tErr
+ * @param p_tData
+ * @param number_of_measurements
  *****************************************************************************************************/
 void vHalSensor_performAverages(errorVars_t *p_tErr, sensorData_t *p_tData, deviceMeasurement_t *p_tMeas)
 {
@@ -236,36 +238,37 @@ void vHalSensor_performAverages(errorVars_t *p_tErr, sensorData_t *p_tData, devi
   if (p_tData->status.PMS5003Sensor && runs > 0)
   {
     float pmValue = 0.0f;
+
     pmValue = p_tData->airQualityData.particleMicron1 / runs;
 
-    if (pmValue - int(pmValue) >= 0.5f)
+    if ((pmValue - (int32_t) pmValue) >= 0.5f)
     {
-      p_tData->airQualityData.particleMicron1 = int(pmValue) + 1;
+      p_tData->airQualityData.particleMicron1 = (int32_t) pmValue + 1;
     }
     else
     {
-      p_tData->airQualityData.particleMicron1 = int(pmValue);
+      p_tData->airQualityData.particleMicron1 = (int32_t) pmValue;
     }
 
     pmValue = p_tData->airQualityData.particleMicron25 / runs;
-    
-    if (pmValue - int(pmValue) >= 0.5f)
+
+    if ((pmValue - (int32_t) pmValue) >= 0.5f)
     {
-      p_tData->airQualityData.particleMicron25 = int(pmValue) + 1;
+      p_tData->airQualityData.particleMicron25 = (int32_t) pmValue + 1;
     }
     else
     {
-      p_tData->airQualityData.particleMicron25 = int(pmValue);
+      p_tData->airQualityData.particleMicron25 = (int32_t) pmValue;
     }
 
     pmValue = p_tData->airQualityData.particleMicron10 / runs;
-    if (pmValue - int(pmValue) >= 0.5f)
+    if ((pmValue - (int32_t) pmValue) >= 0.5f)
     {
-      p_tData->airQualityData.particleMicron10 = int(pmValue) + 1;
+      p_tData->airQualityData.particleMicron10 = (int32_t) pmValue + 1;
     }
     else
     {
-      p_tData->airQualityData.particleMicron10 = int(pmValue);
+      p_tData->airQualityData.particleMicron10 = (int32_t) pmValue;
     }
   }
   else if (p_tData->status.PMS5003Sensor)
@@ -299,21 +302,19 @@ void vHalSensor_performAverages(errorVars_t *p_tErr, sensorData_t *p_tData, devi
   }
 }
 
-
-
 /*****************************************************************************************************
- * @brief   evaluates the MSP# index from ug/m3 concentrations of specific gases using standard 
- *          IAQ values (needs 1h averages) 
- * 
- *          possible returned values are: 
+ * @brief   evaluates the MSP# index from ug/m3 concentrations of specific gases using standard
+ *          IAQ values (needs 1h averages)
+ *
+ *          possible returned values are:
  *          0 -> n.d.(grey);
- *          1 -> good(green); 
- *          2 -> acceptable(yellow);  
- *          3 -> bad(red); 
+ *          1 -> good(green);
+ *          2 -> acceptable(yellow);
+ *          3 -> bad(red);
  *          4 -> really bad(black)
- * 
+ *
  * @param  p_tData  pointer to sensor data
- * @return short 
+ * @return short
  *******************************************************************************************************/
 short sHalSensor_evaluateMSPIndex(sensorData_t *p_tData)
 {
@@ -323,33 +324,33 @@ short sHalSensor_evaluateMSPIndex(sensorData_t *p_tData)
 
   if (p_tData->status.PMS5003Sensor)
   {
-    if (p_tData->airQualityData.particleMicron25 > 50)
+    if (p_tData->airQualityData.particleMicron25 > PM25_HIGH_LEVEL)
       msp[MSP_INDEX_PM25] = 4;
-    else if (p_tData->airQualityData.particleMicron25 > 25)
+    else if (p_tData->airQualityData.particleMicron25 > PM25_MID_LEVEL)
       msp[MSP_INDEX_PM25] = 3;
-    else if (p_tData->airQualityData.particleMicron25 > 10)
+    else if (p_tData->airQualityData.particleMicron25 > PM25_LOW_LEVEL)
       msp[MSP_INDEX_PM25] = 2;
     else
       msp[MSP_INDEX_PM25] = 1;
   }
   if (p_tData->status.MICS6814Sensor)
   {
-    if (p_tData->pollutionData.data.nitrogenDioxide > 400)
+    if (p_tData->pollutionData.data.nitrogenDioxide > NO_HIGH_LEVEL)
       msp[MSP_INDEX_NO2] = 4;
-    else if (p_tData->pollutionData.data.nitrogenDioxide > 200)
+    else if (p_tData->pollutionData.data.nitrogenDioxide > NO_MID_LEVEL)
       msp[MSP_INDEX_NO2] = 3;
-    else if (p_tData->pollutionData.data.nitrogenDioxide > 100)
+    else if (p_tData->pollutionData.data.nitrogenDioxide > NO_LOW_LEVEL)
       msp[MSP_INDEX_NO2] = 2;
     else
       msp[MSP_INDEX_NO2] = 1;
   }
   if (p_tData->status.O3Sensor)
   {
-    if (p_tData->ozoneData.ozone > 240)
+    if (p_tData->ozoneData.ozone > O3_HIGH_LEVEL)
       msp[MSP_INDEX_O3] = 4;
-    else if (p_tData->ozoneData.ozone > 180)
+    else if (p_tData->ozoneData.ozone > O3_MID_LEVEL)
       msp[MSP_INDEX_O3] = 3;
-    else if (p_tData->ozoneData.ozone > 120)
+    else if (p_tData->ozoneData.ozone > O3_LOW_LEVEL)
       msp[MSP_INDEX_O3] = 2;
     else
       msp[MSP_INDEX_O3] = 1;

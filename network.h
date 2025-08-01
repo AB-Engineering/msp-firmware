@@ -21,7 +21,8 @@
 #include "SSLClient.h"
 #include <WiFi.h>
 
-
+#define NTP_SERVER_DEFAULT "pool.ntp.org"
+#define TZ_DEFAULT "GMT0"
 /************************************************************
  * @brief get the GSM client instance
  * 

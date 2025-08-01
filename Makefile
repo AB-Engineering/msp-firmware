@@ -5,11 +5,11 @@ ARDUINO_LINT_URL := https://raw.githubusercontent.com/arduino/arduino-lint/main/
 
 SKETCH := msp-firmware
 BOARD := esp32
-PORT := /dev/ttyACM0
+PORT := /dev/tty.SLAB_USBtoUART
 
 ADDITIONAL_URLS := \
 	https://raw.githubusercontent.com/espressif/arduino-esp32/gh-pages/package_esp32_index.json
-CORE := esp32:esp32@2.0.14
+CORE := esp32:esp32@2.0.17
 LIBRARIES := \
 	"BSEC Software Library"@1.8.1492 \
 	"PMS Library"@1.1.0 \

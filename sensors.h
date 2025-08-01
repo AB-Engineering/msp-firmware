@@ -19,6 +19,31 @@
 #include "shared_values.h"
 #include <bsec.h>
 
+#define REFERENCE_TEMP_C            25.0f             // Standard temperature in Celsius
+#define GAS_CONSTANT                83.1446261815324f  // Ideal gas constant in L·hPa/(mol·K)
+#define REFERENCE_PRESSURE_HPA      1013.25f           // Standard pressure in hPa
+#define HUMIDITY_OFFSET             50.0f              // humidity offset 
+#define PERCENT_DIVISOR             100.0f           // percent divisor
+
+#define CELIUS_TO_KELVIN            273.15f // Conversion from Celsius to Kelvin
+#define MICROGRAMS_PER_GRAM         1000.0f // µg in 1 gram
+
+#define STD_TEMP_LAPSE_RATE         0.0065f // Standard temperature lapse rate: Temperature decrease with altitude
+#define ISA_DERIVED_EXPONENTIAL     -5.257f //Exponent derived from ISA model: Based on gas constant, gravity, etc.
+
+#define R0_RED_SENSOR (955U)
+#define R0_OX_SENSOR  (900U)
+#define R0_NH3_SENSOR (163U)
+
+#define CO_MOLAR_MASS (28.01f)
+#define NO2_MOLAR_MASS (46.01f)
+#define NH3_MOLAR_MASS (17.03f)
+
+#define HUMIDITY_COMP_PARAM (0.6f)
+#define TEMP_COMP_PARAM     (1.352f)
+#define PRESS_COMP_PARAM    (0.0132f)
+
+#define MSP_DEFAULT_DATA ((int8_t) -1)
 
 /***************************************************
  * @brief checks BME680 status

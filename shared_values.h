@@ -15,9 +15,7 @@
 // -- includes --
 #include <Arduino.h>
 #include <WiFiGeneric.h>
-
-#define TRUE  1
-#define FALSE 0
+#include <stdbool.h>
 
 //-- pin defines --
 // O3 sensor ADC pin
@@ -27,18 +25,6 @@
 #define STR_DOT                 "."
 #define STR_COMMA               ","
 
-
-#define REFERENCE_TEMP_C            25.0f             // Standard temperature in Celsius
-#define GAS_CONSTANT                83.1446261815324f  // Ideal gas constant in L·hPa/(mol·K)
-#define REFERENCE_PRESSURE_HPA      1013.25f           // Standard pressure in hPa
-#define HUMIDITY_OFFSET             50.0f              // humidity offset 
-#define PERCENT_DIVISOR             100.0f           // percent divisor
-
-#define CELIUS_TO_KELVIN            273.15f // Conversion from Celsius to Kelvin
-#define MICROGRAMS_PER_GRAM         1000.0f // µg in 1 gram
-
-#define STD_TEMP_LAPSE_RATE         0.0065f // Standard temperature lapse rate: Temperature decrease with altitude
-#define ISA_DERIVED_EXPONENTIAL     -5.257f //Exponent derived from ISA model: Based on gas constant, gravity, etc.
 #define DATE_LEN                    11
 #define TIME_LEN                    9
 
@@ -180,7 +166,7 @@ typedef struct __SYSTEM_STATUS__ {
   uint8_t connection;
   uint8_t use_modem;
   uint8_t datetime;
-  uint8_t server;
+  uint8_t server_ok;
 } systemStatus_t;
 
 typedef struct __NETWORK__ {
@@ -212,7 +198,7 @@ typedef struct __MEASUREMENT__ {
 }deviceMeasurement_t;
 
 
-typedef struct __NTP_TIMEZONE_ {
+typedef struct __SYSTEMDATA_T__ {
   String ntp_server;  // NTP server string
   String timezone;    // time zone string 
   uint8_t sent_ok;    // Sending data to server was successful?

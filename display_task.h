@@ -1,12 +1,12 @@
 /*******************************************************************************
  * @file    display_task.h
  * @author  AB-Engineering - https://ab-engineering.it
- * @brief 
+ * @brief
  * @version 0.1
  * @date    2025-07-25
- * 
+ *
  * @copyright Copyright (c) 2025
- * 
+ *
  *******************************************************************************/
 
 #ifndef DISPLAY_TASKS_H
@@ -17,9 +17,10 @@
 #include "freertos/portmacro.h"
 
 // -- display events --
-typedef enum _DISPLAY_EVENTS_ {
+typedef enum _DISPLAY_EVENTS_
+{
   DISP_EVENT_WAIT_FOR_EVENT,
-  // set up cases 
+  // set up cases
   DISP_EVENT_DEVICE_BOOT,
   DISP_EVENT_WIFI_MAC_ADDR,
   DISP_EVENT_SHOW_MEAS_DATA,
@@ -53,8 +54,8 @@ typedef enum _DISPLAY_EVENTS_ {
   DISP_EVENT_O3_SENSOR_INIT,
   DISP_EVENT_O3_SENSOR_OKAY,
   DISP_EVENT_O3_SENSOR_ERR,
-  
-  // loop cases 
+
+  // loop cases
   DISP_EVENT_WAIT_FOR_NETWORK_CONN,
   DISP_EVENT_NETWORK_CONN_FAIL,
   DISP_EVENT_READING_SENSORS,
@@ -80,53 +81,51 @@ typedef enum _DISPLAY_EVENTS_ {
   DISP_EVENT_CONN_RETRY,
   DISP_EVENT_NO_INTERNET,
 
-  //modem 
+  // modem
   DISP_EVENT_SIM_ERROR,
   DISP_EVENT_NETWORK_ERROR,
   DISP_EVENT_GPRS_ERROR,
 
-}displayEvents_t;
-
+} displayEvents_t;
 
 // -- display task queue data
-typedef struct _DISP_TASK_DATA_{
-  displayEvents_t currentEvent;   /*!< Current event to be displayed */
-  sensorData_t sensorData;        /*!< Sensor data to be displayed */
-  systemStatus_t sysStat;         /*!< System status to be displayed */   
-  deviceNetworkInfo_t devInfo;    /*!< Device network information to be displayed */
-  systemData_t sysData;           /*!< System data to be displayed */
-  deviceMeasurement_t measStat;   /*!< Device measurement status to be displayed */
-}displayData_t;
-
+typedef struct _DISP_TASK_DATA_
+{
+  displayEvents_t currentEvent; /*!< Current event to be displayed */
+  sensorData_t sensorData;      /*!< Sensor data to be displayed */
+  systemStatus_t sysStat;       /*!< System status to be displayed */
+  deviceNetworkInfo_t devInfo;  /*!< Device network information to be displayed */
+  systemData_t sysData;         /*!< System data to be displayed */
+  deviceMeasurement_t measStat; /*!< Device measurement status to be displayed */
+} displayData_t;
 
 /*********************************************************
  * @brief function to initialize the display task queue.
- * 
+ *
  *********************************************************/
 void vTaskDisplay_initDataQueue(void);
 
 /******************************************************
  * @brief   Function to create the display task.
- * 
+ *
  ******************************************************/
 void vTaskDisplay_createTask(void);
 
 /******************************************************************
  * @brief function to send display events and data to the queue.
- * 
- * @param data 
- * @return BaseType_t 
+ *
+ * @param data
+ * @return BaseType_t
  ******************************************************************/
-BaseType_t tTaskDisplay_sendEvent(displayData_t* data);
+BaseType_t tTaskDisplay_sendEvent(displayData_t *data);
 
 /**********************************************************************
  * @brief function to receive display events and data from the queue.
- * 
- * @param data 
- * @param xTicksToWait 
- * @return BaseType_t 
+ *
+ * @param data
+ * @param xTicksToWait
+ * @return BaseType_t
  **********************************************************************/
-BaseType_t tTaskDisplay_receiveEvent(displayData_t* data, TickType_t xTicksToWait);
-
+BaseType_t tTaskDisplay_receiveEvent(displayData_t *data, TickType_t xTicksToWait);
 
 #endif
