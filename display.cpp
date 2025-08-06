@@ -13,6 +13,8 @@
 #include "icons.h"
 #include "generic_functions.h"
 #include "display.h"
+#include "display_task.h"
+#include "mspOs.h"
 #include <Wire.h>
 #include <U8g2lib.h>
 
@@ -259,7 +261,7 @@ void vHalDisplay_drawCountdown(short startsec, const char message[],systemStatus
  ********************************************************************************/
 void vHalDisplay_drawBme680GasSensorData(sensorData_t *p_tData,systemStatus_t *statPtr, deviceNetworkInfo_t *devinfoPtr, short secdelay)
 {
-  log_i("Printing BME680Sensor data on display...");
+  //log_d("Printing BME680Sensor data on display...");
   char sensorStringData[SENSOR_DATA_STR_FMT_LEN] = {0};
 
   // page 1
@@ -318,7 +320,7 @@ void vHalDisplay_drawBme680GasSensorData(sensorData_t *p_tData,systemStatus_t *s
  *********************************************************************************/
 void vHalDisplay_drawPMS5003AirQualitySensorData(sensorData_t *p_tData,systemStatus_t *statPtr, deviceNetworkInfo_t *devinfoPtr, short secdelay)
 {
-  log_i("Printing PMS5003Sensor data on display...");
+  //log_d("Printing PMS5003Sensor data on display...");
   char sensorStringData[SENSOR_DATA_STR_FMT_LEN] = {0};
 
   // page 2
@@ -367,7 +369,7 @@ void vHalDisplay_drawPMS5003AirQualitySensorData(sensorData_t *p_tData,systemSta
  ******************************************************************************************/
 void vHalDisplay_drawMICS6814PollutionSensorData(sensorData_t *p_tData,systemStatus_t *statPtr, deviceNetworkInfo_t *devinfoPtr, short secdelay)
 {
-  log_i("Printing MICS6814Sensor data on display...");
+  //log_d("Printing MICS6814Sensor data on display...");
   char sensorStringData[SENSOR_DATA_STR_FMT_LEN] = {0};
 
   vHal_displayDrawScrHead(statPtr,devinfoPtr);
@@ -415,7 +417,7 @@ void vHalDisplay_drawMICS6814PollutionSensorData(sensorData_t *p_tData,systemSta
  *****************************************************************************************/
 void vHalDisplay_drawOzoneSensorData(sensorData_t *p_tData,systemStatus_t *statPtr, deviceNetworkInfo_t *devinfoPtr, short secdelay)
 {
-  log_i("Printing OzoneSensor data on display...");
+  //log_d("Printing OzoneSensor data on display...");
   char sensorStringData[SENSOR_DATA_STR_FMT_LEN] = {0};
 
   // page 4
@@ -448,7 +450,7 @@ void vHalDisplay_drawOzoneSensorData(sensorData_t *p_tData,systemStatus_t *statP
  ************************************************************************************/
 void vHalDisplay_drawMspIndexData(sensorData_t *p_tData,systemStatus_t *statPtr, deviceNetworkInfo_t *devinfoPtr, short secdelay)
 {
-  log_i("Printing OzoneSensor data on display...");
+  //log_d("Printing OzoneSensor data on display...");
   char sensorStringData[SENSOR_DATA_STR_FMT_LEN] = {0};
 
   // page 4
@@ -474,8 +476,8 @@ void vHalDisplay_drawMspIndexData(sensorData_t *p_tData,systemStatus_t *statPtr,
  *********************************************************************************/
 void vHalDisplay_drawMicsValues(uint16_t redval, uint16_t oxval, uint16_t nh3val,systemStatus_t *statPtr, deviceNetworkInfo_t *devinfoPtr)
 {
-  log_d("MICS6814 stored base resistance values:");
-  log_d("RED: %d | OX: %d | NH3: %d\n", redval, oxval, nh3val);
+  //log_d("MICS6814 stored base resistance values:");
+  //log_d("RED: %d | OX: %d | NH3: %d\n", redval, oxval, nh3val);
   vHal_displayDrawScrHead(statPtr,devinfoPtr);
   u8g2.setCursor(2, 28); u8g2.print("MICS6814 Res0 values:");
   u8g2.setCursor(30, 39); u8g2.print("RED: " + String(redval));
@@ -484,6 +486,31 @@ void vHalDisplay_drawMicsValues(uint16_t redval, uint16_t oxval, uint16_t nh3val
   u8g2.sendBuffer();
   delay(5000);
 
+}
+
+/******************************************************************************************
+ * @brief Update display status with network events
+ * 
+ * @param devInfo Device network info structure
+ * @param sysStatus System status structure  
+ * @param event Display event to show
+ ******************************************************************************************/
+void updateDisplayStatus(deviceNetworkInfo_t *devInfo, systemStatus_t *sysStatus, displayEvents_t event)
+{
+    if ((!devInfo) || (!sysStatus))
+    {
+        log_e("Invalid parameters for display update");
+        return;
+    }
+
+    displayData.currentEvent = event;
+
+    vMspOs_takeDataAccessMutex();
+    displayData.devInfo = *devInfo;
+    displayData.sysStat = *sysStatus;
+    vMspOs_giveDataAccessMutex();
+
+    tTaskDisplay_sendEvent(&displayData);
 }
 
 //************************************** EOF **************************************

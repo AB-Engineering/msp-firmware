@@ -17,14 +17,12 @@
 #include "sdcard.h"
 #include "generic_functions.h"
 #include "display_task.h"
+#include "display.h"
 #include "network.h"
 #include "mspOs.h"
 
 // --defines --
 #define LINES 16
-
-// -- queue data to display task
-static displayData_t displayData;
 
 //-------------------------- functions --------------------
 

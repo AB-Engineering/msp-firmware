@@ -180,32 +180,32 @@ void vHalSensor_printMeasurementsOnSerial(send_data_t *data, sensorData_t *p_tPt
   strftime(locDate, sizeof(locDate), "%d/%m/%Y", &data->sendTimeInfo); // Formatting date as DD/MM/YYYY
   strftime(locTime, sizeof(locDate), "%T", &data->sendTimeInfo);       // Formatting time as HH:MM:SS
 
-  Serial.println("Measurements log:\n"); // Log measurements to serial output
-  Serial.println("Date&time: " + String(locDate) + " " + String(locTime) + "\n");
+  log_i("Measurements log:"); // Log measurements to serial output
+  log_i("Date&time: %s %s", locDate, locTime);
   if (p_tPtr->status.BME680Sensor)
   {
-    Serial.println("Temperature: " + vGeneric_floatToComma(data->temp) + "°C");
-    Serial.println("Humidity: " + vGeneric_floatToComma(data->hum) + "%");
-    Serial.println("Pressure: " + vGeneric_floatToComma(data->pre) + "hPa");
-    Serial.println("VOC: " + vGeneric_floatToComma(data->VOC) + "kOhm");
+    log_i("Temperature: %.2f°C", data->temp);
+    log_i("Humidity: %.2f%%", data->hum);
+    log_i("Pressure: %.2f hPa", data->pre);
+    log_i("VOC: %.2f kOhm", data->VOC);
   }
   if (p_tPtr->status.PMS5003Sensor)
   {
-    Serial.println("PM10: " + String(data->PM10) + "ug/m3");
-    Serial.println("PM2,5: " + String(data->PM25) + "ug/m3");
-    Serial.println("PM1: " + String(data->PM1) + "ug/m3");
+    log_i("PM10: %d ug/m3", data->PM10);
+    log_i("PM2.5: %d ug/m3", data->PM25);
+    log_i("PM1: %d ug/m3", data->PM1);
   }
   if (p_tPtr->status.O3Sensor)
   {
-    Serial.println("O3: " + vGeneric_floatToComma(data->ozone) + "ug/m3");
+    log_i("O3: %.2f ug/m3", data->ozone);
   }
   if (p_tPtr->status.MICS6814Sensor)
   {
-    Serial.println("NOx: " + vGeneric_floatToComma(data->MICS_NO2) + "ug/m3");
-    Serial.println("CO: " + vGeneric_floatToComma(data->MICS_CO) + "ug/m3");
-    Serial.println("NH3: " + vGeneric_floatToComma(data->MICS_NH3) + "ug/m3");
+    log_i("NOx: %.2f ug/m3", data->MICS_NO2);
+    log_i("CO: %.2f ug/m3", data->MICS_CO);
+    log_i("NH3: %.2f ug/m3", data->MICS_NH3);
   }
-  Serial.println();
+  log_i("Measurements logged successfully");
 }
 
 /*****************************************************************************************************

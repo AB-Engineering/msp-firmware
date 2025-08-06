@@ -67,10 +67,6 @@ typedef struct {
     network_type_t activeConnection;
 } network_status_t;
 
-#ifdef __cplusplus
-extern "C" {
-#endif
-
 // ===== Core Network Management Functions =====
 
 /**
@@ -92,25 +88,12 @@ void createNetworkEvents(void);
 // ===== Data Queue Management =====
 
 /**
- * @brief Enqueue data for transmission to server (C-compatible wrapper)
- * @param data Pointer to the data structure to send
- * @param ticksToWait Maximum time to wait if queue is full
- * @return true if data was successfully enqueued, false otherwise
- */
-bool enqueueSendData_C(const send_data_t *data, TickType_t ticksToWait);
-
-#ifdef __cplusplus
-/**
- * @brief Enqueue data for transmission to server (C++ version)
+ * @brief Enqueue data for transmission to server
  * @param data Reference to the data structure to send
  * @param ticksToWait Maximum time to wait if queue is full
  * @return true if data was successfully enqueued, false otherwise
  */
 bool enqueueSendData(const send_data_t &data, TickType_t ticksToWait);
-#else
-// In C, map the C++ function to the C wrapper
-#define enqueueSendData(data, timeout) enqueueSendData_C(&(data), timeout)
-#endif
 
 /**
  * @brief Dequeue data from transmission queue (internal use)
@@ -220,45 +203,6 @@ uint8_t vHalNetwork_modemDisconnect(void);
  */
 void vHalNetwork_printWiFiMACAddr(systemStatus_t *p_tSys, deviceNetworkInfo_t *p_tDev);
 
-// ===== Legacy Compatibility Functions =====
-// These functions maintain backward compatibility but internally use the new task-based system
-
-/**
- * @brief Connect to internet and retrieve current date/time (Legacy)
- * @param p_tSys Pointer to system status structure
- * @param p_tDev Pointer to device network info structure
- * @param p_tSysData Pointer to system data structure
- * @param p_tm Pointer to time structure to fill
- * @deprecated Use requestNetworkConnection() and requestTimeSync() instead
- */
-void vHalNetwork_connAndGetTime(systemStatus_t *p_tSys, deviceNetworkInfo_t *p_tDev, 
-                               systemData_t *p_tSysData, tm *p_tm);
-
-/**
- * @brief Connect to internet using WiFi or GPRS (Legacy)
- * @param p_tSys Pointer to system status structure
- * @param p_tDev Pointer to device network info structure
- * @deprecated Use requestNetworkConnection() instead
- */
-void vHalNetwork_connectToInternet(systemStatus_t *p_tSys, deviceNetworkInfo_t *p_tDev);
-
-/**
- * @brief Connect to server and send data (Legacy)
- * @param p_tClient Pointer to SSL client (unused in new implementation)
- * @param p_tDataToSent Pointer to data to send
- * @param p_tDev Pointer to device network info structure
- * @param p_tData Pointer to sensor data structure
- * @param p_tSysData Pointer to system data structure
- * @deprecated Use enqueueSendData() instead
- */
-void vHalNetwork_connectToServer(SSLClient *p_tClient, send_data_t *p_tDataToSent, 
-                                deviceNetworkInfo_t *p_tDev, sensorData_t *p_tData, 
-                                systemData_t *p_tSysData);
-
-#ifdef __cplusplus
-}
-#endif
-
 // ===== Configuration Macros =====
 
 // Network task configuration
@@ -271,7 +215,7 @@ void vHalNetwork_connectToServer(SSLClient *p_tClient, send_data_t *p_tDataToSen
 #endif
 
 #ifndef SEND_DATA_QUEUE_LENGTH
-#define SEND_DATA_QUEUE_LENGTH 4
+#define SEND_DATA_QUEUE_LENGTH 16
 #endif
 
 // Connection timeout configuration

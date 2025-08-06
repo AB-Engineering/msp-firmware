@@ -19,6 +19,10 @@
 
 // -- includes --
 #include "shared_values.h"
+#include "display_task.h"
+
+// External declarations
+extern displayData_t displayData;
 
 /******************************************************
  * @brief function to initialize the serial and I2C display.
@@ -122,5 +126,13 @@ void vHalDisplay_drawOzoneSensorData(sensorData_t *p_tData,systemStatus_t *statP
  ******************************************************************************************/
 void vHalDisplay_drawMspIndexData(sensorData_t *p_tData,systemStatus_t *statPtr, deviceNetworkInfo_t *devinfoPtr, short secdelay);
 
+/******************************************************************************************
+ * @brief Update display status with network events
+ * 
+ * @param devInfo Device network info structure
+ * @param sysStatus System status structure  
+ * @param event Display event to show
+ ******************************************************************************************/
+void updateDisplayStatus(deviceNetworkInfo_t *devInfo, systemStatus_t *sysStatus, displayEvents_t event);
 
 #endif

@@ -17,7 +17,6 @@
 // Select modem type
 #define TINY_GSM_MODEM_SIM800
 
-
 // Basic system libraries
 #include <Arduino.h>
 #include <FS.h>
@@ -68,7 +67,6 @@
 
 HardwareSerial pmsSerial(2);
 
-
 // ------------------------------- DEFINES -----------------------------------------------------------------------------
 
 // ------------------------------- INSTANCES  --------------------------------------------------------------------------
@@ -112,7 +110,7 @@ static systemData_t sysData;
 // -- structure for PMS5003
 static PMS::DATA data;
 
-static displayData_t displayData;
+displayData_t displayData;
 
 //---------------------------------------- FUNCTIONS ----------------------------------------------------------------------
 
@@ -143,7 +141,6 @@ void Msp_getSystemStatus(systemStatus_t *stat)
   memcpy(stat, &sysStat, sizeof(systemStatus_t));
 
   vMspOs_giveDataAccessMutex();
-
 }
 
 /******************************************************************************************************************/
@@ -186,15 +183,11 @@ void setup()
   // Create the display task
   vTaskDisplay_createTask();
 
-  // Create the network event group and network task
-  createNetworkEvents();
-  initSendDataOp(&sysData, &sysStat, &devinfo);
-
   // BOOT STRINGS ++++++++++++++++++++++++++++++++++++++++++++++++++++++
-  Serial.println("\nMILANO SMART PARK");
-  Serial.println("FIRMWARE " + sysData.ver + " by Norman Mulinacci");
-  Serial.println("Refactor and optimization by AB-Engineering - https://ab-engineering.it");
-  Serial.println("Compiled " + String(__DATE__) + " " + String(__TIME__) + "\n");
+  log_i("\nMILANO SMART PARK");
+  log_i("FIRMWARE %s by Norman Mulinacci", sysData.ver.c_str());
+  log_i("Refactor and optimization by AB-Engineering - https://ab-engineering.it");
+  log_i("Compiled %s %s\n", __DATE__, __TIME__);
 
   vMsp_updateDataAndEvent(DISP_EVENT_DEVICE_BOOT);
   tTaskDisplay_sendEvent(&displayData);
@@ -211,23 +204,32 @@ void setup()
 #endif
   //+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
-  // Load SD card data for sensors and measurements (network config handled by network task)
-  log_i("Loading SD card configuration...");
+  // STEP 1: Single SD Card Configuration Reading
+  log_i("=== STEP 1: Loading complete system configuration from SD card ===");
   vHalSdcard_readSD(&sysStat, &devinfo, &sensorData, &measStat, &sysData);
-  
-  // Debug: Check configuration status
-  log_i("SD Card status: %s", sysStat.sdCard ? "OK" : "FAILED");
-  log_i("Configuration status: %s", sysStat.configuration ? "OK" : "FAILED");
-  log_i("WiFi SSID: %s", devinfo.ssid.c_str());
-  log_i("Server: %s", sysData.server.c_str());
-  
-  // Signal network task to load its configuration  
-  updateNetworkConfig();
-  
-  // Give network task time to load configuration
-  vTaskDelay(pdMS_TO_TICKS(1000));
 
-  measStat.max_measurements = measStat.avg_measurements; // set current measurements to average measurements
+  // STEP 2: Fill system configuration with SD data or defaults
+  log_i("=== STEP 2: Configuring system with loaded data or defaults ===");
+  vMspInit_configureSystemFromSD(&sysData, &sysStat, &devinfo, &measStat);
+
+  // Debug: Check final configuration status
+  log_i("Final Configuration Status:");
+  log_i("  SD Card: %s", sysStat.sdCard ? "OK" : "FAILED");
+  log_i("  Config File: %s", sysStat.configuration ? "OK" : "FAILED");
+  log_i("  WiFi SSID: %s", devinfo.ssid.c_str());
+  log_i("  Server: %s", sysData.server.c_str());
+  log_i("  Avg Measurements: %d", measStat.avg_measurements);
+  log_i("  Use Modem: %s", sysStat.use_modem ? "YES" : "NO");
+
+  // STEP 3: Start network task with complete configuration
+  log_i("=== STEP 3: Starting network task ===");
+  createNetworkEvents();
+  initSendDataOp(&sysData, &sysStat, &devinfo);
+
+  // Wait for network task to initialize
+  vTaskDelay(pdMS_TO_TICKS(2000));
+
+  measStat.max_measurements = measStat.avg_measurements; /*!< fill the max_measurements with the number set by the user */
 
   //++++++++++++++++ DETECT AND INIT SENSORS ++++++++++++++++++++++++++++++
   log_i("Detecting and initializing sensors...\n");
@@ -360,8 +362,21 @@ void setup()
     measStat.additional_delay = 0; /*!< No additional delay if PMS is not running */
   }
 
-  // Calculate delay between measurements
+  // Always use 1-minute intervals for measurements
   measStat.delay_between_measurements = SEC_IN_MIN;
+
+  // Calculate transmission intervals based on avg_measurements
+  if (measStat.max_measurements > 0 && (60 % measStat.max_measurements) == 0)
+  {
+    int transmission_interval = 60 / measStat.max_measurements;
+    log_i("Integer divisor timing: %d measurements, transmissions every %d minutes",
+          measStat.max_measurements, transmission_interval);
+  }
+  else
+  {
+    log_i("Non-divisor timing: %d measurements, transmissions when count reached",
+          measStat.max_measurements);
+  }
 
   /*!< Reset measurement count */
   measStat.measurement_count = 0;
@@ -377,18 +392,20 @@ void setup()
   measStat.curr_seconds = 0;
   measStat.curr_total_seconds = 0;
 
-  // CONNECT TO INTERNET AND GET DATE&TIME +++++++++++++++++++++++++++++++++++++++++++++++++++
-  if (sysStat.configuration == true)
+  // STEP 4: Request network connection and wait for NTP sync
+  log_i("=== STEP 4: Requesting network connection and NTP sync ===");
+  if (sysStat.configuration == true || sysStat.server_ok == true)
   {
-    log_i("Requesting network connection...\n"); 
+    log_i("Configuration available, requesting network connection...");
     // Request network connection (time sync will happen automatically)
     requestNetworkConnection();
-    mainStateMachine.current_state = SYS_STATE_UPDATE_DATE_TIME; // set initial state
-    mainStateMachine.next_state = SYS_STATE_UPDATE_DATE_TIME;    // set next state
+    mainStateMachine.current_state = SYS_STATE_WAIT_FOR_NTP_SYNC; // Wait for NTP sync first
+    mainStateMachine.next_state = SYS_STATE_WAIT_FOR_NTP_SYNC;
   }
   else
   {
-    mainStateMachine.current_state = SYS_STATE_ERROR; // set initial state
+    log_e("Device has no valid configuration, going into error mode!");
+    mainStateMachine.current_state = SYS_STATE_ERROR; // set initial state to error if no config
     mainStateMachine.next_state = SYS_STATE_ERROR;    // set next state
   }
 
@@ -402,7 +419,6 @@ void setup()
 //*******************************************************************************************************************************
 //*******************************************************************************************************************************
 
-
 //*******************************************************************************************************************************
 //********************************************  L O O P  ************************************************************************
 //*******************************************************************************************************************************
@@ -410,447 +426,520 @@ void loop()
 {
   switch (mainStateMachine.current_state) // state machine for the main loop
   {
-    case SYS_STATE_UPDATE_DATE_TIME:
+  case SYS_STATE_WAIT_FOR_NTP_SYNC:
+  {
+    log_i("Waiting for NTP synchronization...");
+    vMsp_updateDataAndEvent(DISP_EVENT_WAIT_FOR_NETWORK_CONN);
+    tTaskDisplay_sendEvent(&displayData);
+
+    // Wait for network connection and automatic time sync from network task
+    if (pdTRUE == waitForNetworkEvent(NET_EVENT_TIME_SYNCED, pdMS_TO_TICKS(5000)))
     {
-      vMsp_updateDataAndEvent(DISP_EVENT_WAIT_FOR_NETWORK_CONN);
+      log_i("NTP sync completed, starting measurement cycle");
+      mainStateMachine.next_state = SYS_STATE_WAIT_FOR_TIMEOUT;
+    }
+    else
+    {
+      // Keep waiting - network task is still working on connection and sync
+      log_v("Still waiting for NTP sync...");
+      mainStateMachine.next_state = SYS_STATE_WAIT_FOR_NTP_SYNC;
+    }
+    break;
+  }
+
+  case SYS_STATE_UPDATE_DATE_TIME:
+  {
+    vMsp_updateDataAndEvent(DISP_EVENT_WAIT_FOR_NETWORK_CONN);
+    tTaskDisplay_sendEvent(&displayData);
+
+    // Wait for network connection and automatic time sync from network task
+    if (pdTRUE == waitForNetworkEvent(NET_EVENT_TIME_SYNCED, pdMS_TO_TICKS(90000)))
+    {
+      log_i("Network connected and time synchronized successfully");
+      mainStateMachine.next_state = SYS_STATE_WAIT_FOR_TIMEOUT;
+    }
+    else
+    {
+      vMsp_updateDataAndEvent(DISP_EVENT_NETWORK_CONN_FAIL);
       tTaskDisplay_sendEvent(&displayData);
-      
-      // Wait for network connection and automatic time sync from network task
-      if (pdTRUE == waitForNetworkEvent(NET_EVENT_TIME_SYNCED, pdMS_TO_TICKS(90000)))
+      log_e("Failed to connect to the network for date and time update!");
+      mainStateMachine.next_state = SYS_STATE_ERROR;
+    }
+    break;
+  }
+
+  case SYS_STATE_WAIT_FOR_TIMEOUT:
+  {
+    if (getLocalTime(&timeinfo))
+    {
+      measStat.curr_minutes = timeinfo.tm_min;
+      measStat.curr_seconds = timeinfo.tm_sec;
+      measStat.curr_total_seconds = measStat.curr_minutes * SEC_IN_MIN + measStat.curr_seconds;
+
+      // Calculate the timeout in seconds taking into account the additional delay for PMS5003 preheating
+      measStat.timeout_seconds = ((measStat.curr_total_seconds + measStat.additional_delay) % measStat.delay_between_measurements);
+
+      // kick the pms up when the timeout count starts
+      if ((measStat.isPmsAwake == false) && (sensorData.status.PMS5003Sensor))
       {
-        log_i("Network connected and time synchronized successfully");
-        mainStateMachine.next_state = SYS_STATE_WAIT_FOR_TIMEOUT;
+        log_i("Starting PMS sensor");
+        measStat.isPmsAwake = true;
+        pms.wakeUp();
+      }
+
+      // It is time for a measurement
+      if ((measStat.timeout_seconds == 0) && (measStat.curr_minutes != 0))
+      {
+        log_i("Timeout expired!");
+        log_i("Current time: %02d:%02d:%02d", timeinfo.tm_hour, measStat.curr_minutes, measStat.curr_seconds);
+        mainStateMachine.next_state = SYS_STATE_READ_SENSORS; // go to read sensors state
       }
       else
       {
-        vMsp_updateDataAndEvent(DISP_EVENT_NETWORK_CONN_FAIL);
-        tTaskDisplay_sendEvent(&displayData);
-        log_e("Failed to connect to the network for date and time update!");
-        mainStateMachine.next_state = SYS_STATE_ERROR;
+        // if it is not the first transition, wait for timeout
+        if ((measStat.isSensorDataAvailable == false) && (mainStateMachine.isFirstTransition))
+        {
+          vMsp_updateDataAndEvent(DISP_EVENT_WAIT_FOR_TIMEOUT);
+          tTaskDisplay_sendEvent(&displayData);
+          delay(500);
+        }
       }
-      break;
+    }
+    else
+    {
+      log_e("Failed to obtain time from NTP!");
+      mainStateMachine.next_state = SYS_STATE_WAIT_FOR_TIMEOUT;
+    }
+    break;
+  }
+
+  case SYS_STATE_READ_SENSORS:
+  {
+    log_i("Reading sensors...");
+
+    if (mainStateMachine.isFirstTransition)
+    {
+      mainStateMachine.isFirstTransition = 0; // reset first transition flag
+      // Reset sensor variables
+      sensorData.gasData.temperature = 0.0f;
+      sensorData.gasData.pressure = 0.0f;
+      sensorData.gasData.humidity = 0.0f;
+      sensorData.gasData.volatileOrganicCompounds = 0.0f;
+      sensorData.airQualityData.particleMicron1 = 0.0f;
+      sensorData.airQualityData.particleMicron25 = 0.0f;
+      sensorData.airQualityData.particleMicron10 = 0.0f;
+      sensorData.pollutionData.data.carbonMonoxide = 0.0f;
+      sensorData.pollutionData.data.nitrogenDioxide = 0.0f;
+      sensorData.pollutionData.data.ammonia = 0.0f;
+      sensorData.ozoneData.ozone = 0.0f;
+
+      err.BMEfails = 0;
+      err.PMSfails = 0;
+      err.MICSfails = 0;
+      err.O3fails = 0;
+      // Reset error counters
+      err.count = 0;
+
+      // Update the number of measurements before the next data transmission
+      measStat.avg_measurements = measStat.max_measurements - (measStat.curr_minutes % measStat.max_measurements); // Calculate the number of measurements to be made in the current cycle
+
+      if (measStat.avg_measurements == 0)
+      {
+        measStat.avg_measurements = 1; // If the number of measurements is 0, set it to 1
+        // it means we are starting the measurement in the exact minute in which we want to send the data
+      }
+
+      log_i("First Transition!\n");
+      log_i("Current minutes: %d, avg_measurements: %d, max_measurements: %d\n", measStat.curr_minutes, measStat.avg_measurements, measStat.max_measurements);
+
+      // Reset also the measurement count
+      measStat.measurement_count = 0;
     }
 
-    case SYS_STATE_WAIT_FOR_TIMEOUT:
+    vMsp_updateDataAndEvent(DISP_EVENT_READING_SENSORS);
+    tTaskDisplay_sendEvent(&displayData);
+
+    // READING BME680
+    if (sensorData.status.BME680Sensor)
     {
-      if (getLocalTime(&timeinfo))
+      log_i("Sampling BME680 sensor...");
+      err.count = 0;
+      // Attempt to read BME680 sensor with maximum 3 retries
+      for (int retry = 0; retry < 3; retry++)
       {
-        measStat.curr_minutes = timeinfo.tm_min;
-        measStat.curr_seconds = timeinfo.tm_sec;
-        measStat.curr_total_seconds = measStat.curr_minutes * SEC_IN_MIN + measStat.curr_seconds;
-
-        // Calculate the timeout in seconds taking into account the additional delay for PMS5003 preheating
-        measStat.timeout_seconds = ((measStat.curr_total_seconds + measStat.additional_delay) % measStat.delay_between_measurements);
-
-        // kick the pms up when the timeout count starts
-        if ((measStat.isPmsAwake == false) && (sensorData.status.PMS5003Sensor))
+        if (!tHalSensor_checkBMESensor(&bme680))
         {
-          Serial.println("lets start the PMS sensor ");
-          measStat.isPmsAwake = true;
-          pms.wakeUp();
-        }
-
-        // It is time for a measurement
-        if ((measStat.timeout_seconds == 0) && (measStat.curr_minutes != 0))
-        {
-          Serial.println("Timeout expired!");
-          Serial.printf("Current time: %02d:%02d:%02d\n", timeinfo.tm_hour, measStat.curr_minutes, measStat.curr_seconds);
-          mainStateMachine.next_state = SYS_STATE_READ_SENSORS; // go to read sensors state
-        }
-        else
-        {
-          // if it is not the first transition, wait for timeout
-          if ((measStat.isSensorDataAvailable == false) && (mainStateMachine.isFirstTransition))
+          err.count++;
+          log_w("BME680 sensor check failed, attempt %d/3", retry + 1);
+          if (retry == 2) // Last attempt failed
           {
-            vMsp_updateDataAndEvent(DISP_EVENT_WAIT_FOR_TIMEOUT);
-            tTaskDisplay_sendEvent(&displayData);
-            delay(1000);
+            log_e("Error while sampling BME680 sensor after 3 attempts!");
+            err.BMEfails++;
+            break;
           }
+          delay(1000);
+          continue;
         }
+        
+        if (!bme680.run())
+        {
+          log_v("BME680 sensor not ready, waiting...");
+          delay(100);
+          continue;
+        }
+
+        // Successfully read sensor data
+        localData.temperature = bme680.temperature;
+        log_v("Temperature(*C): %.3f", localData.temperature);
+        sensorData.gasData.temperature += localData.temperature;
+
+        localData.pressure = bme680.pressure / PERCENT_DIVISOR;
+        localData.pressure = (localData.pressure *
+                              pow(1 - (STD_TEMP_LAPSE_RATE * sensorData.gasData.seaLevelAltitude /
+                                       (localData.temperature + STD_TEMP_LAPSE_RATE * sensorData.gasData.seaLevelAltitude + CELIUS_TO_KELVIN)),
+                                  ISA_DERIVED_EXPONENTIAL));
+        log_v("Pressure(hPa): %.3f", localData.pressure);
+        sensorData.gasData.pressure += localData.pressure;
+
+        localData.humidity = bme680.humidity;
+        log_v("Humidity(perc.): %.3f", localData.humidity);
+        sensorData.gasData.humidity += localData.humidity;
+
+        localData.volatileOrganicCompounds = bme680.gasResistance / MICROGRAMS_PER_GRAM;
+        localData.volatileOrganicCompounds = fHalSensor_no2AndVocCompensation(localData.volatileOrganicCompounds, &localData, &sensorData);
+        log_v("Compensated gas resistance(kOhm): %.3f\n", localData.volatileOrganicCompounds);
+        sensorData.gasData.volatileOrganicCompounds += localData.volatileOrganicCompounds;
+        break;
       }
-      else
-      {
-        log_e("Failed to obtain time from NTP!");
-        mainStateMachine.next_state = SYS_STATE_WAIT_FOR_TIMEOUT;
-      }
-      break;
     }
 
-    case SYS_STATE_READ_SENSORS:
+    // READING MICS6814
+    if (sensorData.status.MICS6814Sensor)
     {
-      Serial.println("Reading sensors...");
-
-      if (mainStateMachine.isFirstTransition)
+      log_i("Sampling MICS6814 sensor...");
+      err.count = 0;
+      // Attempt to read MICS6814 sensor with maximum 3 retries
+      for (int retry = 0; retry < 3; retry++)
       {
-        mainStateMachine.isFirstTransition = 0; // reset first transition flag
-        // Reset sensor variables
-        sensorData.gasData.temperature = 0.0f;
-        sensorData.gasData.pressure = 0.0f;
-        sensorData.gasData.humidity = 0.0f;
-        sensorData.gasData.volatileOrganicCompounds = 0.0f;
-        sensorData.airQualityData.particleMicron1 = 0.0f;
-        sensorData.airQualityData.particleMicron25 = 0.0f;
-        sensorData.airQualityData.particleMicron10 = 0.0f;
-        sensorData.pollutionData.data.carbonMonoxide = 0.0f;
-        sensorData.pollutionData.data.nitrogenDioxide = 0.0f;
-        sensorData.pollutionData.data.ammonia = 0.0f;
-        sensorData.ozoneData.ozone = 0.0f;
+        MICS6814SensorReading_t micsLocData;
 
-        err.BMEfails = 0;
-        err.PMSfails = 0;
-        err.MICSfails = 0;
-        err.O3fails = 0;
-        // Reset error counters
-        err.count = 0;
+        micsLocData.carbonMonoxide = gas.measureCO();
+        micsLocData.nitrogenDioxide = gas.measureNO2();
+        micsLocData.ammonia = gas.measureNH3();
 
-        // Update the number of measurements before the next data transmission
-        measStat.avg_measurements = measStat.max_measurements - (measStat.curr_minutes % measStat.max_measurements); // Calculate the number of measurements to be made in the current cycle
-
-        if (measStat.avg_measurements == 0)
+        if ((micsLocData.carbonMonoxide < 0) || (micsLocData.nitrogenDioxide < 0) || (micsLocData.ammonia < 0))
         {
-          measStat.avg_measurements = 1; // If the number of measurements is 0, set it to 1
-          // it means we are starting the measurement in the exact minute in which we want to send the data
+          err.count++;
+          log_w("MICS6814 sensor reading failed, attempt %d/3", retry + 1);
+          if (retry == 2) // Last attempt failed
+          {
+            log_e("Error while sampling MICS6814 sensor after 3 attempts!");
+            err.MICSfails++;
+            break;
+          }
+          delay(1000);
+          continue;
         }
 
-        log_i("First Transition!\n");
-        log_i("Current minutes: %d, avg_measurements: %d, max_measurements: %d\n", measStat.curr_minutes, measStat.avg_measurements, measStat.max_measurements);
+        // Successfully read sensor data
+        micsLocData.carbonMonoxide = vGeneric_convertPpmToUgM3(micsLocData.carbonMonoxide, sensorData.pollutionData.molarMass.carbonMonoxide);
+        log_v("CO(ug/m3): %.3f", micsLocData.carbonMonoxide);
+        sensorData.pollutionData.data.carbonMonoxide += micsLocData.carbonMonoxide;
 
-        // Reset also the measurement count
-        measStat.measurement_count = 0;
+        micsLocData.nitrogenDioxide = vGeneric_convertPpmToUgM3(micsLocData.nitrogenDioxide, sensorData.pollutionData.molarMass.nitrogenDioxide);
+        if (sensorData.status.BME680Sensor)
+        {
+          micsLocData.nitrogenDioxide = fHalSensor_no2AndVocCompensation(micsLocData.nitrogenDioxide, &localData, &sensorData);
+        }
+        log_v("NOx(ug/m3): %.3f", micsLocData.nitrogenDioxide);
+        sensorData.pollutionData.data.nitrogenDioxide += micsLocData.nitrogenDioxide;
+
+        micsLocData.ammonia = vGeneric_convertPpmToUgM3(micsLocData.ammonia, sensorData.pollutionData.molarMass.ammonia);
+        log_v("NH3(ug/m3): %.3f\n", micsLocData.ammonia);
+        sensorData.pollutionData.data.ammonia += micsLocData.ammonia;
+
+        break;
       }
-      vMsp_updateDataAndEvent(DISP_EVENT_READING_SENSORS);
-      tTaskDisplay_sendEvent(&displayData);
+    }
 
-      // READING BME680
-      if (sensorData.status.BME680Sensor)
+    // READING O3
+    if (sensorData.status.O3Sensor)
+    {
+      ze25Data_t o3Data;
+      log_i("Sampling O3 sensor...");
+      err.count = 0;
+      // Attempt to read O3 sensor with maximum 3 retries
+      for (int retry = 0; retry < 3; retry++)
       {
-        log_i("Sampling BME680 sensor...");
-        err.count = 0;
-        while (1)
-        { // TODO: add a timeout to this loop
-          if (!tHalSensor_checkBMESensor(&bme680))
+        if (!tHalSensor_isAnalogO3Connected())
+        {
+          err.count++;
+          log_w("O3 sensor connection check failed, attempt %d/3", retry + 1);
+          if (retry == 2) // Last attempt failed
           {
-            if (err.count > 2)
-            {
-              log_e("Error while sampling BME680 sensor!");
-              err.BMEfails++;
-              break;
-            }
-            delay(1000);
-            err.count++;
-            continue;
+            log_e("Error while sampling O3 sensor after 3 attempts!");
+            err.O3fails++;
+            break;
           }
-          if (!bme680.run())
+          delay(1000);
+          continue;
+        }
+        
+        // Successfully read sensor data
+        o3Data.ozone = fHalSensor_analogUgM3O3Read(&localData.temperature, &sensorData);
+        log_v("O3(ug/m3): %.3f", o3Data.ozone);
+        sensorData.ozoneData.ozone += o3Data.ozone;
+
+        break;
+      }
+      log_v("O3 sensor reading completed");
+    }
+
+    // READING PMS5003
+    if (sensorData.status.PMS5003Sensor)
+    {
+      log_i("Sampling PMS5003 sensor...");
+      err.count = 0;
+      // Attempt to read PMS5003 sensor with maximum 3 retries
+      for (int retry = 0; retry < 3; retry++)
+      {
+        // Clear serial buffer
+        while (pmsSerial.available())
+        {
+          pmsSerial.read();
+        }
+        
+        if (!pms.readUntil(data))
+        {
+          err.count++;
+          log_w("PMS5003 sensor reading failed, attempt %d/3", retry + 1);
+          if (retry == 2) // Last attempt failed
           {
-            continue;
+            log_e("Error while sampling PMS5003 sensor after 3 attempts!");
+            err.PMSfails++;
+            break;
           }
+          delay(1000);
+          continue;
+        }
+        
+        // Successfully read sensor data
+        log_v("PM1(ug/m3): %d", data.PM_AE_UG_1_0);
+        sensorData.airQualityData.particleMicron1 += data.PM_AE_UG_1_0;
 
-          localData.temperature = bme680.temperature;
-          log_v("Temperature(*C): %.3f", localData.temperature);
-          sensorData.gasData.temperature += localData.temperature;
+        log_v("PM2,5(ug/m3): %d", data.PM_AE_UG_2_5);
+        sensorData.airQualityData.particleMicron25 += data.PM_AE_UG_2_5;
 
-          localData.pressure = bme680.pressure / PERCENT_DIVISOR;
-          localData.pressure = (localData.pressure *
-                                pow(1 - (STD_TEMP_LAPSE_RATE * sensorData.gasData.seaLevelAltitude /
-                                        (localData.temperature + STD_TEMP_LAPSE_RATE * sensorData.gasData.seaLevelAltitude + CELIUS_TO_KELVIN)),
-                                    ISA_DERIVED_EXPONENTIAL));
-          log_v("Pressure(hPa): %.3f", localData.pressure);
-          sensorData.gasData.pressure += localData.pressure;
+        log_v("PM10(ug/m3): %d\n", data.PM_AE_UG_10_0);
+        sensorData.airQualityData.particleMicron10 += data.PM_AE_UG_10_0;
 
-          localData.humidity = bme680.humidity;
-          log_v("Humidity(perc.): %.3f", localData.humidity);
-          sensorData.gasData.humidity += localData.humidity;
+        break;
+      }
+    }
 
-          localData.volatileOrganicCompounds = bme680.gasResistance / MICROGRAMS_PER_GRAM;
-          localData.volatileOrganicCompounds = fHalSensor_no2AndVocCompensation(localData.volatileOrganicCompounds, &localData, &sensorData);
-          log_v("Compensated gas resistance(kOhm): %.3f\n", localData.volatileOrganicCompounds);
-          sensorData.gasData.volatileOrganicCompounds += localData.volatileOrganicCompounds;
+    measStat.measurement_count++;
+    log_i("Measurement #%d completed", measStat.measurement_count);
+
+    log_i("Sensor values AFTER evaluation:\n");
+    log_i("temp: %.2f, hum: %.2f, pre: %.2f, VOC: %.2f, PM1: %d, PM25: %d, PM10: %d, MICS_CO: %.2f, MICS_NO2: %.2f, MICS_NH3: %.2f, ozone: %.2f, MSP: %d, measurement_count: %d\n",
+          sensorData.gasData.temperature, sensorData.gasData.humidity, sensorData.gasData.pressure, sensorData.gasData.volatileOrganicCompounds,
+          sensorData.airQualityData.particleMicron1, sensorData.airQualityData.particleMicron25, sensorData.airQualityData.particleMicron10,
+          sensorData.pollutionData.data.carbonMonoxide, sensorData.pollutionData.data.nitrogenDioxide, sensorData.pollutionData.data.ammonia,
+          sensorData.ozoneData.ozone, sensorData.MSP, measStat.measurement_count);
+    log_i("Measurements done, going to timeout...\n");
+    mainStateMachine.next_state = SYS_STATE_EVAL_SENSOR_STATUS;
+    break;
+  }
+
+  case SYS_STATE_EVAL_SENSOR_STATUS:
+  {
+    log_i("Evaluating sensor status...");
+
+    // Update current time for clock-aligned mode evaluation
+    if (getLocalTime(&timeinfo))
+    {
+      measStat.curr_minutes = timeinfo.tm_min;
+      log_v("Current time for evaluation: %02d:%02d", timeinfo.tm_hour, measStat.curr_minutes);
+    }
+    int8_t sens_stat_count = 0;
+    for (sens_stat_count = 0; sens_stat_count < SENS_STAT_MAX; sens_stat_count++)
+    {
+      if (err.senserrs[sens_stat_count] == true)
+      {
+        switch (sens_stat_count)
+        {
+        case SENS_STAT_BME680:
+          sensorData.status.BME680Sensor = true;
+          break;
+        case SENS_STAT_PMS5003:
+          sensorData.status.PMS5003Sensor = true;
+          break;
+        case SENS_STAT_MICS6814:
+          sensorData.status.MICS6814Sensor = true;
+          break;
+        case SENS_STAT_O3:
+          sensorData.status.O3Sensor = true;
           break;
         }
       }
-
-      // READING MICS6814
-      if (sensorData.status.MICS6814Sensor)
-      {
-        log_i("Sampling MICS6814 sensor...");
-        err.count = 0;
-        while (1)
-        { // TODO: add a timeout to this loop
-          MICS6814SensorReading_t micsLocData;
-
-          micsLocData.carbonMonoxide = gas.measureCO();
-          micsLocData.nitrogenDioxide = gas.measureNO2();
-          micsLocData.ammonia = gas.measureNH3();
-
-          if ((micsLocData.carbonMonoxide < 0) || (micsLocData.nitrogenDioxide < 0) || (micsLocData.ammonia < 0))
-          {
-            if (err.count > 2)
-            {
-              log_e("Error while sampling!");
-              err.MICSfails++;
-              break;
-            }
-            err.count++;
-            delay(1000);
-            continue;
-          }
-
-          micsLocData.carbonMonoxide = vGeneric_convertPpmToUgM3(micsLocData.carbonMonoxide, sensorData.pollutionData.molarMass.carbonMonoxide);
-          log_v("CO(ug/m3): %.3f", micsLocData.carbonMonoxide);
-          sensorData.pollutionData.data.carbonMonoxide += micsLocData.carbonMonoxide;
-
-          micsLocData.nitrogenDioxide = vGeneric_convertPpmToUgM3(micsLocData.nitrogenDioxide, sensorData.pollutionData.molarMass.nitrogenDioxide);
-          if (sensorData.status.BME680Sensor)
-          {
-            micsLocData.nitrogenDioxide = fHalSensor_no2AndVocCompensation(micsLocData.nitrogenDioxide, &localData, &sensorData);
-          }
-          log_v("NOx(ug/m3): %.3f", micsLocData.nitrogenDioxide);
-          sensorData.pollutionData.data.nitrogenDioxide += micsLocData.nitrogenDioxide;
-
-          micsLocData.ammonia = vGeneric_convertPpmToUgM3(micsLocData.ammonia, sensorData.pollutionData.molarMass.ammonia);
-          log_v("NH3(ug/m3): %.3f\n", micsLocData.ammonia);
-          sensorData.pollutionData.data.ammonia += micsLocData.ammonia;
-
-          break;
-        }
-      }
-
-      // READING O3
-      if (sensorData.status.O3Sensor)
-      {
-        ze25Data_t o3Data;
-        log_i("Sampling O3 sensor...");
-        err.count = 0;
-        while (1)
-        { // TODO: add a timeout to this loop
-          if (!tHalSensor_isAnalogO3Connected())
-          {
-            if (err.count > 2)
-            {
-              log_e("Error while sampling O3 sensor!");
-              err.O3fails++;
-              break;
-            }
-            delay(1000);
-            err.count++;
-            continue;
-          }
-          o3Data.ozone = fHalSensor_analogUgM3O3Read(&localData.temperature, &sensorData);
-          log_v("O3(ug/m3): %.3f", o3Data.ozone);
-          sensorData.ozoneData.ozone += o3Data.ozone;
-
-          break;
-        }
-        Serial.println();
-      }
-
-      // READING PMS5003
-      if (sensorData.status.PMS5003Sensor)
-      {
-        log_i("Sampling PMS5003 sensor...");
-        err.count = 0;
-        while (1)
-        { // TODO: add a timeout to this loop
-          while (pmsSerial.available())
-          {
-            pmsSerial.read();
-          }
-          if (!pms.readUntil(data))
-          {
-            if (err.count > 2)
-            {
-              log_e("Error while sampling PMS5003 sensor!");
-              err.PMSfails++;
-              break;
-            }
-            delay(1000);
-            err.count++;
-            continue;
-          }
-          log_v("PM1(ug/m3): %d", data.PM_AE_UG_1_0);
-          sensorData.airQualityData.particleMicron1 += data.PM_AE_UG_1_0;
-
-          log_v("PM2,5(ug/m3): %d", data.PM_AE_UG_2_5);
-          sensorData.airQualityData.particleMicron25 += data.PM_AE_UG_2_5;
-
-          log_v("PM10(ug/m3): %d\n", data.PM_AE_UG_10_0);
-          sensorData.airQualityData.particleMicron10 += data.PM_AE_UG_10_0;
-
-          break;
-        }
-      }
-
-      measStat.measurement_count++;
-
-      log_i("Sensor values AFTER evaluation:\n");
-      log_i("temp: %.2f, hum: %.2f, pre: %.2f, VOC: %.2f, PM1: %d, PM25: %d, PM10: %d, MICS_CO: %.2f, MICS_NO2: %.2f, MICS_NH3: %.2f, ozone: %.2f, MSP: %d, measurement_count: %d\n",
-            sensorData.gasData.temperature, sensorData.gasData.humidity, sensorData.gasData.pressure, sensorData.gasData.volatileOrganicCompounds,
-            sensorData.airQualityData.particleMicron1, sensorData.airQualityData.particleMicron25, sensorData.airQualityData.particleMicron10,
-            sensorData.pollutionData.data.carbonMonoxide, sensorData.pollutionData.data.nitrogenDioxide, sensorData.pollutionData.data.ammonia,
-            sensorData.ozoneData.ozone, sensorData.MSP, measStat.measurement_count);
-      log_i("Measurements done, going to timeout...\n");
-      mainStateMachine.next_state = SYS_STATE_EVAL_SENSOR_STATUS;
-      break;
     }
 
-    case SYS_STATE_EVAL_SENSOR_STATUS:
+    // Check if it's time to send data
+    bool timeToSend = false;
+    if(measStat.measurement_count >= measStat.avg_measurements)
     {
-      Serial.println("Evaluating sensor status...");
-      int8_t sens_stat_count = 0;
-      for (sens_stat_count = 0; sens_stat_count < SENS_STAT_MAX; sens_stat_count++)
-      {
-        if (err.senserrs[sens_stat_count] == true)
-        {
-          switch (sens_stat_count)
-          {
-          case SENS_STAT_BME680:
-            sensorData.status.BME680Sensor = true;
-            break;
-          case SENS_STAT_PMS5003:
-            sensorData.status.PMS5003Sensor = true;
-            break;
-          case SENS_STAT_MICS6814:
-            sensorData.status.MICS6814Sensor = true;
-            break;
-          case SENS_STAT_O3:
-            sensorData.status.O3Sensor = true;
-            break;
-          }
-        }
-      }
-
-      if (measStat.measurement_count >= measStat.avg_measurements)
-      {
-        log_i("All measurements obtained, going to send data...\n");
-        mainStateMachine.next_state = SYS_STATE_SEND_DATA; // go to send data state
-      }
-      else
-      {
-        // MEASUREMENTS MESSAGE
-        log_i("Measurements in progress...\n");
-        vMsp_updateDataAndEvent(DISP_EVENT_MEAS_IN_PROGRESS);
-        tTaskDisplay_sendEvent(&displayData);
-
-        log_i("Not enough measurements obtained, going to wait for timeout...\n");
-        mainStateMachine.next_state = SYS_STATE_WAIT_FOR_TIMEOUT;
-      }
-
-      break;
+      log_i("All measurements obtained, going to send data...\n");
+      timeToSend = true;
+    }
+    else
+    {
+      timeToSend = false;
     }
 
-    case SYS_STATE_SEND_DATA:
+    if (timeToSend)
     {
-      log_i("Sending data to server...\n");
-
-      // We have obtained all the measurements, do the mean and transmit the data
-      log_i("All measurements obtained, sending data...\n");
-      log_i("Sensor values BEFORE AVERAGE:\n");
-      log_i("temp: %.2f, hum: %.2f, pre: %.2f, VOC: %.2f, PM1: %d, PM25: %d, PM10: %d, MICS_CO: %.2f, MICS_NO2: %.2f, MICS_NH3: %.2f, ozone: %.2f, MSP: %d, measurement_count: %d vs %d\n",
-            sensorData.gasData.temperature, sensorData.gasData.humidity, sensorData.gasData.pressure,
-            sensorData.gasData.volatileOrganicCompounds,
-            sensorData.airQualityData.particleMicron1, sensorData.airQualityData.particleMicron25, sensorData.airQualityData.particleMicron10,
-            sensorData.pollutionData.data.carbonMonoxide, sensorData.pollutionData.data.nitrogenDioxide, sensorData.pollutionData.data.ammonia,
-            sensorData.ozoneData.ozone, sensorData.MSP, measStat.measurement_count, measStat.avg_measurements);
-
-      vMsp_updateDataAndEvent(DISP_EVENT_SENDING_MEAS);
+      log_i("Conditions met, going to send data...\n");
+      mainStateMachine.next_state = SYS_STATE_SEND_DATA; // go to send data state
+    }
+    else
+    {
+      // MEASUREMENTS MESSAGE
+      log_i("Measurements in progress...\n");
+      vMsp_updateDataAndEvent(DISP_EVENT_MEAS_IN_PROGRESS);
       tTaskDisplay_sendEvent(&displayData);
 
-      if (sensorData.status.BME680Sensor || sensorData.status.PMS5003Sensor || sensorData.status.MICS6814Sensor || sensorData.status.MICS4514Sensor || sensorData.status.O3Sensor)
-      {
-        vHalSensor_performAverages(&err, &sensorData, &measStat);
-      }
-
-      // MSP# Index evaluation
-      sensorData.MSP = sHalSensor_evaluateMSPIndex(&sensorData);
-
-      Serial.println("Sending data to server...");
-      send_data_t sendData;
-      memcpy(&sendData.sendTimeInfo, &timeinfo, sizeof(tm)); // copy time info to sendData
-      log_i("Current time: %02d:%02d:%02d\n", sendData.sendTimeInfo.tm_hour, sendData.sendTimeInfo.tm_min, sendData.sendTimeInfo.tm_sec);
-      // The measuremente starts the minute before the timeout, so we need to add the additional delay
-      // additional delay in seconds and the next minute
-      sendData.sendTimeInfo.tm_sec = 0;
-      // Scale up the minutes and hour to obtain the correct time
-      if (sendData.sendTimeInfo.tm_min == 59)
-      {
-        sendData.sendTimeInfo.tm_min = 0;
-        sendData.sendTimeInfo.tm_hour++;
-        if (sendData.sendTimeInfo.tm_hour >= 24)
-        {
-          sendData.sendTimeInfo.tm_hour = 0; // reset hour to 0 if it is 24
-        }
-      }
-      else
-      {
-        sendData.sendTimeInfo.tm_min++;
-      }
-      log_i("Scaled time: %02d:%02d:%02d\n", sendData.sendTimeInfo.tm_hour, sendData.sendTimeInfo.tm_min, sendData.sendTimeInfo.tm_sec);
-      sendData.temp = sensorData.gasData.temperature;
-      sendData.hum = sensorData.gasData.humidity;
-      sendData.pre = sensorData.gasData.pressure;
-      sendData.VOC = sensorData.gasData.volatileOrganicCompounds;
-      sendData.PM1 = sensorData.airQualityData.particleMicron1;
-      sendData.PM25 = sensorData.airQualityData.particleMicron25;
-      sendData.PM10 = sensorData.airQualityData.particleMicron10;
-      sendData.MICS_CO = sensorData.pollutionData.data.carbonMonoxide;
-      sendData.MICS_NO2 = sensorData.pollutionData.data.nitrogenDioxide;
-      sendData.MICS_NH3 = sensorData.pollutionData.data.ammonia;
-      sendData.ozone = sensorData.ozoneData.ozone;
-      sendData.MSP = sensorData.MSP;
-
-      log_i("Sensor values AFTER AVERAGE:\n");
-      log_i("temp: %.2f, hum: %.2f, pre: %.2f, VOC: %.2f, PM1: %d, PM25: %d, PM10: %d, MICS_CO: %.2f, MICS_NO2: %.2f, MICS_NH3: %.2f, ozone: %.2f, MSP: %d, measurement_count: %d\n",
-            sensorData.gasData.temperature, sensorData.gasData.humidity, sensorData.gasData.pressure,
-            sensorData.gasData.volatileOrganicCompounds,
-            sensorData.airQualityData.particleMicron1, sensorData.airQualityData.particleMicron25, sensorData.airQualityData.particleMicron10,
-            sensorData.pollutionData.data.carbonMonoxide, sensorData.pollutionData.data.nitrogenDioxide, sensorData.pollutionData.data.ammonia,
-            sensorData.ozoneData.ozone, sensorData.MSP, measStat.measurement_count);
-
-      log_i("Send Time: %02d:%02d:%02d\n", sendData.sendTimeInfo.tm_hour, sendData.sendTimeInfo.tm_min, sendData.sendTimeInfo.tm_sec);
-
-      // Enqueue data for transmission by network task
-      if (enqueueSendData(sendData, pdMS_TO_TICKS(5000))) {
-        log_i("Data enqueued successfully for network transmission");
-      } else {
-        log_e("Failed to enqueue data for transmission - queue might be full");
-      }
-
-      // show the already captured data
-      vMsp_updateDataAndEvent(DISP_EVENT_SHOW_MEAS_DATA);
-      tTaskDisplay_sendEvent(&displayData);
-
-      Serial.printf("Current time: %02d:%02d:%02d\n", sendData.sendTimeInfo.tm_hour, sendData.sendTimeInfo.tm_min, sendData.sendTimeInfo.tm_sec);
-      Serial.printf("temp: %.2f, hum: %.2f, pre: %.2f, VOC: %.2f, PM1: %d, PM25: %d, PM10: %d, MICS_CO: %.2f, MICS_NO2: %.2f, MICS_NH3: %.2f, ozone: %.2f, MSP: %d, measurement_count: %d vs %d\n",
-                    sensorData.gasData.temperature, sensorData.gasData.humidity, sensorData.gasData.pressure,
-                    sensorData.gasData.volatileOrganicCompounds,
-                    sensorData.airQualityData.particleMicron1, sensorData.airQualityData.particleMicron25, sensorData.airQualityData.particleMicron10,
-                    sensorData.pollutionData.data.carbonMonoxide, sensorData.pollutionData.data.nitrogenDioxide, sensorData.pollutionData.data.ammonia,
-                    sensorData.ozoneData.ozone, sensorData.MSP, measStat.measurement_count, measStat.avg_measurements);
-
-      mainStateMachine.isFirstTransition = 1; // set first transition flag
-      // This will clean up the sensor variables for the next cycle
-      // set the flag to true, so instead of timeout , the display is shown with previous calculated data.
-      measStat.isSensorDataAvailable = true;
-
-      mainStateMachine.next_state = SYS_STATE_WAIT_FOR_TIMEOUT; // go to wait for timeout state
-      break;
+      log_i("Not enough measurements obtained, going to wait for timeout...\n");
+      mainStateMachine.next_state = SYS_STATE_WAIT_FOR_TIMEOUT;
     }
 
-    case SYS_STATE_ERROR:
+    break;
+  }
+
+  case SYS_STATE_SEND_DATA:
+  {
+    log_i("Sending data to server...\n");
+
+    // We have obtained all the measurements, do the mean and transmit the data
+    log_i("All measurements obtained, sending data...\n");
+    log_i("Sensor values BEFORE AVERAGE:\n");
+    log_i("temp: %.2f, hum: %.2f, pre: %.2f, VOC: %.2f, PM1: %d, PM25: %d, PM10: %d, MICS_CO: %.2f, MICS_NO2: %.2f, MICS_NH3: %.2f, ozone: %.2f, MSP: %d, measurement_count: %d vs %d\n",
+          sensorData.gasData.temperature, sensorData.gasData.humidity, sensorData.gasData.pressure,
+          sensorData.gasData.volatileOrganicCompounds,
+          sensorData.airQualityData.particleMicron1, sensorData.airQualityData.particleMicron25, sensorData.airQualityData.particleMicron10,
+          sensorData.pollutionData.data.carbonMonoxide, sensorData.pollutionData.data.nitrogenDioxide, sensorData.pollutionData.data.ammonia,
+          sensorData.ozoneData.ozone, sensorData.MSP, measStat.measurement_count, measStat.avg_measurements);
+
+    vMsp_updateDataAndEvent(DISP_EVENT_SENDING_MEAS);
+    tTaskDisplay_sendEvent(&displayData);
+
+    if (sensorData.status.BME680Sensor || sensorData.status.PMS5003Sensor || sensorData.status.MICS6814Sensor || sensorData.status.MICS4514Sensor || sensorData.status.O3Sensor)
     {
-      vMsp_updateDataAndEvent(DISP_EVENT_SYSTEM_ERROR);
-      tTaskDisplay_sendEvent(&displayData);
-      log_e("System in error state! Waiting for reset...");
-      vTaskDelay(portMAX_DELAY);
-      break;
+      log_i("Computing averages from %d measurements", measStat.measurement_count);
+      vHalSensor_performAverages(&err, &sensorData, &measStat);
     }
 
-    default:
+    // MSP# Index evaluation
+    sensorData.MSP = sHalSensor_evaluateMSPIndex(&sensorData);
+
+    log_i("Sending data to server...");
+    send_data_t sendData;
+    memcpy(&sendData.sendTimeInfo, &timeinfo, sizeof(tm)); // copy time info to sendData
+    log_i("Current time: %02d:%02d:%02d\n", sendData.sendTimeInfo.tm_hour, sendData.sendTimeInfo.tm_min, sendData.sendTimeInfo.tm_sec);
+    // The measuremente starts the minute before the timeout, so we need to add the additional delay
+    // additional delay in seconds and the next minute
+    sendData.sendTimeInfo.tm_sec = 0;
+    // Scale up the minutes and hour to obtain the correct time
+    if (sendData.sendTimeInfo.tm_min == 59)
     {
-      log_e("Unknown state %d!", mainStateMachine.current_state);
-      mainStateMachine.next_state = SYS_STATE_WAIT_FOR_TIMEOUT; // go to error state
-      break;
+      sendData.sendTimeInfo.tm_min = 0;
+      sendData.sendTimeInfo.tm_hour++;
+      if (sendData.sendTimeInfo.tm_hour >= 24)
+      {
+        sendData.sendTimeInfo.tm_hour = 0; // reset hour to 0 if it is 24
+      }
     }
+    else
+    {
+      sendData.sendTimeInfo.tm_min++;
+    }
+
+    log_i("Scaled time: %02d:%02d:%02d\n", sendData.sendTimeInfo.tm_hour, sendData.sendTimeInfo.tm_min, sendData.sendTimeInfo.tm_sec);
+    sendData.temp = sensorData.gasData.temperature;
+    sendData.hum = sensorData.gasData.humidity;
+    sendData.pre = sensorData.gasData.pressure;
+    sendData.VOC = sensorData.gasData.volatileOrganicCompounds;
+    sendData.PM1 = sensorData.airQualityData.particleMicron1;
+    sendData.PM25 = sensorData.airQualityData.particleMicron25;
+    sendData.PM10 = sensorData.airQualityData.particleMicron10;
+    sendData.MICS_CO = sensorData.pollutionData.data.carbonMonoxide;
+    sendData.MICS_NO2 = sensorData.pollutionData.data.nitrogenDioxide;
+    sendData.MICS_NH3 = sensorData.pollutionData.data.ammonia;
+    sendData.ozone = sensorData.ozoneData.ozone;
+    sendData.MSP = sensorData.MSP;
+
+    log_i("Sensor values AFTER AVERAGE:\n");
+    log_i("temp: %.2f, hum: %.2f, pre: %.2f, VOC: %.2f, PM1: %d, PM25: %d, PM10: %d, MICS_CO: %.2f, MICS_NO2: %.2f, MICS_NH3: %.2f, ozone: %.2f, MSP: %d, measurement_count: %d\n",
+          sensorData.gasData.temperature, sensorData.gasData.humidity, sensorData.gasData.pressure,
+          sensorData.gasData.volatileOrganicCompounds,
+          sensorData.airQualityData.particleMicron1, sensorData.airQualityData.particleMicron25, sensorData.airQualityData.particleMicron10,
+          sensorData.pollutionData.data.carbonMonoxide, sensorData.pollutionData.data.nitrogenDioxide, sensorData.pollutionData.data.ammonia,
+          sensorData.ozoneData.ozone, sensorData.MSP, measStat.measurement_count);
+
+    log_i("Send Time: %02d:%02d:%02d\n", sendData.sendTimeInfo.tm_hour, sendData.sendTimeInfo.tm_min, sendData.sendTimeInfo.tm_sec);
+
+    // Enqueue data for transmission by network task
+    if (enqueueSendData(sendData, pdMS_TO_TICKS(1000)))
+    {
+      log_i("Data enqueued successfully for network transmission");
+    }
+    else
+    {
+      log_e("Failed to enqueue data for transmission - queue might be full");
+    }
+
+    // show the already captured data
+    vMsp_updateDataAndEvent(DISP_EVENT_SHOW_MEAS_DATA);
+    tTaskDisplay_sendEvent(&displayData);
+
+    log_i("Current time: %02d:%02d:%02d", sendData.sendTimeInfo.tm_hour, sendData.sendTimeInfo.tm_min, sendData.sendTimeInfo.tm_sec);
+    log_i("temp: %.2f, hum: %.2f, pre: %.2f, VOC: %.2f, PM1: %d, PM25: %d, PM10: %d, MICS_CO: %.2f, MICS_NO2: %.2f, MICS_NH3: %.2f, ozone: %.2f, MSP: %d, measurement_count: %d vs %d",
+          sensorData.gasData.temperature, sensorData.gasData.humidity, sensorData.gasData.pressure,
+          sensorData.gasData.volatileOrganicCompounds,
+          sensorData.airQualityData.particleMicron1, sensorData.airQualityData.particleMicron25, sensorData.airQualityData.particleMicron10,
+          sensorData.pollutionData.data.carbonMonoxide, sensorData.pollutionData.data.nitrogenDioxide, sensorData.pollutionData.data.ammonia,
+          sensorData.ozoneData.ozone, sensorData.MSP, measStat.measurement_count, measStat.avg_measurements);
+
+    mainStateMachine.isFirstTransition = 1; // set first transition flag
+    // This will clean up the sensor variables for the next cycle
+    // set the flag to true, so instead of timeout , the display is shown with previous calculated data.
+    measStat.isSensorDataAvailable = true;
+
+    // Reset measurement count for next cycle
+    log_i("Transmission complete, resetting measurement count from %d to 0", measStat.measurement_count);
+    measStat.measurement_count = 0;
+
+    // Set up for next cycle - the mode will be determined when isFirstTransition is processed
+    log_i("Next cycle: will collect up to %d measurements", measStat.max_measurements);
+
+    mainStateMachine.next_state = SYS_STATE_WAIT_FOR_TIMEOUT; // go to wait for timeout state
+    break;
+  }
+
+  case SYS_STATE_ERROR:
+  {
+    vMsp_updateDataAndEvent(DISP_EVENT_SYSTEM_ERROR);
+    tTaskDisplay_sendEvent(&displayData);
+    log_e("System in error state! Waiting for reset...");
+    vTaskDelay(portMAX_DELAY);
+    break;
+  }
+
+  default:
+  {
+    log_e("Unknown state %d!", mainStateMachine.current_state);
+    mainStateMachine.next_state = SYS_STATE_WAIT_FOR_TIMEOUT; // go to error state
+    break;
+  }
   }
   mainStateMachine.current_state = mainStateMachine.next_state; // update current state to next state
 }
@@ -921,7 +1010,7 @@ void vMspInit_NetworkAndMeasInfo(void)
 {
   // Initialize measurement info
   vMspInit_MeasInfo();
-  
+
   // Initialize network configuration (network task will load from SD)
   devinfo = deviceNetworkInfo_t{}; // Initialize all members to default values
   devinfo.wifipow = WIFI_POWER_17dBm;
@@ -935,13 +1024,120 @@ void vMspInit_MeasInfo(void)
   measStat.isSensorDataAvailable = false;
 }
 
+/**
+ * @brief Configure system with SD card data or apply defaults
+ * @param sysData System data structure
+ * @param sysStat System status structure
+ * @param devInfo Device network info structure
+ * @param measStat Measurement statistics structure
+ */
+void vMspInit_configureSystemFromSD(systemData_t *sysData, systemStatus_t *sysStat,
+                                    deviceNetworkInfo_t *devInfo, deviceMeasurement_t *measStat)
+{
+  log_i("Configuring system from SD data or defaults...");
+
+  // Apply configuration defaults if SD card data is missing or invalid
+  if (!sysStat->configuration || !sysStat->sdCard)
+  {
+    log_w("SD configuration unavailable, applying defaults");
+
+    // Network defaults
+    if (devInfo->ssid.length() == 0)
+    {
+      devInfo->ssid = "DefaultSSID";
+      log_i("Applied default WiFi SSID");
+    }
+    if (devInfo->passw.length() == 0)
+    {
+      devInfo->passw = "DefaultPass";
+      log_i("Applied default WiFi password");
+    }
+    if (devInfo->apn.length() == 0)
+    {
+      devInfo->apn = "internet";
+      log_i("Applied default APN");
+    }
+
+    // Server configuration
+    if (sysData->server.length() == 0)
+    {
+#ifdef API_SERVER
+      sysData->server = API_SERVER;
+      sysStat->server_ok = true;
+      log_i("Applied compile-time API server: %s", sysData->server.c_str());
+#else
+      sysData->server = "milanosmartpark.info";
+      sysStat->server_ok = true;
+      log_w("Applied fallback server: %s", sysData->server.c_str());
+#endif
+    }
+
+    // API credentials
+    if (sysData->api_secret_salt.length() == 0)
+    {
+#ifdef API_SECRET_SALT
+      sysData->api_secret_salt = API_SECRET_SALT;
+      log_i("Applied compile-time API secret");
+#else
+      sysData->api_secret_salt = "default_salt";
+      log_w("Applied fallback API secret");
+#endif
+    }
+
+    // Measurement configuration
+    if (measStat->avg_measurements <= 0)
+    {
+      measStat->avg_measurements = 5; // Default to 5 measurements
+      log_i("Applied default avg_measurements: %d", measStat->avg_measurements);
+    }
+
+    // NTP configuration
+    if (sysData->ntp_server.length() == 0)
+    {
+      sysData->ntp_server = NTP_SERVER_DEFAULT;
+      log_i("Applied default NTP server: %s", sysData->ntp_server.c_str());
+    }
+    if (sysData->timezone.length() == 0)
+    {
+      sysData->timezone = TZ_DEFAULT;
+      log_i("Applied default timezone: %s", sysData->timezone.c_str());
+    }
+  }
+  else
+  {
+    log_i("Using SD card configuration");
+
+    // Validate loaded configuration
+    if (measStat->avg_measurements <= 0 || measStat->avg_measurements > 60)
+    {
+      log_w("Invalid avg_measurements (%d), setting to 5", measStat->avg_measurements);
+      measStat->avg_measurements = 5;
+    }
+
+    // Ensure server_ok flag is set if server is configured
+    if (sysData->server.length() > 0 && !sysStat->server_ok)
+    {
+      sysStat->server_ok = true;
+      log_i("Server configured, setting server_ok flag");
+    }
+  }
+
+// Apply firmware version
+#ifdef VERSION_STRING
+  sysData->ver = VERSION_STRING;
+#else
+  sysData->ver = "DEV";
+#endif
+
+  log_i("System configuration completed successfully");
+}
+
 void vMspInit_setDefaultNtpTimezoneStatus(systemData_t *p_tData)
 {
   // set default values
   p_tData->ntp_server = NTP_SERVER_DEFAULT; /*!<default NTP server */
   p_tData->timezone = TZ_DEFAULT;           /*!<default timezone */
 }
-
 
 void vMsp_updateDataAndEvent(displayEvents_t event)
 {
