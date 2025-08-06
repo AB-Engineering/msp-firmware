@@ -19,6 +19,8 @@
 #include "shared_values.h"
 #include <bsec.h>
 
+#define SEA_LEVEL_ALTITUDE_IN_M     122.0f /*!<sea level altitude in meters, defaults to Milan, Italy */
+
 #define REFERENCE_TEMP_C            25.0f             // Standard temperature in Celsius
 #define GAS_CONSTANT                83.1446261815324f  // Ideal gas constant in L·hPa/(mol·K)
 #define REFERENCE_PRESSURE_HPA      1013.25f           // Standard pressure in hPa
@@ -44,6 +46,11 @@
 #define PRESS_COMP_PARAM    (0.0132f)
 
 #define MSP_DEFAULT_DATA ((int8_t) -1)
+
+/*!< ozone sensor ADC zero default offset is 1489, -1 to disable it (0.4V to 1.1V range in 12bit resolution at 0dB attenuation) */
+#define O3_SENS_DISABLE_ZERO_OFFSET (-1)
+
+#define PMS_PREHEAT_TIME_IN_SEC 20 /*!<PMS5003 preheat time in seconds, defaults to 45 seconds */
 
 /***************************************************
  * @brief checks BME680 status

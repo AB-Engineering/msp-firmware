@@ -5,13 +5,12 @@
  * @details This file contains functions to manage mutexes for thread safety in the project.
  * @version 0.1
  * @date    2025-07-25
- * 
+ *
  * @copyright Copyright (c) 2025
- * 
+ *
  ***********************************************************************************************/
 
-
- // -- includes --
+// -- includes --
 #include "mspOs.h"
 
 // -- global mutex handle
@@ -20,7 +19,7 @@ SemaphoreHandle_t dataAccessMutex = NULL;
 
 /**************************************************
  * @brief Initializes the mutex for data access.
- * 
+ *
  **************************************************/
 void vMspOs_initDataAccessMutex()
 {
@@ -33,7 +32,7 @@ void vMspOs_initDataAccessMutex()
 
 /**********************************************************
  * @brief   Takes (locks) the mutex for data access.
- * 
+ *
  *********************************************************/
 void vMspOs_takeDataAccessMutex()
 {
@@ -45,7 +44,7 @@ void vMspOs_takeDataAccessMutex()
 
 /**********************************************************
  * @brief  Releases (unlocks) the mutex for data access.
- * 
+ *
  **********************************************************/
 void vMspOs_giveDataAccessMutex()
 {

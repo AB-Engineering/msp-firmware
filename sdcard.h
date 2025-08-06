@@ -49,5 +49,26 @@ void vHalSdcard_logToSD(send_data_t *data, systemData_t *p_tSysData, systemStatu
  *****************************************************/
 void vHalSdcard_readSD(systemStatus_t *p_tSys,deviceNetworkInfo_t *p_tDev,sensorData_t *p_tData,deviceMeasurement_t *pDev,systemData_t *p_tSysData);
 
+/********************************************************
+ * @brief initialize SD card
+ * 
+ * @param p_tSys system status structure
+ * @param p_tDev device network info structure  
+ * @return uint8_t success/failure
+ ********************************************************/
+uint8_t initializeSD(systemStatus_t *p_tSys, deviceNetworkInfo_t *p_tDev);
+
+/********************************************************
+ * @brief check and parse configuration file
+ * 
+ * @param configpath path to config file
+ * @param p_tDev device network info structure
+ * @param p_tData sensor data structure  
+ * @param pDev device measurement structure
+ * @param p_tSys system status structure
+ * @param p_tSysData system data structure
+ * @return uint8_t success/failure
+ ********************************************************/
+uint8_t checkConfig(const char *configpath, deviceNetworkInfo_t *p_tDev, sensorData_t *p_tData, deviceMeasurement_t *pDev, systemStatus_t *p_tSys, systemData_t *p_tSysData);
 
 #endif
