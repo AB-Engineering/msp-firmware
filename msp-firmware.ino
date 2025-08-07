@@ -785,20 +785,9 @@ void loop()
     }
 
     // Check if it's time to send data
-    bool timeToSend = false;
-    if(measStat.measurement_count >= measStat.avg_measurements)
+    if (measStat.measurement_count >= measStat.avg_measurements)
     {
       log_i("All measurements obtained, going to send data...\n");
-      timeToSend = true;
-    }
-    else
-    {
-      timeToSend = false;
-    }
-
-    if (timeToSend)
-    {
-      log_i("Conditions met, going to send data...\n");
       mainStateMachine.next_state = SYS_STATE_SEND_DATA; // go to send data state
     }
     else

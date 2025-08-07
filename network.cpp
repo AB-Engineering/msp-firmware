@@ -35,10 +35,6 @@
 #define TINY_GSM_RX_BUFFER 650
 #endif
 
-// Network hardware objects (moved from main file)
-static WiFiClient wifi_base;
-static SSLClient wificlient(wifi_base, TAs, (size_t)TAs_NUM, SSL_RAND_PIN, 1, SSLClient::SSL_ERROR);
-
 // Hardware serial for GSM
 HardwareSerial gsmSerial(1);
 
@@ -88,6 +84,7 @@ static struct
 // Global instances (properly managed within task)
 static TinyGsm *modem = NULL;
 static TinyGsmClient *gsmClient = NULL;
+static WiFiClient wifi_base;
 static SSLClient *sslClient = NULL;
 
 // Global data structure pointers (shared with main task)
@@ -97,7 +94,7 @@ static deviceNetworkInfo_t *globalDevInfo = NULL;
 
 // Forward declarations
 static void networkTask(void *pvParameters);
-static bool initializeNetworkResources();
+static bool initializeNetworkResources(bool isUsingModem);
 static void cleanupNetworkResources();
 static bool handleWiFiConnection(deviceNetworkInfo_t *devInfo, systemStatus_t *sysStatus);
 static bool handleGSMConnection(deviceNetworkInfo_t *devInfo, systemStatus_t *sysStatus);
@@ -328,51 +325,70 @@ static bool isNetworkConnected()
 
 
 // Initialize network resources
-static bool initializeNetworkResources()
+static bool initializeNetworkResources(bool isUsingModem)
 {
     log_i("Initializing network resources...");
 
-    // Initialize GSM serial
-    gsmSerial.begin(9600, SERIAL_8N1, MODEM_RX, MODEM_TX);
-    delay(1000);
-
-    // Create modem instance
-    if (modem == NULL)
+    if(isUsingModem == true)
     {
-        modem = new TinyGsm(gsmSerial);
+        // Initialize GSM serial
+        gsmSerial.begin(9600, SERIAL_8N1, MODEM_RX, MODEM_TX);
+        delay(1000);
+
+        // Create modem instance
         if (modem == NULL)
         {
-            log_e("Failed to create TinyGsm instance");
-            return false;
+            modem = new TinyGsm(gsmSerial);
+            if (modem == NULL)
+            {
+                log_e("Failed to create TinyGsm instance");
+                return false;
+            }
         }
-    }
 
-    // Create GSM client
-    if (gsmClient == NULL)
-    {
-        gsmClient = new TinyGsmClient(*modem);
+        // Create GSM client
         if (gsmClient == NULL)
         {
-            log_e("Failed to create TinyGsmClient instance");
-            delete modem;
-            modem = NULL;
-            return false;
+            gsmClient = new TinyGsmClient(*modem);
+            if (gsmClient == NULL)
+            {
+                log_e("Failed to create TinyGsmClient instance");
+                delete modem;
+                modem = NULL;
+                return false;
+            }
         }
-    }
 
-    // Create SSL client
-    if (sslClient == NULL)
-    {
-        sslClient = new SSLClient(*gsmClient, TAs, (size_t)TAs_NUM, SSL_RAND_PIN, 1, SSLClient::SSL_ERROR);
+        // Create SSL client
         if (sslClient == NULL)
         {
-            log_e("Failed to create SSLClient instance");
-            delete gsmClient;
-            delete modem;
-            gsmClient = NULL;
-            modem = NULL;
-            return false;
+            sslClient = new SSLClient(*gsmClient, TAs, (size_t)TAs_NUM, SSL_RAND_PIN, 1, SSLClient::SSL_ERROR);
+            if (sslClient == NULL)
+            {
+                log_e("Failed to create SSLClient instance");
+                delete gsmClient;
+                delete modem;
+                gsmClient = NULL;
+                modem = NULL;
+                return false;
+            }
         }
+    }
+    else
+    {
+     if (sslClient == NULL)
+        {
+            sslClient = new SSLClient(wifi_base, TAs, (size_t)TAs_NUM, SSL_RAND_PIN, 1, SSLClient::SSL_ERROR);
+            if (sslClient == NULL)
+            {
+                log_e("Failed to create SSLClient instance");
+                delete gsmClient;
+                delete modem;
+                gsmClient = NULL;
+                modem = NULL;
+                return false;
+            }
+        }   
     }
 
     log_i("Network resources initialized successfully");
@@ -1025,8 +1041,13 @@ static void networkTask(void *pvParameters)
 #endif
     }
 
+    // Load initial configuration from SD card
+    sensorData_t sensorData = {};
+    deviceMeasurement_t measStat = {};
+    loadNetworkConfiguration(&devInfo, &sysStatus, &sysData, &sensorData, &measStat);
+
     // Initialize network resources
-    if (!initializeNetworkResources())
+    if (!initializeNetworkResources(sysStatus.use_modem))
     {
         log_e("Failed to initialize network resources, task exiting");
 
@@ -1040,11 +1061,6 @@ static void networkTask(void *pvParameters)
         vTaskDelete(NULL);
         return;
     }
-
-    // Load initial configuration from SD card
-    sensorData_t sensorData = {};
-    deviceMeasurement_t measStat = {};
-    loadNetworkConfiguration(&devInfo, &sysStatus, &sysData, &sensorData, &measStat);
 
     // Print MAC address for identification
     uint8_t baseMac[6];
