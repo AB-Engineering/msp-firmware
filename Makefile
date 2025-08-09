@@ -35,7 +35,6 @@ SRCDIR := $(ROOT)
 VARDIR := $(ROOT)/var
 LOGDIR := $(VARDIR)/log
 BUILDDIR := $(VARDIR)/build
-CACHEDIR := $(BUILDDIR)/cache
 
 # Build a list of source files for dependency management.
 SRCS := $(shell find $(SRCDIR) -name "*.ino" -or -name "*.cpp" -or -name "*.c" -or -name "*.h")
@@ -139,7 +138,7 @@ sketch:
 
 properties:
 	$(BINDIR)/arduino-cli --config-file $(ETCDIR)/arduino-cli.yaml compile \
-	--build-path $(BUILDDIR) --build-cache-path $(CACHEDIR) \
+	--build-path $(BUILDDIR) \
 	--build-property $(BUILDPROP) \
 	--build-property 'compiler.cpp.extra_flags=-DVERSION_STRING="$(VERSION_STRING)" $(CPP_EXTRA_FLAGS)' \
 	--warnings all --log-file $(LOGDIR)/build.log --log-level debug $(ARGS_VERBOSE) \
@@ -150,7 +149,7 @@ lint:
 
 $(BUILDDIR)/$(SKETCH).ino.elf: $(SRCS)
 	$(BINDIR)/arduino-cli --config-file $(ETCDIR)/arduino-cli.yaml compile \
-	--build-path $(BUILDDIR) --build-cache-path $(CACHEDIR) \
+	--build-path $(BUILDDIR) \
 	--build-property $(BUILDPROP) \
 	--build-property 'compiler.cpp.extra_flags=-DVERSION_STRING="$(VERSION_STRING)" $(CPP_EXTRA_FLAGS)' \
 	--build-property 'build.code_debug=$(CUSTOM_DEBUG_LEVEL)' \
