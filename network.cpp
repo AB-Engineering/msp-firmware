@@ -157,9 +157,7 @@ void initSendDataOp(systemData_t *sysData, systemStatus_t *sysStatus, deviceNetw
     globalDevInfo = devInfo;
 
     log_i("Network task initialized with global data structures");
-    log_i("Server from main task: %s", globalSysData->server.c_str());
     log_i("Server OK from main task: %d", globalSysStatus->server_ok);
-    log_i("API secret salt: %s", globalSysData->api_secret_salt.c_str());
 
     // Create queue
     if (sendDataQueue == NULL)

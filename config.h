@@ -17,12 +17,12 @@
 
 // API Server Configuration
 #ifndef API_SERVER
-#define API_SERVER "milanosmartpark.info"
+#define API_SERVER ""
 #endif
 
 // API Security Configuration
 #ifndef API_SECRET_SALT
-#define API_SECRET_SALT "2198be9d8e83a662210ef9cd8acc5b36"
+#define API_SECRET_SALT "secret_salt"
 #endif
 
 // ===== Hardware Pin Definitions =====
