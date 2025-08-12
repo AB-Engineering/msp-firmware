@@ -503,14 +503,51 @@ void updateDisplayStatus(deviceNetworkInfo_t *devInfo, systemStatus_t *sysStatus
         return;
     }
 
-    displayData.currentEvent = event;
+    displayData_t localDisplayData = {};
+    localDisplayData.currentEvent = event;
 
     vMspOs_takeDataAccessMutex();
-    displayData.devInfo = *devInfo;
-    displayData.sysStat = *sysStatus;
+    localDisplayData.devInfo = *devInfo;
+    localDisplayData.sysStat = *sysStatus;
     vMspOs_giveDataAccessMutex();
 
-    tTaskDisplay_sendEvent(&displayData);
+    tTaskDisplay_sendEvent(&localDisplayData);
+}
+
+/******************************************************************************************
+ * @brief Updates display data and sends event to display task queue
+ * 
+ * @param event Display event to process and send
+ * @param sensorData Sensor data structure
+ * @param devInfo Device network info structure
+ * @param measStat Measurement statistics structure
+ * @param sysData System data structure
+ * @param sysStat System status structure
+ ******************************************************************************************/
+void vMsp_updateDataAndSendEvent(displayEvents_t event, 
+                                sensorData_t *sensorData,
+                                deviceNetworkInfo_t *devInfo,
+                                deviceMeasurement_t *measStat,
+                                systemData_t *sysData,
+                                systemStatus_t *sysStat)
+{
+  displayData_t localDisplayData = {};
+  localDisplayData.currentEvent = event;
+
+  vMspOs_takeDataAccessMutex();
+
+  if (event == DISP_EVENT_SHOW_MEAS_DATA)
+  {
+    localDisplayData.sensorData = *sensorData;
+  }
+  localDisplayData.devInfo = *devInfo;
+  localDisplayData.measStat = *measStat;
+  localDisplayData.sysData = *sysData;
+  localDisplayData.sysStat = *sysStat;
+
+  vMspOs_giveDataAccessMutex();
+
+  tTaskDisplay_sendEvent(&localDisplayData);
 }
 
 //************************************** EOF **************************************

@@ -32,19 +32,23 @@ uint8_t checkConfig(const char *configpath, deviceNetworkInfo_t *p_tDev, sensorD
 uint8_t addToLog(const char *path, const char *oldpath, const char *errpath, String *message);
 
 /**********************************************************************
- * @brief update data required for network events into display data queue
+ * @brief Send network data to display task queue using local structure
  *
  * @param p_tDev
  * @param p_tSys
  * @param event
  **********************************************************************/
-static void vMsp_updateNetworkData(deviceNetworkInfo_t *p_tDev, systemStatus_t *p_tSys, displayEvents_t event)
+static void vMsp_sendNetworkDataToDisplay(deviceNetworkInfo_t *p_tDev, systemStatus_t *p_tSys, displayEvents_t event)
 {
-  displayData.currentEvent = event;
+  displayData_t localDisplayData = {};
+  localDisplayData.currentEvent = event;
+  
   vMspOs_takeDataAccessMutex();
-  displayData.devInfo = *p_tDev;
-  displayData.sysStat = *p_tSys;
+  localDisplayData.devInfo = *p_tDev;
+  localDisplayData.sysStat = *p_tSys;
   vMspOs_giveDataAccessMutex();
+  
+  tTaskDisplay_sendEvent(&localDisplayData);
 }
 
 /**********************************************************************
@@ -64,8 +68,7 @@ uint8_t initializeSD(systemStatus_t *p_tSys, deviceNetworkInfo_t *p_tDev)
     if (timeout > 4)
     { // errors after 10 seconds
       log_e("No SD Card detected! No internet connection possible!\n");
-      vMsp_updateNetworkData(p_tDev, p_tSys, DISP_EVENT_SD_CARD_NOT_PRESENT);
-      tTaskDisplay_sendEvent(&displayData);
+      vMsp_sendNetworkDataToDisplay(p_tDev, p_tSys, DISP_EVENT_SD_CARD_NOT_PRESENT);
 
       return false;
     }
@@ -88,8 +91,7 @@ uint8_t initializeSD(systemStatus_t *p_tSys, deviceNetworkInfo_t *p_tDev)
   else
   {
     log_e("Unidentified Card type, format the SD Card!  No internet connection possible!\n");
-    vMsp_updateNetworkData(p_tDev, p_tSys, DISP_EVENT_SD_CARD_FORMAT);
-    tTaskDisplay_sendEvent(&displayData);
+    vMsp_sendNetworkDataToDisplay(p_tDev, p_tSys, DISP_EVENT_SD_CARD_FORMAT);
     return false;
   }
   delay(300);
@@ -475,8 +477,7 @@ uint8_t checkConfig(const char *configpath, deviceNetworkInfo_t *p_tDev, sensorD
     else
     {
       log_e("Error parsing config file! No network configuration!\n");
-      vMsp_updateNetworkData(p_tDev, p_tSys, DISP_EVENT_SD_CARD_CONFIG_ERROR);
-      tTaskDisplay_sendEvent(&displayData);
+      vMsp_sendNetworkDataToDisplay(p_tDev, p_tSys, DISP_EVENT_SD_CARD_CONFIG_ERROR);
 
       return false;
     }
@@ -484,8 +485,7 @@ uint8_t checkConfig(const char *configpath, deviceNetworkInfo_t *p_tDev, sensorD
   else
   {
     log_e("Couldn't find config file! Creating a new one with template...");
-    vMsp_updateNetworkData(p_tDev, p_tSys, DISP_EVENT_SD_CARD_CONFIG_CREATE);
-    tTaskDisplay_sendEvent(&displayData);
+    vMsp_sendNetworkDataToDisplay(p_tDev, p_tSys, DISP_EVENT_SD_CARD_CONFIG_CREATE);
     cfgfile = SD.open(configpath, FILE_WRITE); // open r/w
 
     if (cfgfile)
@@ -525,14 +525,12 @@ uint8_t checkConfig(const char *configpath, deviceNetworkInfo_t *p_tDev, sensorD
       cfgfile.println(conftemplate);
       log_i("New config file with template created!\n");
       cfgfile.close();
-      vMsp_updateNetworkData(p_tDev, p_tSys, DISP_EVENT_SD_CARD_CONFIG_INS_DATA);
-      tTaskDisplay_sendEvent(&displayData);
+      vMsp_sendNetworkDataToDisplay(p_tDev, p_tSys, DISP_EVENT_SD_CARD_CONFIG_INS_DATA);
     }
     else
     {
       log_e("Error writing to SD Card!\n");
-      vMsp_updateNetworkData(p_tDev, p_tSys, DISP_EVENT_SD_CARD_WRITE_DATA);
-      tTaskDisplay_sendEvent(&displayData);
+      vMsp_sendNetworkDataToDisplay(p_tDev, p_tSys, DISP_EVENT_SD_CARD_WRITE_DATA);
     }
 
     return false;
@@ -726,8 +724,7 @@ void vHalSdcard_logToSD(send_data_t *data, systemData_t *p_tSysData, systemStatu
   else
   {
     log_e("Error updating SD Card log file!\n");
-    vMsp_updateNetworkData(p_tDev, p_tSys, DISP_EVENT_SD_CARD_LOG_ERROR);
-    tTaskDisplay_sendEvent(&displayData);
+    vMsp_sendNetworkDataToDisplay(p_tDev, p_tSys, DISP_EVENT_SD_CARD_LOG_ERROR);
   }
 }
 
@@ -744,20 +741,17 @@ void vHalSdcard_readSD(systemStatus_t *p_tSys, deviceNetworkInfo_t *p_tDev, sens
 {
 
   log_i("Initializing SD Card...\n");
-  vMsp_updateNetworkData(p_tDev, p_tSys, DISP_EVENT_SD_CARD_INIT);
-  tTaskDisplay_sendEvent(&displayData);
+  vMsp_sendNetworkDataToDisplay(p_tDev, p_tSys, DISP_EVENT_SD_CARD_INIT);
   p_tSys->sdCard = initializeSD(p_tSys, p_tDev);
   if (p_tSys->sdCard)
   {
     log_i("SD Card ok! Reading configuration...\n");
-    vMsp_updateNetworkData(p_tDev, p_tSys, DISP_EVENT_CONFIG_READ);
-    tTaskDisplay_sendEvent(&displayData);
+    vMsp_sendNetworkDataToDisplay(p_tDev, p_tSys, DISP_EVENT_CONFIG_READ);
     p_tSys->configuration = checkConfig("/config_v3.txt", p_tDev, p_tData, pDev, p_tSys, p_tSysData);
     if (p_tSys->server_ok)
     {
       log_e("No server URL defined. Can't upload data!\n");
-      vMsp_updateNetworkData(p_tDev, p_tSys, DISP_EVENT_URL_UPLOAD_STAT);
-      tTaskDisplay_sendEvent(&displayData);
+      vMsp_sendNetworkDataToDisplay(p_tDev, p_tSys, DISP_EVENT_URL_UPLOAD_STAT);
     }
     // if (avg_delay < 50) {
     //   log_e("AVG_DELAY should be at least 50 seconds! Setting to 50...\n");

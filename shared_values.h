@@ -41,8 +41,9 @@ typedef struct __STATE_MACHINE__
 {
   uint8_t current_state;
   uint8_t next_state;
-  uint8_t isFirstTransition;
-  uint8_t returnState;
+  bool    isFirstTransition;
+  uint8_t return_state;
+  uint8_t prev_state;
 } state_machine_t;
 
 typedef enum __SYSTEM_STATES__
@@ -51,7 +52,6 @@ typedef enum __SYSTEM_STATES__
   SYS_STATE_WAIT_FOR_TIMEOUT,
   SYS_STATE_READ_SENSORS,
   SYS_STATE_ERROR,
-  SYS_STATE_UPDATE_DATE_TIME,
   SYS_STATE_EVAL_SENSOR_STATUS,
   SYS_STATE_SEND_DATA,
   SYS_STATE_MAX_STATES
@@ -218,6 +218,7 @@ typedef struct __MEASUREMENT__
   int32_t avg_delay;
   int32_t max_measurements;
   int32_t measurement_count; /*!< Number of measurements in the current cycle */
+  bool data_transmitted; /*!< Flag to prevent duplicate transmissions in the same cycle */
   int32_t curr_minutes;
   int32_t curr_seconds;
   int32_t curr_total_seconds;
@@ -240,6 +241,7 @@ typedef struct __SYSTEMDATA_T__
   String currentDataTime;
   char Date[DATE_LEN];
   char Time[TIME_LEN];
+  int ntp_last_sync_day; // Day of year (0-365) when NTP was last synced
 } systemData_t;
 
 typedef struct __SEND_DATA__

@@ -218,15 +218,22 @@ void vHalSensor_printMeasurementsOnSerial(send_data_t *data, sensorData_t *p_tPt
 void vHalSensor_performAverages(errorVars_t *p_tErr, sensorData_t *p_tData, deviceMeasurement_t *p_tMeas)
 {
 
-  log_i("Performing averages...\n");
+  log_i("=== AVERAGING CALCULATION ===");
+  log_i("Total measurement_count: %d", p_tMeas->measurement_count);
+  log_i("Error counts: BME=%d, PMS=%d, MICS=%d, O3=%d", p_tErr->BMEfails, p_tErr->PMSfails, p_tErr->MICSfails, p_tErr->O3fails);
 
   short runs = p_tMeas->measurement_count - p_tErr->BMEfails;
+  log_i("BME680: runs = %d - %d = %d", p_tMeas->measurement_count, p_tErr->BMEfails, runs);
   if (p_tData->status.BME680Sensor && runs > 0)
   {
+    log_i("BME680 BEFORE: temp=%.3f, pressure=%.3f, humidity=%.3f", 
+          p_tData->gasData.temperature, p_tData->gasData.pressure, p_tData->gasData.humidity);
     p_tData->gasData.temperature /= runs;
     p_tData->gasData.pressure /= runs;
     p_tData->gasData.humidity /= runs;
     p_tData->gasData.volatileOrganicCompounds /= runs;
+    log_i("BME680 AFTER: temp=%.3f, pressure=%.3f, humidity=%.3f (divided by %d)", 
+          p_tData->gasData.temperature, p_tData->gasData.pressure, p_tData->gasData.humidity, runs);
   }
   else if (p_tData->status.BME680Sensor)
   {

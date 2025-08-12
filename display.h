@@ -21,9 +21,6 @@
 #include "shared_values.h"
 #include "display_task.h"
 
-// External declarations
-extern displayData_t displayData;
-
 /******************************************************
  * @brief function to initialize the serial and I2C display.
  * 
@@ -134,5 +131,22 @@ void vHalDisplay_drawMspIndexData(sensorData_t *p_tData,systemStatus_t *statPtr,
  * @param event Display event to show
  ******************************************************************************************/
 void updateDisplayStatus(deviceNetworkInfo_t *devInfo, systemStatus_t *sysStatus, displayEvents_t event);
+
+/******************************************************************************************
+ * @brief Updates display data and sends event to display task queue
+ * 
+ * @param event Display event to process and send
+ * @param sensorData Sensor data structure
+ * @param devInfo Device network info structure
+ * @param measStat Measurement statistics structure
+ * @param sysData System data structure
+ * @param sysStat System status structure
+ ******************************************************************************************/
+void vMsp_updateDataAndSendEvent(displayEvents_t event, 
+                                sensorData_t *sensorData,
+                                deviceNetworkInfo_t *devInfo,
+                                deviceMeasurement_t *measStat,
+                                systemData_t *sysData,
+                                systemStatus_t *sysStat);
 
 #endif

@@ -946,27 +946,41 @@ static bool sendDataToServer(send_data_t *dataToSend, deviceNetworkInfo_t *devIn
             }
             sslClient->flush();
 
-            // Read response with timeout (simplified version matching original)
+            // Read response with proper timeout handling
             String response = "";
             unsigned long responseStart = millis();
             
-            while (sslClient->available())
+            // Wait for initial response or timeout
+            while (millis() - responseStart < SERVER_RESPONSE_TIMEOUT_MS)
             {
-                char c = sslClient->read();
-                response += c;
-                unsigned long timeout = millis() - responseStart;
-                if (timeout > SERVER_RESPONSE_TIMEOUT_MS)
-                    break;
+                if (sslClient->available())
+                {
+                    char c = sslClient->read();
+                    response += c;
+                    
+                    // If we've read the HTTP headers (double CRLF), we can analyze the response
+                    if (response.indexOf("\r\n\r\n") >= 0)
+                    {
+                        // We have at least the HTTP headers, sufficient for status code check
+                        break;
+                    }
+                }
+                else
+                {
+                    // No data available yet, wait a bit
+                    delay(10);
+                }
             }
 
             sslClient->stop();
 
             log_d("Server response (%d bytes): %s", response.length(), response.substring(0, 200).c_str());
 
-            // Check server response (matching original logic)
-            if (response.startsWith("HTTP/1.1 201 Created", 0))
+            // Check server response - accept both 200 OK and 201 Created as success
+            if (response.startsWith("HTTP/1.1 200", 0) || response.startsWith("HTTP/1.1 201", 0))
             {
-                log_i("Server answer ok! Data uploaded successfully!");
+                log_i("Server answer ok! Data uploaded successfully! Status: %s", 
+                      response.substring(0, response.indexOf('\r')).c_str());
                 sysData->sent_ok = true;
                 sendNetworkEvent(NET_EVENT_DATA_SENT);
                 return true;
@@ -974,7 +988,8 @@ static bool sendDataToServer(send_data_t *dataToSend, deviceNetworkInfo_t *devIn
             else
             {
                 log_e("Server answered with an error! Data not uploaded!");
-                log_e("The full answer is:\n%s\n", response.c_str());
+                log_e("Status line: %s", response.substring(0, response.indexOf('\r')).c_str());
+                log_d("Full response: %s", response.c_str());
                 // Continue to retry
             }
         }
