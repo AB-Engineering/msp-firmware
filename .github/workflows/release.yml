@@ -48,9 +48,11 @@ jobs:
             var/build/msp-firmware.ino.partitions.bin \
             var/build/msp-firmware.ino.bootloader.bin \
             var/packages/esp32/hardware/esp32/${{ env.CORE_VERSION }}/tools/partitions/boot_app0.bin
+      - name: Create application-only bin for OTA updates
+        run: cp var/build/msp-firmware.ino.bin update_${{ env.RELEASE_VERSION }}.bin
       - name: Create Release
         uses: ncipollo/release-action@v1
         with:
           name: Release ${{ env.RELEASE_VERSION }}
-          artifacts: "msp-firmware-${{ env.RELEASE_VERSION }}-win64.zip, msp-firmware-${{ env.RELEASE_VERSION }}-macos.zip"
-          artifactContentType: application/zip
+          artifacts: "msp-firmware-${{ env.RELEASE_VERSION }}-win64.zip, msp-firmware-${{ env.RELEASE_VERSION }}-macos.zip, update_${{ env.RELEASE_VERSION }}.bin"
+          artifactContentType: application/octet-stream
