@@ -61,6 +61,43 @@
 #define MODEM_TX 13
 #define MODEM_RX 15
 
+// Config Filename
+#define CONFIG_FILENAME "config_v4.json"
+#define CONFIG_PATH "/" CONFIG_FILENAME
+
+// JSON Config Keys
+#define JSON_CONFIG_SECTION "config"
+#define JSON_HELP_SECTION "help"
+
+// Main Config Keys
+#define JSON_KEY_SSID "ssid"
+#define JSON_KEY_PASSWORD "password"
+#define JSON_KEY_DEVICE_ID "device_id"
+#define JSON_KEY_WIFI_POWER "wifi_power"
+#define JSON_KEY_O3_ZERO_VALUE "o3_zero_value"
+#define JSON_KEY_AVERAGE_MEASUREMENTS "average_measurements"
+#define JSON_KEY_AVERAGE_DELAY_SECONDS "average_delay_seconds"
+#define JSON_KEY_SEA_LEVEL_ALTITUDE "sea_level_altitude"
+#define JSON_KEY_UPLOAD_SERVER "upload_server"
+#define JSON_KEY_MICS_CALIBRATION_VALUES "mics_calibration_values"
+#define JSON_KEY_MICS_MEASUREMENTS_OFFSETS "mics_measurements_offsets"
+#define JSON_KEY_COMPENSATION_FACTORS "compensation_factors"
+#define JSON_KEY_USE_MODEM "use_modem"
+#define JSON_KEY_MODEM_APN "modem_apn"
+#define JSON_KEY_NTP_SERVER "ntp_server"
+#define JSON_KEY_TIMEZONE "timezone"
+#define JSON_KEY_FW_AUTO_UPGRADE "fw_auto_upgrade"
+
+// MICS Calibration Sub-keys
+#define JSON_KEY_MICS_RED "RED"
+#define JSON_KEY_MICS_OX "OX"
+#define JSON_KEY_MICS_NH3 "NH3"
+
+// Compensation Factor Sub-keys
+#define JSON_KEY_COMP_H "compH"
+#define JSON_KEY_COMP_T "compT"
+#define JSON_KEY_COMP_P "compP"
+
 // ===== Network Protocol Configuration =====
 
 // NTP Configuration

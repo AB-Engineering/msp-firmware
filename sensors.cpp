@@ -108,7 +108,7 @@ void vHalSensor_writeMicsValues(sensorData_t *p_tData)
  **********************************************************/
 mspStatus_t tHalSensor_checkMicsValues(sensorData_t *p_tData, sensorR0Value_t *ptr)
 {
-  if (ptr->redSensor == p_tData->pollutionData.sensingResInAir.redSensor && ptr->oxSensor == p_tData->pollutionData.sensingResInAir.oxSensor && ptr->nh3Sensor == p_tData->pollutionData.sensingResInAir.nh3Sensor)
+  if ((ptr->redSensor == p_tData->pollutionData.sensingResInAir.redSensor) && (ptr->oxSensor == p_tData->pollutionData.sensingResInAir.oxSensor) && (ptr->nh3Sensor == p_tData->pollutionData.sensingResInAir.nh3Sensor))
   {
     return STATUS_OK;
   }
