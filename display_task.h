@@ -139,12 +139,4 @@ BaseType_t tTaskDisplay_receiveEvent(displayData_t *data, TickType_t xTicksToWai
 #define DISPLAY_TASK_PRIORITY 1
 #endif
 
-
-// ===== Task Management for FOTA Mode =====
-#ifdef ENABLE_FOTA_MODE
-void vDisplay_suspendTask();
-void vDisplay_resumeTask();
-bool bDisplay_isTaskRunning();
-#endif
-
 #endif

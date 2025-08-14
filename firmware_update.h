@@ -29,18 +29,20 @@ bool bHalFirmware_markFirmwareValid();
 bool bHalFirmware_rollbackFirmware();
 bool bHalFirmware_isRollbackAvailable();
 
+#ifdef ENABLE_ENHANCED_SECURITY
+// Enhanced Security functions (only available when ENABLE_ENHANCED_SECURITY is defined)
+bool bHalFirmware_verifyFirmwareSignature(const String &firmwarePath);
+bool bHalFirmware_verifyFirmwareHash(const String &firmwarePath, const String &expectedHash = "");
+bool bHalFirmware_verifyDetachedSignature(const String &firmwarePath, const String &signatureFilePath);
+#endif
+
+#ifdef ENABLE_FIRMWARE_UPDATE_TESTS
 // Test functions
 void vHalFirmware_testVersionComparison();
 void vHalFirmware_testGitHubAPI();
 void vHalFirmware_testConfigParsing(systemStatus_t *sysStatus);
 void vHalFirmware_testOTAManagement();
 void vHalFirmware_testForceOTAUpdate(systemData_t *sysData, systemStatus_t *sysStatus, deviceNetworkInfo_t *devInfo);
-
-#ifdef ENABLE_FOTA_MODE
-// FOTA mode functions for task management and memory optimization
-void vHalFirmware_enterFOTAMode();
-void vHalFirmware_exitFOTAMode();
-bool bHalFirmware_performFOTAInMainLoop(systemData_t *sysData, systemStatus_t *sysStatus, deviceNetworkInfo_t *devInfo);
 #endif
 
 #endif // FIRMWARE_UPDATE_H

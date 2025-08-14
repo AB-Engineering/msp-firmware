@@ -204,7 +204,7 @@ void setup()
   // STEP 0: OTA Firmware Validation and Management
   log_i("=== STEP 0: OTA Firmware Validation ===");
   vHalFirmware_printOTAInfo();
-  
+
   // Validate current firmware after boot
   if (bHalFirmware_validateCurrentFirmware())
   {
@@ -234,7 +234,7 @@ void setup()
   log_i("  Use Modem: %s", sysStat.use_modem ? "YES" : "NO");
   log_i("  Firmware Auto-Upgrade: %s", sysStat.fwAutoUpgrade ? "ENABLED" : "DISABLED");
 
-// Firmware update tests will be run after network connection is established
+  // Firmware update tests will be run after network connection is established
 
   // STEP 3: Start network task with complete configuration
   log_i("=== STEP 3: Starting network task ===");
@@ -398,7 +398,7 @@ void setup()
 
   //++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
   mainStateMachine.isFirstTransition = 1; // set first transition flag
-  
+
   // copy the whole sensorData_accumulate into sensorData_single
   memcpy(&sensorData_single, &sensorData_accumulate, sizeof(sensorData_t));
 
@@ -412,41 +412,13 @@ void setup()
 //*******************************************************************************************************************************
 void loop()
 {
-#ifdef ENABLE_FIRMWARE_UPDATE_TESTS
-  // Check for OTA trigger file on SD card (safe, no memory issues)
-  static unsigned long lastOtaCheck = 0;
-  if (millis() - lastOtaCheck > 10000) { // Check every 10 seconds
-    lastOtaCheck = millis();
-    
-    if (SD.exists("/ota_test.txt") && sysStat.connection) {
-      log_i("=== OTA Test Trigger File Found ===");
-      
-      // Read the trigger file to see what test to run
-      File triggerFile = SD.open("/ota_test.txt", FILE_READ);
-      if (triggerFile) {
-        String command = triggerFile.readString();
-        triggerFile.close();
-        command.trim();
-        
-        if (command == "TEST") {
-          log_i("Running OTA tests...");
-          vHalFirmware_testConfigParsing(&sysStat);
-          vHalFirmware_testVersionComparison();
-          vHalFirmware_testOTAManagement();
-          vHalFirmware_testGitHubAPI();
-          log_i("OTA tests complete");
-        } else if (command == "UPDATE") {
-          log_i("Triggering firmware update...");
-          requestFirmwareUpdate(&sysData, &sysStat, &devinfo);
-        }
-        
-        // Remove trigger file after processing
-        SD.remove("/ota_test.txt");
-        log_i("=== OTA Trigger File Processed and Removed ===");
-      }
-    }
+  // Periodic SD card presence check
+  static unsigned long lastSdCheck = 0;
+  if (millis() - lastSdCheck > 30000)
+  { // Check every 30 seconds
+    lastSdCheck = millis();
+    vHalSdcard_periodicCheck(&sysStat, &devinfo);
   }
-#endif
 
   switch (mainStateMachine.current_state) // state machine for the main loop
   {
@@ -471,26 +443,13 @@ void loop()
       }
 
 #ifdef ENABLE_FIRMWARE_UPDATE_TESTS
-#ifndef DISABLE_AUTOMATIC_FIRMWARE_TESTS
       // Run firmware update tests now that internet connection is established
-      log_i("=== Running Firmware Update Tests (with internet connection) ===");
+      log_i("=== Running Firmware Update Tests ===");
       vHalFirmware_testConfigParsing(&sysStat);
       vHalFirmware_testVersionComparison();
       vHalFirmware_testOTAManagement();
       // GitHub API test can now properly test connectivity
       vHalFirmware_testGitHubAPI();
-#else
-      log_i("=== Firmware Update Tests available but disabled for stability ===");
-#endif
-      
-#ifdef ENABLE_FORCE_OTA_UPDATE_TEST
-      // DANGER: This will immediately perform OTA update and reboot!
-      log_w("FORCE OTA UPDATE TEST IS ENABLED!");
-      log_w("This will download and install latest firmware without version checking!");
-      requestFirmwareUpdate(&sysData, &sysStat, &devinfo);
-      // Device will reboot after this point if successful
-#endif
-      
       log_i("=== Firmware Update Tests Completed ===");
 #endif
 
@@ -519,7 +478,7 @@ void loop()
 
       // Check if daily NTP sync is needed (at 00:00:00)
       int current_day = timeinfo.tm_yday; // Day of year (0-365)
-      if ((timeinfo.tm_hour == 0 && timeinfo.tm_min == 0 && timeinfo.tm_sec == 0) && 
+      if ((timeinfo.tm_hour == 0 && timeinfo.tm_min == 0 && timeinfo.tm_sec == 0) &&
           (current_day != sysData.ntp_last_sync_day))
       {
         log_i("Daily NTP sync needed - triggering time synchronization");
@@ -531,7 +490,7 @@ void loop()
 
       // Check for firmware updates at 00:00:00 if fwAutoUpgrade is enabled
       static int last_fw_check_day = -1;
-      if ((timeinfo.tm_hour == 0 && timeinfo.tm_min == 0 && timeinfo.tm_sec == 0) && 
+      if ((timeinfo.tm_hour == 0 && timeinfo.tm_min == 0 && timeinfo.tm_sec == 0) &&
           (current_day != last_fw_check_day) && sysStat.fwAutoUpgrade)
       {
         log_i("Daily firmware update check triggered");
@@ -543,14 +502,14 @@ void loop()
       // We trigger measurement only when seconds == 0, ensuring exact minute alignment
       measStat.timeout_seconds = measStat.curr_seconds;
 
-      if(mainStateMachine.isFirstTransition == true)
+      if (mainStateMachine.isFirstTransition == true)
       {
         // Always set avg_measurements to max_measurements for consistent cycles
         measStat.avg_measurements = measStat.max_measurements;
-        
+
         // Simple clock-aligned timing: always transmit at boundaries (00, 05, 10, etc.)
         int position_in_cycle = measStat.curr_minutes % measStat.avg_measurements;
-        
+
         // Find the next transmission boundary
         int next_transmission_minute;
         if (position_in_cycle == 0)
@@ -563,16 +522,17 @@ void loop()
           // Find the next boundary
           next_transmission_minute = measStat.curr_minutes + (measStat.avg_measurements - position_in_cycle);
         }
-        if (next_transmission_minute >= 60) next_transmission_minute -= 60;
-        
-        // log_i("[TIMING] Current minute: %d, Position in %d-minute cycle: %d", 
+        if (next_transmission_minute >= 60)
+          next_transmission_minute -= 60;
+
+        // log_i("[TIMING] Current minute: %d, Position in %d-minute cycle: %d",
         //       measStat.curr_minutes, measStat.avg_measurements, position_in_cycle);
         // log_i("[TIMING] Next transmission boundary: %02d", next_transmission_minute);
-        
+
         // For proper alignment, we should start measurements when we can complete exactly
         // avg_measurements before the transmission boundary
         bool can_start_proper_cycle = true;
-        
+
         // If we're at position 0 (transmission boundary), wait for next minute to start
         if (position_in_cycle == 0)
         {
@@ -580,21 +540,21 @@ void loop()
           can_start_proper_cycle = false;
         }
         // Start measurements when we have exactly avg_measurements minutes to the boundary
-        // For avg_measurements=5: start at position 1 (e.g., minute 46 for boundary at 50)  
+        // For avg_measurements=5: start at position 1 (e.g., minute 46 for boundary at 50)
         else if (position_in_cycle == 1)
         {
-          log_i("[OK] Perfect timing - starting %d-measurement cycle ending at %02d", 
+          log_i("[OK] Perfect timing - starting %d-measurement cycle ending at %02d",
                 measStat.avg_measurements, next_transmission_minute);
           can_start_proper_cycle = true;
         }
         // Otherwise, wait for the next proper cycle
         else
         {
-          // log_i("[WAIT] Position %d - waiting for proper cycle start after boundary %02d", 
-                // position_in_cycle, next_transmission_minute);
+          // log_i("[WAIT] Position %d - waiting for proper cycle start after boundary %02d",
+          // position_in_cycle, next_transmission_minute);
           can_start_proper_cycle = false;
         }
-        
+
         if (can_start_proper_cycle)
         {
           mainStateMachine.isFirstTransition = false;
@@ -627,7 +587,7 @@ void loop()
         }
 
         // Only set first transition flag when coming from states that require reset
-        if((mainStateMachine.prev_state == SYS_STATE_WAIT_FOR_NTP_SYNC) || (mainStateMachine.prev_state == SYS_STATE_SEND_DATA))
+        if ((mainStateMachine.prev_state == SYS_STATE_WAIT_FOR_NTP_SYNC) || (mainStateMachine.prev_state == SYS_STATE_SEND_DATA))
         {
           mainStateMachine.isFirstTransition = true;
           log_i("Setting first transition flag for new measurement cycle");
@@ -665,7 +625,7 @@ void loop()
       mainStateMachine.prev_state = SYS_STATE_READ_SENSORS;
       break;
     }
-    
+
     log_i("Reading sensors...");
 
     // Reset accumulation variables when starting a new measurement cycle
@@ -695,7 +655,7 @@ void loop()
       // Note: measurement_count will be incremented after this sensor reading completes
       log_i("NEW MEASUREMENT CYCLE: Starting fresh with count %d (target: %d measurements)", measStat.measurement_count, measStat.avg_measurements);
     }
-    
+
     log_i("=== READING SENSOR #%d (target: %d measurements) ===", measStat.measurement_count + 1, measStat.avg_measurements);
 
     vMsp_updateDataAndSendEvent(DISP_EVENT_READING_SENSORS, &sensorData_single, &devinfo, &measStat, &sysData, &sysStat);
@@ -772,7 +732,7 @@ void loop()
         sensorData_single.gasData.volatileOrganicCompounds = localData.volatileOrganicCompounds;
         break;
       }
-      
+
       if (sensor_read_success)
       {
         log_i("BME680 measurement #%d completed successfully", measStat.measurement_count + 1);
@@ -833,7 +793,7 @@ void loop()
 
         break;
       }
-      
+
       if (mics_read_success)
       {
         log_i("MICS6814 measurement #%d completed successfully", measStat.measurement_count + 1);
@@ -873,7 +833,7 @@ void loop()
 
         break;
       }
-      
+
       if (o3_read_success)
       {
         log_i("O3 measurement #%d completed successfully", measStat.measurement_count + 1);
@@ -925,7 +885,7 @@ void loop()
 
         break;
       }
-      
+
       if (pms_read_success)
       {
         log_i("PMS5003 measurement #%d completed successfully", measStat.measurement_count + 1);
@@ -939,7 +899,7 @@ void loop()
 
     measStat.measurement_count++;
     log_i("MEASUREMENT COUNT: Incremented to %d (target: %d measurements)", measStat.measurement_count, measStat.avg_measurements);
-    log_i("Current minute: %d, expected transmission at boundary: %s", 
+    log_i("Current minute: %d, expected transmission at boundary: %s",
           measStat.curr_minutes, ((measStat.curr_minutes % measStat.avg_measurements) == 0) ? "YES" : "NO");
 
     log_i("Sensor values AFTER evaluation:\n");
@@ -997,11 +957,11 @@ void loop()
     // We transmit when: 1) we have collected avg_measurements AND 2) we're at a transmission boundary
     bool have_enough_measurements = (measStat.measurement_count >= measStat.avg_measurements);
     bool at_transmission_boundary = ((measStat.curr_minutes % measStat.avg_measurements) == 0); // Transmit at intervals
-    
-    log_i("TRANSMISSION CHECK: collected %d/%d measurements, boundary=%s (minute %d, interval=%d)", 
-          measStat.measurement_count, measStat.avg_measurements, 
+
+    log_i("TRANSMISSION CHECK: collected %d/%d measurements, boundary=%s (minute %d, interval=%d)",
+          measStat.measurement_count, measStat.avg_measurements,
           at_transmission_boundary ? "YES" : "NO", measStat.curr_minutes, measStat.avg_measurements);
-    
+
     if (have_enough_measurements && at_transmission_boundary && !measStat.data_transmitted)
     {
       log_i("All measurements obtained, going to send data...\n");
@@ -1047,18 +1007,18 @@ void loop()
     {
       log_i("Computing averages from %d measurements", measStat.measurement_count);
       log_i("Error counts: BME=%d, PMS=%d, MICS=%d, O3=%d", err.BMEfails, err.PMSfails, err.MICSfails, err.O3fails);
-      
+
       // Log values before averaging for debugging
-      log_i("BEFORE AVERAGING: temp=%.2f, PM2.5=%d, CO=%.2f", 
-            sensorData_accumulate.gasData.temperature, 
+      log_i("BEFORE AVERAGING: temp=%.2f, PM2.5=%d, CO=%.2f",
+            sensorData_accumulate.gasData.temperature,
             sensorData_accumulate.airQualityData.particleMicron25,
             sensorData_accumulate.pollutionData.data.carbonMonoxide);
 
       vHalSensor_performAverages(&err, &sensorData_accumulate, &measStat);
-      
-      // Log values after averaging for debugging  
-      log_i("AFTER AVERAGING: temp=%.2f, PM2.5=%d, CO=%.2f", 
-            sensorData_accumulate.gasData.temperature, 
+
+      // Log values after averaging for debugging
+      log_i("AFTER AVERAGING: temp=%.2f, PM2.5=%d, CO=%.2f",
+            sensorData_accumulate.gasData.temperature,
             sensorData_accumulate.airQualityData.particleMicron25,
             sensorData_accumulate.pollutionData.data.carbonMonoxide);
     }
@@ -1127,7 +1087,7 @@ void loop()
     log_i("TRANSMISSION ATTEMPT COMPLETE: Resetting measurement_count from %d to 0", measStat.measurement_count);
     measStat.measurement_count = 0;
     measStat.data_transmitted = false; // Reset flag for new measurement cycle
-    
+
     // Reset all sensor data (both single and accumulated) for clean start of next cycle
     log_i("Resetting all sensor data for next measurement cycle");
     // Reset accumulated sensor data
@@ -1142,7 +1102,7 @@ void loop()
     sensorData_accumulate.pollutionData.data.nitrogenDioxide = 0.0f;
     sensorData_accumulate.pollutionData.data.ammonia = 0.0f;
     sensorData_accumulate.ozoneData.ozone = 0.0f;
-    
+
     // Reset single measurement data
     sensorData_single.gasData.temperature = 0.0f;
     sensorData_single.gasData.pressure = 0.0f;
@@ -1158,7 +1118,6 @@ void loop()
 
     // After transmission, system is now aligned - next cycles will be full measurements
     log_i("Data sent successfully. System now aligned - next cycles will collect %d measurements", measStat.max_measurements);
-
 
     mainStateMachine.prev_state = SYS_STATE_SEND_DATA;
     mainStateMachine.next_state = SYS_STATE_WAIT_FOR_TIMEOUT; // go to wait for timeout state

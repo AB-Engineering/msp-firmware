@@ -476,28 +476,3 @@ void vTaskDisplay_createTask(void)
       1                        // Core 1
   );
 }
-
-// ===== Task Management for FOTA Mode =====
-#ifdef ENABLE_FOTA_MODE
-void vDisplay_suspendTask() {
-    if (displayTaskHandle != NULL) {
-        log_i("Suspending display task for FOTA mode");
-        vTaskSuspend(displayTaskHandle);
-    }
-}
-
-void vDisplay_resumeTask() {
-    if (displayTaskHandle != NULL) {
-        log_i("Resuming display task after FOTA");
-        vTaskResume(displayTaskHandle);
-    }
-}
-
-bool bDisplay_isTaskRunning() {
-    if (displayTaskHandle != NULL) {
-        eTaskState taskState = eTaskGetState(displayTaskHandle);
-        return (taskState == eRunning || taskState == eReady || taskState == eBlocked);
-    }
-    return false;
-}
-#endif

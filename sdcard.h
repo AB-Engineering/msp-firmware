@@ -71,4 +71,13 @@ uint8_t initializeSD(systemStatus_t *p_tSys, deviceNetworkInfo_t *p_tDev);
  ********************************************************/
 uint8_t checkConfig(const char *configpath, deviceNetworkInfo_t *p_tDev, sensorData_t *p_tData, deviceMeasurement_t *pDev, systemStatus_t *p_tSys, systemData_t *p_tSysData);
 
+/********************************************************
+ * @brief periodic SD card presence check
+ * 
+ * @param p_tSys system status structure
+ * @param p_tDev device network info structure
+ * @return uint8_t current SD card presence status
+ ********************************************************/
+uint8_t vHalSdcard_periodicCheck(systemStatus_t *p_tSys, deviceNetworkInfo_t *p_tDev);
+
 #endif

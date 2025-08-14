@@ -782,3 +782,84 @@ void vHalSdcard_readSD(systemStatus_t *p_tSys, deviceNetworkInfo_t *p_tDev, sens
     uHalSdcard_checkLogFile(p_tDev);
   }
 }
+
+/********************************************************
+ * @brief periodic SD card presence check
+ * 
+ * @param p_tSys system status structure
+ * @param p_tDev device network info structure
+ * @return uint8_t current SD card presence status
+ ********************************************************/
+uint8_t vHalSdcard_periodicCheck(systemStatus_t *p_tSys, deviceNetworkInfo_t *p_tDev)
+{
+  static uint8_t previousSdStatus = 255; // Use 255 as uninitialized marker
+  uint8_t currentSdStatus = false;
+  
+  // Initialize previousSdStatus based on actual system status on first call
+  if (previousSdStatus == 255)
+  {
+    previousSdStatus = p_tSys->sdCard;
+  }
+  
+  // Quick check without lengthy initialization
+  uint8_t cardType = SD.cardType();
+  if (cardType != CARD_NONE)
+  {
+    currentSdStatus = true;
+    log_v("SD Card periodic check: Present");
+  }
+  else
+  {
+    // Only try re-initialization if we think the card was previously present
+    // This avoids unnecessary SD.begin() calls that might interfere with operations
+    if (previousSdStatus == true)
+    {
+      // Try to re-initialize if card seems missing but was previously present
+      if (SD.begin())
+      {
+        cardType = SD.cardType();
+        if (cardType != CARD_NONE)
+        {
+          currentSdStatus = true;
+          log_v("SD Card periodic check: Present (after re-init)");
+        }
+        else
+        {
+          currentSdStatus = false;
+          log_v("SD Card periodic check: Not present");
+        }
+      }
+      else
+      {
+        currentSdStatus = false;
+        log_v("SD Card periodic check: Not present (re-init failed)");
+      }
+    }
+    else
+    {
+      currentSdStatus = false;
+      log_v("SD Card periodic check: Not present (no re-init attempted)");
+    }
+  }
+  
+  // Update system status and log changes
+  if (currentSdStatus != previousSdStatus)
+  {
+    if (currentSdStatus)
+    {
+      log_i("SD Card detected - card was inserted");
+      vMsp_sendNetworkDataToDisplay(p_tDev, p_tSys, DISP_EVENT_SD_CARD_INIT);
+    }
+    else
+    {
+      log_w("SD Card removed - card is no longer present");
+      vMsp_sendNetworkDataToDisplay(p_tDev, p_tSys, DISP_EVENT_SD_CARD_NOT_PRESENT);
+    }
+    previousSdStatus = currentSdStatus;
+  }
+  
+  // Update system status
+  p_tSys->sdCard = currentSdStatus;
+  
+  return currentSdStatus;
+}

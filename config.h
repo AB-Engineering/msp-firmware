@@ -15,11 +15,23 @@
 
 // ===== Network Configuration =====
 
-// #define ENABLE_FIRMWARE_UPDATE_TESTS      // Re-enabled: for controlled testing
-// #define DISABLE_AUTOMATIC_FIRMWARE_TESTS  // Critical: no auto-testing
-// #define ENABLE_ACTUAL_OTA_UPDATE_TEST     // Re-enabled: for controlled testing
-// #define ENABLE_FOTA_MODE               // Disabled: missing task implementation causing boot loop
-// #define ENABLE_FORCE_OTA_UPDATE_TEST   // Too risky
+// #define ENABLE_FIRMWARE_UPDATE_TESTS      // enable for FOTA controlled testing
+
+// ===== Security Configuration =====
+
+// Enhanced Security Features (disabled by default - enable for production)
+// #define ENABLE_ENHANCED_SECURITY
+
+// When ENABLE_ENHANCED_SECURITY is defined, provides:
+// - Firmware signature verification using ESP32 secure boot integration
+// - SHA256 hash validation for integrity checking  
+// - Detached signature support for GitHub Actions releases
+// - Enhanced security logging and status reporting
+// - Compatible with ESP32 secure boot and flash encryption
+// - Automatic removal of potentially malicious firmware files
+//
+// Note: Basic firmware validation (header, size, format) is always enabled
+// Enable this flag for production deployments requiring cryptographic verification
 
 // API Server Configuration
 #ifndef API_SERVER

@@ -244,13 +244,6 @@ void vHalNetwork_printWiFiMACAddr(systemStatus_t *p_tSys, deviceNetworkInfo_t *p
 #define NETWORK_LIB_VERSION_PATCH 0
 #define NETWORK_LIB_VERSION "0.2.0"
 
-// ===== Task Management for FOTA Mode =====
-#ifdef ENABLE_FOTA_MODE
-void vNetwork_suspendTask();
-void vNetwork_resumeTask();
-bool bNetwork_isTaskRunning();
-#endif
-
 #endif // NETWORK_H
 
 //************************************** EOF **************************************

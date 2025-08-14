@@ -1474,7 +1474,7 @@ static void networkTask(void *pvParameters)
                 }
 
                 // Always log to SD card if available
-                log_d("Writing log to SD card...");
+                log_i("Writing log to SD card... SD status: %s", sysStatus.sdCard ? "OK" : "FAIL");
                 if (sysStatus.sdCard)
                 {
                     if (uHalSdcard_checkLogFile(&devInfo))
@@ -1484,7 +1484,7 @@ static void networkTask(void *pvParameters)
                         memset(&localSensorData, 0, sizeof(sensorData_t));
 
                         vHalSdcard_logToSD(&currentData, &sysData, &sysStatus, &localSensorData, &devInfo);
-                        log_d("Data logged to SD card successfully");
+                        log_i("Data logged to SD card successfully");
                     }
                     else
                     {
@@ -1596,11 +1596,7 @@ static void networkTask(void *pvParameters)
                     pendingFwUpdate.sysStatus,
                     pendingFwUpdate.devInfo);
 
-                if (success)
-                {
-                    log_i("OTA update completed successfully - device will reboot");
-                }
-                else
+                if (success == false)
                 {
                     log_e("OTA update failed");
                 }
@@ -1842,34 +1838,3 @@ void vMspInit_setApiSecSaltAndFwVer(systemData_t *p_tData)
     p_tData->ver = VERSION_STRING;
     log_i("Firmware version set to: %s", p_tData->ver.c_str());
 }
-
-#ifdef ENABLE_FOTA_MODE
-// ===== Task Management for FOTA Mode =====
-
-void vNetwork_suspendTask()
-{
-    if (networkTaskHandle != NULL)
-    {
-        log_i("Suspending network task for FOTA mode");
-        vTaskSuspend(networkTaskHandle);
-    }
-}
-
-void vNetwork_resumeTask()
-{
-    if (networkTaskHandle != NULL)
-    {
-        log_i("Resuming network task after FOTA");
-        vTaskResume(networkTaskHandle);
-    }
-}
-
-bool bNetwork_isTaskRunning()
-{
-    if (networkTaskHandle == NULL)
-    {
-        return false;
-    }
-    return (eTaskGetState(networkTaskHandle) != eSuspended);
-}
-#endif
