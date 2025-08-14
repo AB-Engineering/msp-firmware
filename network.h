@@ -33,8 +33,7 @@
 #define NET_EVT_DISCONNECT_REQ   (1 << 6)
 #define NET_EVT_TIME_SYNC_REQ    (1 << 7)
 #define NET_EVT_DATA_READY       (1 << 8)
-#define NET_EVT_FW_UPDATE_REQ    (1 << 9)
-#define NET_EVT_CONFIG_UPDATED   (1 << 10)
+#define NET_EVT_CONFIG_UPDATED   (1 << 9)
 
 // Network task states
 typedef enum __NETWORK_TASK_EVT__
@@ -44,7 +43,6 @@ typedef enum __NETWORK_TASK_EVT__
     NETWRK_EVT_SYNC_DATETIME,          /*!< Synchronize date and time via NTP */
     NETWRK_EVT_UPDATE_DATA,            /*!< Process and send queued data to server */
     NETWRK_EVT_DEINIT_CONNECTION,      /*!< Deinitialize network connections */
-    NETWRK_EVT_FW_UPDATE_CHECK,        /*!< Check for firmware updates */
     //--- LAST EVENT
     NETWRK_EVT_MAX_EVENTS              /*!< Maximum number of events (keep last) */
 } netwkr_task_evt_t;
@@ -149,15 +147,6 @@ void requestNetworkDisconnection(void);
 void requestTimeSync(void);
 
 /**
- * @brief Request firmware update via OTA
- * @details Signals the network task to perform OTA firmware update
- * @param sysData System data structure
- * @param sysStatus System status structure  
- * @param devInfo Device network info structure
- */
-void requestFirmwareUpdate(systemData_t *sysData, systemStatus_t *sysStatus, deviceNetworkInfo_t *devInfo);
-
-/**
  * @brief Update network configuration from SD card
  * @details Signals the network task to reload configuration from SD card
  */
@@ -184,6 +173,18 @@ bool isNetworkTaskRunning(void);
  * @return true if internet connectivity is available, false otherwise
  */
 bool isInternetConnected(void);
+
+/**
+ * @brief Set firmware download in progress flag to skip network connectivity tests
+ * @details When firmware download is active, network connectivity tests are skipped to avoid interference
+ */
+void setFirmwareDownloadInProgress(void);
+
+/**
+ * @brief Clear firmware download in progress flag to resume network connectivity tests
+ * @details Called when firmware download completes or fails to resume normal network monitoring
+ */
+void clearFirmwareDownloadInProgress(void);
 
 // ===== Network Configuration Functions =====
 
