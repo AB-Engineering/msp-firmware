@@ -16,7 +16,7 @@
 #include "shared_values.h"
 
 // Function declarations
-void vHalFirmware_checkForUpdates(systemData_t *sysData, systemStatus_t *sysStatus, deviceNetworkInfo_t *devInfo);
+bool bHalFirmware_checkForUpdates(systemData_t *sysData, systemStatus_t *sysStatus, deviceNetworkInfo_t *devInfo);
 bool bHalFirmware_compareVersions(const String &currentVersion, const String &remoteVersion);
 bool bHalFirmware_downloadBinaryFirmware(const String &downloadUrl, systemData_t *sysData, systemStatus_t *sysStatus, deviceNetworkInfo_t *devInfo);
 bool bHalFirmware_performOTAUpdate(const String &firmwarePath);

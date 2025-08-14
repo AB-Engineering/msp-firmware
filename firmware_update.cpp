@@ -13,6 +13,7 @@
 #include "network.h"
 #include "display_task.h"
 #include "config.h"
+#include "mspOs.h"
 #include <WiFi.h>
 #include <HTTPClient.h>
 #include <ArduinoJson.h>
@@ -41,13 +42,12 @@
 
 // GitHub API constants
 #define GITHUB_API_URL "https://api.github.com/repos/A-A-Milano-Smart-Park/msp-firmware/releases/latest"
-#define GITHUB_TEST_API_URL "https://api.github.com/repos/AB-Engineering/msp-firmware/releases/latest"
 
-// #ifdef __GITHUB_TEST_API_URL__
-// #define GITHUB_TEST_API_URL __GITHUB_TEST_API_URL__
-// #else
-// #define GITHUB_TEST_API_URL GITHUB_API_URL
-// #endif
+#ifdef __GITHUB_TEST_API_URL__
+#define GITHUB_TEST_API_URL __GITHUB_TEST_API_URL__
+#else
+#define GITHUB_TEST_API_URL GITHUB_API_URL
+#endif
 
 #define FIRMWARE_UPDATE_TIMEOUT_MS 60000
 #define DOWNLOAD_BUFFER_SIZE 2048 // Reduced from 8192 to prevent stack overflow
@@ -58,22 +58,16 @@ static bool downloadFile(const String &url, const String &filepath);
 /**
  * @brief Check for firmware updates on GitHub
  */
-void vHalFirmware_checkForUpdates(systemData_t *sysData, systemStatus_t *sysStatus, deviceNetworkInfo_t *devInfo)
+bool bHalFirmware_checkForUpdates(systemData_t *sysData, systemStatus_t *sysStatus, deviceNetworkInfo_t *devInfo)
 {
     log_i("Checking for firmware updates...");
-
-    if (!sysStatus->connection)
-    {
-        log_w("No network connection available for firmware update check");
-        return;
-    }
 
     // Ensure we have internet connection
     if (!WiFi.isConnected() && !sysStatus->use_modem)
     {
         log_w("WiFi not connected for firmware update check");
         requestNetworkConnection();
-        return;
+        return false;
     }
 
     HTTPClient http;
@@ -82,7 +76,7 @@ void vHalFirmware_checkForUpdates(systemData_t *sysData, systemStatus_t *sysStat
     if (!http.begin(GITHUB_API_URL))
     {
         log_e("Failed to initialize HTTP client for GitHub API");
-        return;
+        return false;
     }
 
     http.addHeader("User-Agent", "MilanoSmartPark-ESP32");
@@ -94,7 +88,7 @@ void vHalFirmware_checkForUpdates(systemData_t *sysData, systemStatus_t *sysStat
     {
         log_e("GitHub API request failed with code: %d", httpCode);
         http.end();
-        return;
+        return false;
     }
 
     String payload = http.getString();
@@ -109,7 +103,7 @@ void vHalFirmware_checkForUpdates(systemData_t *sysData, systemStatus_t *sysStat
     if (error)
     {
         log_e("JSON parsing failed: %s", error.c_str());
-        return;
+        return false;
     }
 
     // Extract release information
@@ -137,7 +131,7 @@ void vHalFirmware_checkForUpdates(systemData_t *sysData, systemStatus_t *sysStat
     if (downloadUrl.isEmpty())
     {
         log_e("No application binary (%s) found in release assets", binaryFileName.c_str());
-        return;
+        return true;
     }
 
     log_i("Current version: %s", sysData->ver.c_str());
@@ -148,24 +142,14 @@ void vHalFirmware_checkForUpdates(systemData_t *sysData, systemStatus_t *sysStat
     if (bHalFirmware_compareVersions(sysData->ver, latestVersion))
     {
         log_i("New firmware version available, starting download and update process...");
-
-        if (bHalFirmware_downloadBinaryFirmware(downloadUrl, sysData, sysStatus, devInfo))
-        {
-            log_i("Firmware download completed successfully");
-
-            // Trigger OTA update through network task for better stack management
-            log_i("Requesting OTA update via network task...");
-            requestFirmwareUpdate(sysData, sysStatus, devInfo);
-        }
-        else
-        {
-            log_e("Firmware download failed");
-        }
+        bHalFirmware_downloadBinaryFirmware(downloadUrl, sysData, sysStatus, devInfo);
     }
     else
     {
         log_i("No firmware update needed, current version is up to date");
     }
+
+    return true;
 }
 
 /**
@@ -259,6 +243,21 @@ bool bHalFirmware_downloadBinaryFirmware(const String &downloadUrl, systemData_t
 
     String firmwarePath = "/firmware.bin";
 
+    // Check if firmware file already exists and delete it to ensure clean download
+    if (SD.exists(firmwarePath.c_str()))
+    {
+        log_i("Existing firmware file found, deleting: %s", firmwarePath.c_str());
+        if (SD.remove(firmwarePath.c_str()))
+        {
+            log_i("Successfully deleted existing firmware file");
+        }
+        else
+        {
+            log_e("Failed to delete existing firmware file");
+            return false;
+        }
+    }
+
     if (!downloadFile(downloadUrl, firmwarePath))
     {
         log_e("Failed to download firmware binary file");
@@ -266,6 +265,9 @@ bool bHalFirmware_downloadBinaryFirmware(const String &downloadUrl, systemData_t
     }
 
     log_i("Firmware binary downloaded successfully to: %s", firmwarePath.c_str());
+
+    // Allow SD card to settle after large file operation
+    delay(100);
 
     // Verify the downloaded file exists and has reasonable size
     File firmwareFile = SD.open(firmwarePath.c_str(), FILE_READ);
@@ -278,7 +280,7 @@ bool bHalFirmware_downloadBinaryFirmware(const String &downloadUrl, systemData_t
     size_t fileSize = firmwareFile.size();
     firmwareFile.close();
 
-    if (fileSize < 100000 || fileSize > 2000000) // Reasonable firmware size range
+    if (fileSize < 1000000 || fileSize > 2000000) // Reasonable firmware size range
     {
         log_w("Firmware file size (%zu bytes) seems unusual", fileSize);
         // Don't fail, just warn - size limits may vary
@@ -290,6 +292,7 @@ bool bHalFirmware_downloadBinaryFirmware(const String &downloadUrl, systemData_t
     // Always perform basic size and format validation
     if (fileSize < 1024)
     {
+        firmwareFile.close();
         log_e("Firmware file too small to be valid ESP32 firmware");
         SD.remove(firmwarePath.c_str());
         return false;
@@ -337,6 +340,52 @@ bool bHalFirmware_downloadBinaryFirmware(const String &downloadUrl, systemData_t
 #else
     log_i("Enhanced security features disabled - using basic validation only");
     log_w("For production deployment, enable ENABLE_ENHANCED_SECURITY in config.h");
+
+    // Reopen the firmware file for basic validation
+    firmwareFile = SD.open(firmwarePath.c_str(), FILE_READ);
+
+    if (firmwareFile)
+    {
+        // Read first few bytes to verify ESP32 BIN file format
+        uint8_t header[4];
+        if (firmwareFile.readBytes((char *)header, 4) == 4)
+        {
+            // ESP32 firmware binary header should start with 0xE9 (ESP_IMAGE_HEADER_MAGIC)
+            if (header[0] == 0xE9)
+            {
+                log_i("PASS: Valid ESP32 BIN file header detected");
+
+                firmwareFile.close();
+
+                // Perform detailed OTA update test
+                log_i("DETAILED TEST: OTA analysis");
+
+                bool updateSuccess = bHalFirmware_performOTAUpdate(firmwarePath);
+
+                if (updateSuccess == false)
+                {
+                    log_e("FAIL: OTA process failed");
+                }
+            }
+            else
+            {
+                log_e("FAIL: Invalid ESP32 BIN file format - Header: 0x%02X%02X%02X%02X",
+                      header[0], header[1], header[2], header[3]);
+                log_e("Expected ESP32 firmware to start with 0xE9 magic byte");
+            }
+        }
+        else
+        {
+            log_e("FAIL: Could not read BIN file header");
+        }
+
+        firmwareFile.close();
+    }
+    else
+    {
+        log_e("FAIL: Could not open downloaded BIN file");
+    }
+
 #endif
 
     log_i("Security verification completed successfully");
@@ -517,6 +566,9 @@ static bool downloadFile(const String &url, const String &filepath)
     log_i("Starting download from: %s", url.c_str());
     log_i("Saving to: %s", filepath.c_str());
 
+    // Disable network connectivity tests during download to prevent interference
+    setFirmwareDownloadInProgress();
+
     // Check available memory before starting download
     size_t freeHeap = ESP.getFreeHeap();
     log_i("Free heap before download: %zu bytes", freeHeap);
@@ -524,6 +576,7 @@ static bool downloadFile(const String &url, const String &filepath)
     if (freeHeap < 50000)
     { // Require at least 50KB free heap
         log_e("Insufficient memory for download (need 50KB, have %zu bytes)", freeHeap);
+        clearFirmwareDownloadInProgress();
         return false;
     }
 
@@ -545,6 +598,7 @@ static bool downloadFile(const String &url, const String &filepath)
             if (!secureClient)
             {
                 log_e("Failed to allocate WiFiClientSecure - insufficient memory");
+                clearFirmwareDownloadInProgress();
                 return false;
             }
         }
@@ -572,6 +626,7 @@ static bool downloadFile(const String &url, const String &filepath)
             {
                 delete secureClient;
             }
+            clearFirmwareDownloadInProgress();
             return false;
         }
 
@@ -582,6 +637,7 @@ static bool downloadFile(const String &url, const String &filepath)
         if (!http.begin(url))
         {
             log_e("Failed to initialize HTTP client for download");
+            clearFirmwareDownloadInProgress();
             return false;
         }
         log_i("HTTP client initialized successfully");
@@ -732,20 +788,28 @@ static bool downloadFile(const String &url, const String &filepath)
         {
             int bytesToRead = min(availableBytes, sizeof(buffer));
             int bytesRead = stream->readBytes(buffer, bytesToRead);
-            file.write(buffer, bytesRead);
+            
+            // Check if SD write succeeds to prevent corruption
+            size_t bytesWrittenToFile = file.write(buffer, bytesRead);
+            if (bytesWrittenToFile != bytesRead)
+            {
+                log_e("SD card write failed: wrote %d of %d bytes", bytesWrittenToFile, bytesRead);
+                file.close();
+                http.end();
+                clearFirmwareDownloadInProgress();
+                return false;
+            }
+            
             bytesWritten += bytesRead;
 
             if (totalLength > 0)
             {
                 totalLength -= bytesRead;
 
-                // Progress logging every 32KB (reduced frequency)
+                // Simplified progress logging to avoid HTTP client calls during download
                 if (bytesWritten % (32 * 1024) == 0)
                 {
-                    int totalSize = http.getSize();
-                    log_i("Download progress: %d/%d bytes (%.1f%%)",
-                          bytesWritten, totalSize,
-                          (float)bytesWritten / totalSize * 100);
+                    log_i("Download progress: %d bytes", bytesWritten);
                 }
             }
 
@@ -763,17 +827,29 @@ static bool downloadFile(const String &url, const String &filepath)
         }
     }
 
+    // Ensure file is properly flushed and closed
+    file.flush();
     file.close();
     http.end();
+
+    // Save bytesWritten before any cleanup to avoid corruption
+    int finalBytesWritten = bytesWritten;
 
     // Clean up HTTPS client if used
     if (secureClient)
     {
         if (usedSpiram)
         {
-            secureClient->~WiFiClientSecure();
-            heap_caps_free(secureClient);
-            log_i("SPIRAM WiFiClientSecure freed");
+            // Verify pointer is still valid before cleanup
+            if (heap_caps_get_allocated_size(secureClient) > 0)
+            {
+                secureClient->~WiFiClientSecure();
+                heap_caps_free(secureClient);
+            }
+            else
+            {
+                log_w("SPIRAM WiFiClientSecure pointer appears invalid, skipping cleanup");
+            }
         }
         else
         {
@@ -782,7 +858,11 @@ static bool downloadFile(const String &url, const String &filepath)
         secureClient = nullptr;
     }
 
-    log_i("Download completed: %d bytes written to %s", bytesWritten, filepath.c_str());
+    // Use safer logging with saved value
+    log_i("Download completed: %d bytes written to /firmware.bin", finalBytesWritten);
+    
+    // Re-enable network connectivity tests
+    clearFirmwareDownloadInProgress();
     return true;
 }
 
@@ -1528,146 +1608,3 @@ void vHalFirmware_testForceOTAUpdate(systemData_t *sysData, systemStatus_t *sysS
 }
 
 #endif
-
-/**
- * @brief Force OTA update without version checking
- * Downloads and installs the latest firmware from GitHub releases
- */
-bool bHalFirmware_forceOTAUpdate(systemData_t *sysData, systemStatus_t *sysStatus, deviceNetworkInfo_t *devInfo)
-{
-    log_i("=== Force OTA Update (No Version Check) ===");
-
-    // Check available memory before starting
-    size_t freeHeap = ESP.getFreeHeap();
-    log_i("Free heap before OTA: %zu bytes", freeHeap);
-
-    if (freeHeap < 50000)
-    { // Require at least 50KB free heap minimum
-        log_e("Insufficient memory for OTA update (need 50KB, have %zu bytes)", freeHeap);
-        return false;
-    }
-
-    // GitHub API URL for latest release
-    String githubApiUrl = "https://api.github.com/repos/A-A-Milano-Smart-Park/msp-firmware/releases/latest";
-
-    HTTPClient http;
-    http.setTimeout(FIRMWARE_UPDATE_TIMEOUT_MS);
-
-    // Use HTTPS client
-    WiFiClientSecure client;
-    client.setInsecure();
-    client.setTimeout(30000);
-    client.setHandshakeTimeout(30000);
-
-    if (!http.begin(client, githubApiUrl))
-    {
-        log_e("Failed to initialize HTTPS client for GitHub API");
-        return false;
-    }
-    log_i("Connecting to GitHub API via HTTPS...");
-
-    http.addHeader("User-Agent", "MSP-Firmware/1.0");
-
-    log_i("Fetching latest release info from GitHub...");
-
-    int httpCode = http.GET();
-    if (httpCode != HTTP_CODE_OK)
-    {
-        log_e("Failed to get release info from GitHub API (HTTP %d)", httpCode);
-
-        if (httpCode == 404)
-        {
-            log_e("Repository or releases not found. Possible causes:");
-            log_e("1. Repository doesn't exist: A-A-Milano-Smart-Park/msp-firmware");
-            log_e("2. No releases have been published yet");
-            log_e("3. Repository is private");
-            log_i("You need to:");
-            log_i("- Create a release in GitHub with a firmware.bin asset");
-            log_i("- Make sure the repository is public");
-            log_i("- Or update the repository URL in firmware_update.cpp");
-        }
-
-        http.end();
-        return false;
-    }
-
-    String payload = http.getString();
-    http.end();
-
-    // Parse JSON response
-    DynamicJsonDocument doc(8192);
-    DeserializationError error = deserializeJson(doc, payload);
-
-    if (error)
-    {
-        log_e("Failed to parse GitHub API response: %s", error.c_str());
-        return false;
-    }
-
-    // Extract download URL for direct binary file
-    String downloadUrl = "";
-    String tagName = doc["tag_name"].as<String>();
-    String binaryFileName = "update_" + tagName + ".bin";
-    JsonArray assets = doc["assets"];
-
-    for (JsonVariant asset : assets)
-    {
-        String assetName = asset["name"].as<String>();
-        if (assetName == binaryFileName)
-        {
-            downloadUrl = asset["browser_download_url"].as<String>();
-            log_i("Found firmware binary: %s", assetName.c_str());
-            break;
-        }
-    }
-
-    if (downloadUrl.isEmpty())
-    {
-        log_e("No firmware binary (%s) found in latest release", binaryFileName.c_str());
-        return false;
-    }
-
-    log_i("Latest firmware download URL: %s", downloadUrl.c_str());
-    log_i("URL type: %s", downloadUrl.startsWith("https://") ? "HTTPS" : "HTTP");
-
-    // Get release info
-    String releaseName = doc["name"].as<String>();
-
-    log_i("Latest release: %s (%s)", releaseName.c_str(), tagName.c_str());
-    log_w("WARNING: Proceeding with OTA update WITHOUT version checking!");
-    log_w("This will download and install the latest firmware regardless of current version");
-
-    // Give user time to abort if needed
-    for (int i = 10; i > 0; i--)
-    {
-        log_w("Force OTA update starting in %d seconds... (reset device to abort)", i);
-        delay(1000);
-    }
-
-    log_i("Starting force OTA update process...");
-
-    // Download firmware binary directly
-    bool success = bHalFirmware_downloadBinaryFirmware(downloadUrl, sysData, sysStatus, devInfo);
-
-    if (success)
-    {
-        log_i("PASS: Force OTA update completed successfully");
-        log_i("Device will reboot to new firmware in 5 seconds...");
-
-        // Final countdown before reboot
-        for (int i = 5; i > 0; i--)
-        {
-            log_i("Rebooting in %d seconds...", i);
-            delay(1000);
-        }
-
-        log_i("Rebooting now...");
-        ESP.restart();
-    }
-    else
-    {
-        log_e("FAIL: Force OTA update failed");
-    }
-
-    return success;
-}

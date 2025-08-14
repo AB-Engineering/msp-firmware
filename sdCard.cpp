@@ -13,6 +13,7 @@
 #include <U8g2lib.h>
 #include <WiFi.h>
 #include <SD.h>
+#include <ArduinoJson.h>
 
 #include "sdcard.h"
 #include "generic_functions.h"
@@ -20,9 +21,7 @@
 #include "display.h"
 #include "network.h"
 #include "mspOs.h"
-
-// --defines --
-#define LINES 16
+#include "config.h"
 
 //-------------------------- functions --------------------
 
@@ -42,12 +41,12 @@ static void vMsp_sendNetworkDataToDisplay(deviceNetworkInfo_t *p_tDev, systemSta
 {
   displayData_t localDisplayData = {};
   localDisplayData.currentEvent = event;
-  
+
   vMspOs_takeDataAccessMutex();
   localDisplayData.devInfo = *p_tDev;
   localDisplayData.sysStat = *p_tSys;
   vMspOs_giveDataAccessMutex();
-  
+
   tTaskDisplay_sendEvent(&localDisplayData);
 }
 
@@ -111,32 +110,36 @@ uint8_t initializeSD(systemStatus_t *p_tSys, deviceNetworkInfo_t *p_tDev)
  * @return uint8_t
  *********************************************************/
 static uint8_t parseConfig(File fl, deviceNetworkInfo_t *p_tDev, sensorData_t *p_tData, deviceMeasurement_t *pDev, systemStatus_t *sysStat, systemData_t *p_tSysData)
-{ // parses the configuration file on the SD Card
+{ // parses the JSON configuration file on the SD Card
 
   uint8_t outcome = true;
-  String command[LINES];
-  short line_cnt = 0;
   uint8_t have_ssid = false;
-  String temp;
-  int i = 0;
-  unsigned long lastpos = 0;
-  while (fl.available() && i < LINES)
-  { // Storing the config file in a string array
-    fl.seek(lastpos);
-    if (i == 0)
-      temp = fl.readStringUntil('#');
-    command[i] = fl.readStringUntil(';');
-    temp = fl.readStringUntil('#');
-    log_d("Line number %d: %s", i + 1, command[i].c_str());
-    lastpos = fl.position();
-    i++;
-  }
+
+  // Read the entire file into a string
+  String jsonString = fl.readString();
   fl.close();
-  // Importing variables from the string array.
-  // ssid
-  if (command[line_cnt].startsWith("ssid", 0))
+
+  // Parse JSON
+  JsonDocument doc;
+  DeserializationError error = deserializeJson(doc, jsonString);
+
+  if (error)
   {
-    p_tDev->ssid = command[line_cnt].substring(command[line_cnt].indexOf('=') + 1, command[line_cnt].length());
+    log_e("Failed to parse config JSON: %s", error.c_str());
+    return false;
+  }
+
+  JsonObject config = doc[JSON_CONFIG_SECTION];
+  if (!config)
+  {
+    log_e("Missing 'config' section in JSON");
+    return false;
+  }
+
+  // Parse SSID
+  if (!config[JSON_KEY_SSID].isNull())
+  {
+    p_tDev->ssid = config[JSON_KEY_SSID].as<String>();
     if (p_tDev->ssid.length() > 0)
     {
       log_i("ssid = *%s*", p_tDev->ssid.c_str());
@@ -149,25 +152,25 @@ static uint8_t parseConfig(File fl, deviceNetworkInfo_t *p_tDev, sensorData_t *p
   }
   else
   {
-    log_e("Error parsing SSID line!");
+    log_e("Missing SSID in config!");
     outcome = false;
   }
-  line_cnt++;
-  // passw
-  if (command[line_cnt].startsWith("password", 0))
+
+  // Parse Password
+  if (!config[JSON_KEY_PASSWORD].isNull())
   {
-    p_tDev->passw = command[line_cnt].substring(command[line_cnt].indexOf('=') + 1, command[line_cnt].length());
+    p_tDev->passw = config[JSON_KEY_PASSWORD].as<String>();
     log_i("passw = *%s*", p_tDev->passw.c_str());
   }
   else
   {
-    log_e("Error parsing PASSWORD line!");
+    log_e("Missing PASSWORD in config!");
   }
-  line_cnt++;
-  // deviceid
-  if (command[line_cnt].startsWith("device_id", 0))
+
+  // Parse Device ID
+  if (!config[JSON_KEY_DEVICE_ID].isNull())
   {
-    p_tDev->deviceid = command[line_cnt].substring(command[line_cnt].indexOf('=') + 1, command[line_cnt].length());
+    p_tDev->deviceid = config[JSON_KEY_DEVICE_ID].as<String>();
     if (p_tDev->deviceid.length() == 0)
     {
       log_e("DEVICEID value is empty!");
@@ -180,137 +183,109 @@ static uint8_t parseConfig(File fl, deviceNetworkInfo_t *p_tDev, sensorData_t *p
   }
   else
   {
-    log_e("Error parsing DEVICE_ID line!");
+    log_e("Missing DEVICEID in config!");
     outcome = false;
   }
-  line_cnt++;
-  // wifipow
-  if (command[line_cnt].startsWith("wifi_power", 0))
+
+  // Parse WiFi Power
+  if (!config[JSON_KEY_WIFI_POWER].isNull())
   {
-    temp = "";
-    temp = command[line_cnt].substring(command[line_cnt].indexOf('=') + 1, command[line_cnt].length());
-    if (temp.indexOf("19.5dBm") == 0)
+    String wifiPowerStr = config[JSON_KEY_WIFI_POWER].as<String>();
+    if (wifiPowerStr == "-1dBm")
     {
-      p_tDev->wifipow = WIFI_POWER_19_5dBm;
-      log_i("wifipow = *WIFI_POWER_19_5dBm*");
-    }
-    else if (temp.indexOf("19dBm") == 0)
-    {
-      p_tDev->wifipow = WIFI_POWER_19dBm;
-      log_i("wifipow = *WIFI_POWER_19dBm*");
-    }
-    else if (temp.indexOf("18.5dBm") == 0)
-    {
-      p_tDev->wifipow = WIFI_POWER_18_5dBm;
-      log_i("wifipow = *WIFI_POWER_18_5dBm*");
-    }
-    else if (temp.indexOf("17dBm") == 0)
-    {
-      p_tDev->wifipow = WIFI_POWER_17dBm;
-      log_i("wifipow = *WIFI_POWER_17dBm*");
-    }
-    else if (temp.indexOf("15dBm") == 0)
-    {
-      p_tDev->wifipow = WIFI_POWER_15dBm;
-      log_i("wifipow = *WIFI_POWER_15dBm*");
-    }
-    else if (temp.indexOf("13dBm") == 0)
-    {
-      p_tDev->wifipow = WIFI_POWER_13dBm;
-      log_i("wifipow = *WIFI_POWER_13dBm*");
-    }
-    else if (temp.indexOf("11dBm") == 0)
-    {
-      p_tDev->wifipow = WIFI_POWER_11dBm;
-      log_i("wifipow = *WIFI_POWER_11dBm*");
-    }
-    else if (temp.indexOf("8.5dBm") == 0)
-    {
-      p_tDev->wifipow = WIFI_POWER_8_5dBm;
-      log_i("wifipow = *WIFI_POWER_8_5dBm*");
-    }
-    else if (temp.indexOf("7dBm") == 0)
-    {
-      p_tDev->wifipow = WIFI_POWER_7dBm;
-      log_i("wifipow = *WIFI_POWER_7dBm*");
-    }
-    else if (temp.indexOf("5dBm") == 0)
-    {
-      p_tDev->wifipow = WIFI_POWER_5dBm;
-      log_i("wifipow = *WIFI_POWER_5dBm*");
-    }
-    else if (temp.indexOf("2dBm") == 0)
-    {
-      p_tDev->wifipow = WIFI_POWER_2dBm;
-      log_i("wifipow = *WIFI_POWER_2dBm*");
-    }
-    else if (temp.indexOf("-1dBm") == 0)
-    {
+      log_i("Wifi power is set to POWER_MINUS_1_dBm");
       p_tDev->wifipow = WIFI_POWER_MINUS_1dBm;
-      log_i("wifipow = *WIFI_POWER_MINUS_1dBm*");
+    }
+    else if (wifiPowerStr == "2dBm")
+    {
+      log_i("Wifi power is set to POWER_2dBm");
+      p_tDev->wifipow = WIFI_POWER_2dBm;
+    }
+    else if (wifiPowerStr == "5dBm")
+    {
+      log_i("Wifi power is set to POWER_5dBm");
+      p_tDev->wifipow = WIFI_POWER_5dBm;
+    }
+    else if (wifiPowerStr == "7dBm")
+    {
+      log_i("Wifi power is set to POWER_7dBm");
+      p_tDev->wifipow = WIFI_POWER_7dBm;
+    }
+    else if (wifiPowerStr == "8.5dBm")
+    {
+      log_i("Wifi power is set to POWER_8_5dBm");
+      p_tDev->wifipow = WIFI_POWER_8_5dBm;
+    }
+    else if (wifiPowerStr == "11dBm")
+    {
+      log_i("Wifi power is set to POWER_11dBm");
+      p_tDev->wifipow = WIFI_POWER_11dBm;
+    }
+    else if (wifiPowerStr == "13dBm")
+    {
+      log_i("Wifi power is set to POWER_13dBm");
+      p_tDev->wifipow = WIFI_POWER_13dBm;
+    }
+    else if (wifiPowerStr == "15dBm")
+    {
+      log_i("Wifi power is set to POWER_15dBm");
+      p_tDev->wifipow = WIFI_POWER_15dBm;
+    }
+    else if (wifiPowerStr == "17dBm")
+    {
+      log_i("Wifi power is set to POWER_17dBm");
+      p_tDev->wifipow = WIFI_POWER_17dBm;
+    }
+    else if (wifiPowerStr == "18.5dBm")
+    {
+      log_i("Wifi power is set to POWER_18_5dBm");
+      p_tDev->wifipow = WIFI_POWER_18_5dBm;
+    }
+    else if (wifiPowerStr == "19dBm")
+    {
+      log_i("Wifi power is set to POWER_19dBm");
+      p_tDev->wifipow = WIFI_POWER_19dBm;
+    }
+    else if (wifiPowerStr == "19.5dBm")
+    {
+      log_i("Wifi power is set to POWER_19_5dBm");
+      p_tDev->wifipow = WIFI_POWER_19_5dBm;
     }
     else
     {
-      log_e("Invalid WIFIPOW value. Falling back to default value");
+      log_i("Wifi power parameter not recognized. Falling back to 17dBm");
+      p_tDev->wifipow = WIFI_POWER_17dBm;
     }
   }
   else
   {
-    log_e("Error parsing WIFI_POWER line. Falling back to default value");
+    log_e("Missing WIFI_POWER in config. Falling back to default value (17dBm)");
+    p_tDev->wifipow = WIFI_POWER_17dBm;
   }
-  line_cnt++;
-  // o3zeroval
-  if (command[line_cnt].startsWith("o3_zero_value", 0))
-  {
-    p_tData->ozoneData.o3ZeroOffset = command[line_cnt].substring(command[line_cnt].indexOf('=') + 1, command[line_cnt].length()).toInt();
-  }
-  else
-  {
-    log_e("Error parsing O3_ZERO_VALUE line. Falling back to default value");
-  }
-  log_i("o3zeroval = *%d*", p_tData->ozoneData.o3ZeroOffset);
-  line_cnt++;
-  // avg_measurements
-  if (command[line_cnt].startsWith("average_measurements", 0))
-  {
-    pDev->avg_measurements = command[line_cnt].substring(command[line_cnt].indexOf('=') + 1, command[line_cnt].length()).toInt();
-  }
-  else
-  {
-    log_e("Error parsing AVERAGE_MEASUREMENTS line. Falling back to default value");
-  }
-  log_i("avg_measurements = *%d*", pDev->avg_measurements);
-  line_cnt++;
-  // avg_delay
-  if (command[line_cnt].startsWith("average_delay(seconds)", 0))
-  {
-    pDev->avg_delay = command[line_cnt].substring(command[line_cnt].indexOf('=') + 1, command[line_cnt].length()).toInt();
-  }
-  else
-  {
-    log_e("Error parsing AVERAGE_DELAY(SECONDS) line. Falling back to default value");
-  }
-  log_i("avg_delay = *%d*", pDev->avg_delay);
-  line_cnt++;
-  // sealevelalt
-  if (command[line_cnt].startsWith("sea_level_altitude", 0))
-  {
-    p_tData->gasData.seaLevelAltitude = command[line_cnt].substring(command[line_cnt].indexOf('=') + 1, command[line_cnt].length()).toFloat();
-  }
-  else
-  {
-    log_e("Error parsing SEA_LEVEL_ALTITUDE line. Falling back to default value");
-  }
+
+  // Parse O3 Zero Value
+  p_tData->ozoneData.o3ZeroOffset = config[JSON_KEY_O3_ZERO_VALUE] | -1;
+  log_i("o3_zero_value = *%d*", p_tData->ozoneData.o3ZeroOffset);
+
+  // Parse Average Measurements
+  pDev->avg_measurements = config[JSON_KEY_AVERAGE_MEASUREMENTS] | 30;
+  log_i("avgMeasure = *%d*", pDev->avg_measurements);
+
+  // Parse Average Delay
+  pDev->avg_delay = config[JSON_KEY_AVERAGE_DELAY_SECONDS] | 55;
+  log_i("avgDelay = *%d*", pDev->avg_delay);
+
+  // Parse Sea Level Altitude
+  p_tData->gasData.seaLevelAltitude = config[JSON_KEY_SEA_LEVEL_ALTITUDE] | 122.0f;
   log_i("sealevelalt = *%.2f*", p_tData->gasData.seaLevelAltitude);
-  line_cnt++;
-  // server
-  if (command[line_cnt].startsWith("upload_server", 0))
+
+  // Parse Upload Server
+  if (!config[JSON_KEY_UPLOAD_SERVER].isNull())
   {
-    temp = "";
-    temp = command[line_cnt].substring(command[line_cnt].indexOf('=') + 1, command[line_cnt].length());
-    if (temp.length() > 0)
+    String serverStr = config[JSON_KEY_UPLOAD_SERVER].as<String>();
+    if (serverStr.length() > 0)
     {
-      p_tSysData->server = temp;
+      p_tSysData->server = serverStr;
       p_tSysData->server_ok = true;
       sysStat->server_ok = true;
     }
@@ -326,116 +301,116 @@ static uint8_t parseConfig(File fl, deviceNetworkInfo_t *p_tDev, sensorData_t *p
   else
   {
 #ifdef API_SERVER
-    log_i("Error parsing UPLOAD_SERVER line. Falling back to value defined at compile time");
+    log_i("Missing UPLOAD_SERVER in config. Falling back to value defined at compile time");
 #else
-    log_e("Error parsing UPLOAD_SERVER line!");
+    log_e("Missing UPLOAD_SERVER in config!");
 #endif
   }
   log_i("server = *%s*", p_tSysData->server.c_str());
-  line_cnt++;
-  // mics_calibration_values
-  if (command[line_cnt].startsWith("mics_calibration_values", 0))
+
+  // Parse MICS Calibration Values
+  if (!config[JSON_KEY_MICS_CALIBRATION_VALUES].isNull())
   {
-    p_tData->pollutionData.data.carbonMonoxide = command[line_cnt].substring(command[line_cnt].indexOf("RED:") + 4, command[line_cnt].indexOf(",OX:")).toInt();
-    p_tData->pollutionData.data.nitrogenDioxide = command[line_cnt].substring(command[line_cnt].indexOf(",OX:") + 4, command[line_cnt].indexOf(",NH3:")).toInt();
-    p_tData->pollutionData.data.ammonia = command[line_cnt].substring(command[line_cnt].indexOf(",NH3:") + 5, command[line_cnt].length()).toInt();
+    JsonObject micsCalib = config[JSON_KEY_MICS_CALIBRATION_VALUES];
+    p_tData->pollutionData.data.carbonMonoxide = micsCalib[JSON_KEY_MICS_RED] | 955.0f;
+    p_tData->pollutionData.data.nitrogenDioxide = micsCalib[JSON_KEY_MICS_OX] | 900.0f;
+    p_tData->pollutionData.data.ammonia = micsCalib[JSON_KEY_MICS_NH3] | 163.0f;
   }
   else
   {
-    log_e("Error parsing MICS_CALIBRATION_VALUES line. Falling back to default value");
+    log_e("Missing MICS_CALIBRATION_VALUES in config. Using defaults");
+    p_tData->pollutionData.data.carbonMonoxide = 955;
+    p_tData->pollutionData.data.nitrogenDioxide = 900;
+    p_tData->pollutionData.data.ammonia = 163;
   }
-  log_i("MICSCal[] = *%d*, *%d*, *%d*", p_tData->pollutionData.data.carbonMonoxide, p_tData->pollutionData.data.nitrogenDioxide, p_tData->pollutionData.data.ammonia);
-  line_cnt++;
-  // mics_measurements_offsets
-  if (command[line_cnt].startsWith("mics_measurements_offsets", 0))
+  log_i("MICSCal[] = *%.1f*, *%.1f*, *%.1f*", p_tData->pollutionData.data.carbonMonoxide, p_tData->pollutionData.data.nitrogenDioxide, p_tData->pollutionData.data.ammonia);
+
+  // Parse MICS Measurement Offsets
+  if (!config[JSON_KEY_MICS_MEASUREMENTS_OFFSETS].isNull())
   {
-    p_tData->pollutionData.sensingResInAirOffset.redSensor = (int16_t)command[line_cnt].substring(command[line_cnt].indexOf("RED:") + 4, command[line_cnt].indexOf(",OX:")).toInt();
-    p_tData->pollutionData.sensingResInAirOffset.oxSensor = (int16_t)command[line_cnt].substring(command[line_cnt].indexOf(",OX:") + 4, command[line_cnt].indexOf(",NH3:")).toInt();
-    p_tData->pollutionData.sensingResInAirOffset.nh3Sensor = (int16_t)command[line_cnt].substring(command[line_cnt].indexOf(",NH3:") + 5, command[line_cnt].length()).toInt();
-  }
-  else
-  {
-    log_e("Error parsing MICS_MEASUREMENTS_OFFSETS line. Falling back to default value");
-  }
-  log_i("MICSOffset[] = *%d*, *%d*, *%d*", p_tData->pollutionData.sensingResInAirOffset.redSensor,
-        p_tData->pollutionData.sensingResInAirOffset.oxSensor,
-        p_tData->pollutionData.sensingResInAirOffset.nh3Sensor);
-  line_cnt++;
-  // compensation_factors
-  if (command[line_cnt].startsWith("compensation_factors", 0))
-  {
-    p_tData->compParams.currentHumidity = command[line_cnt].substring(command[line_cnt].indexOf("compH:") + 6, command[line_cnt].indexOf(",compT:")).toFloat();
-    p_tData->compParams.currentTemperature = command[line_cnt].substring(command[line_cnt].indexOf(",compT:") + 7, command[line_cnt].indexOf(",compP:")).toFloat();
-    p_tData->compParams.currentPressure = command[line_cnt].substring(command[line_cnt].indexOf(",compP:") + 7, command[line_cnt].length()).toFloat();
+    JsonObject micsOffset = config[JSON_KEY_MICS_MEASUREMENTS_OFFSETS];
+    p_tData->pollutionData.sensingResInAirOffset.redSensor = (int16_t)(micsOffset[JSON_KEY_MICS_RED] | 0);
+    p_tData->pollutionData.sensingResInAirOffset.oxSensor = (int16_t)(micsOffset[JSON_KEY_MICS_OX] | 0);
+    p_tData->pollutionData.sensingResInAirOffset.nh3Sensor = (int16_t)(micsOffset[JSON_KEY_MICS_NH3] | 0);
   }
   else
   {
-    log_e("Error parsing COMPENSATION_FACTORS line. Falling back to default value");
+    log_e("Missing MICS_MEASUREMENTS_OFFSETS in config. Using defaults");
+    p_tData->pollutionData.sensingResInAirOffset.redSensor = 0;
+    p_tData->pollutionData.sensingResInAirOffset.oxSensor = 0;
+    p_tData->pollutionData.sensingResInAirOffset.nh3Sensor = 0;
   }
-  log_i("compH = *%.4f*, compT = *%.4f*, compP = *%.4f*", p_tData->compParams.currentHumidity, p_tData->compParams.currentTemperature, p_tData->compParams.currentPressure);
-  line_cnt++;
-  // use_modem
-  if (command[line_cnt].startsWith("use_modem", 0))
+  log_i("MICSoffset[] = *%d*, *%d*, *%d*", p_tData->pollutionData.sensingResInAirOffset.redSensor, p_tData->pollutionData.sensingResInAirOffset.oxSensor, p_tData->pollutionData.sensingResInAirOffset.nh3Sensor);
+
+  // Parse Compensation Factors
+  if (!config[JSON_KEY_COMPENSATION_FACTORS].isNull())
   {
-    temp = "";
-    temp = command[line_cnt].substring(command[line_cnt].indexOf('=') + 1, command[line_cnt].length());
-    if (temp.startsWith("true", 0))
-      sysStat->use_modem = true;
+    JsonObject compFactors = config[JSON_KEY_COMPENSATION_FACTORS];
+    p_tData->compParams.currentHumidity = compFactors[JSON_KEY_COMP_H] | 0.6f;
+    p_tData->compParams.currentTemperature = compFactors[JSON_KEY_COMP_T] | 1.352f;
+    p_tData->compParams.currentPressure = compFactors[JSON_KEY_COMP_P] | 0.0132f;
   }
   else
   {
-    log_e("Error parsing USE_MODEM line. Falling back to default value");
+    log_e("Missing COMPENSATION_FACTORS in config. Using defaults");
+    p_tData->compParams.currentHumidity = 0.6f;
+    p_tData->compParams.currentTemperature = 1.352f;
+    p_tData->compParams.currentPressure = 0.0132f;
   }
-  log_i("use_modem = *%s*", (sysStat->use_modem) ? "true" : "false");
-  if (!sysStat->use_modem && !have_ssid)
-    outcome = false;
-  line_cnt++;
-  // modem_apn
-  if (command[line_cnt].startsWith("modem_apn", 0))
+  log_i("compensation[] = *%.3f*, *%.3f*, *%.6f*", p_tData->compParams.currentHumidity, p_tData->compParams.currentTemperature, p_tData->compParams.currentPressure);
+
+  // Parse Use Modem
+  sysStat->use_modem = config[JSON_KEY_USE_MODEM] | false;
+  log_i("useModem = *%s*", (sysStat->use_modem) ? "true" : "false");
+
+  // Parse Modem APN
+  if (!config[JSON_KEY_MODEM_APN].isNull())
   {
-    temp = "";
-    temp = command[line_cnt].substring(command[line_cnt].indexOf('=') + 1, command[line_cnt].length());
-    if (temp.length() > 0)
+    String apnStr = config[JSON_KEY_MODEM_APN].as<String>();
+    if (apnStr.length() > 0)
     {
-      p_tDev->apn = temp;
+      p_tDev->apn = apnStr;
+      log_i("modem_apn = *%s*", p_tDev->apn.c_str());
     }
     else
     {
-      log_i("APN value is empty");
+      log_i("modem_apn is empty");
     }
   }
   else
   {
-    log_e("Error parsing MODEM_APN line!");
+    log_e("Missing MODEM_APN in config!");
   }
-  log_i("apn = *%s*\n", p_tDev->apn.c_str());
-  if (sysStat->use_modem && p_tDev->apn.length() == 0)
-    outcome = false;
-  line_cnt++;
-  // Timezone and NTP server
-  if (command[line_cnt].startsWith("ntp_server", 0))
+
+  // Parse NTP Server
+  if (!config[JSON_KEY_NTP_SERVER].isNull())
   {
-    p_tSysData->ntp_server = command[line_cnt].substring(command[line_cnt].indexOf('=') + 1, command[line_cnt].length());
-    if (p_tSysData->ntp_server.length() == 0)
+    String ntpStr = config[JSON_KEY_NTP_SERVER].as<String>();
+    if (ntpStr.length() > 0)
     {
-      log_e("NTP_SERVER value is empty! Use default value: pool.ntp.org");
-    }
-    else
-    {
+      p_tSysData->ntp_server = ntpStr;
       log_i("ntp_server = *%s*", p_tSysData->ntp_server.c_str());
     }
+    else
+    {
+      log_e("NTP_SERVER value is empty. Falling back to default value (pool.ntp.org)");
+      p_tSysData->ntp_server = "pool.ntp.org";
+    }
   }
   else
   {
-    log_e("Error parsing NTP_SERVER line!");
+    log_e("Missing NTP_SERVER in config. Falling back to default value (pool.ntp.org)");
+    p_tSysData->ntp_server = "pool.ntp.org";
   }
-  line_cnt++;
-  if (command[line_cnt].startsWith("timezone", 0))
+
+  // Parse Timezone
+  if (!config[JSON_KEY_TIMEZONE].isNull())
   {
-    p_tSysData->timezone = command[line_cnt].substring(command[line_cnt].indexOf('=') + 1, command[line_cnt].length());
-    if (p_tSysData->timezone.length() == 0)
+    String timezoneStr = config[JSON_KEY_TIMEZONE].as<String>();
+    if (timezoneStr.length() > 0)
     {
-      log_e("TIMEZONE value is empty! Use default value: CET-1CEST");
+      p_tSysData->timezone = timezoneStr;
+      log_i("timezone = *%s*", p_tSysData->timezone.c_str());
     }
     else
     {
@@ -444,25 +419,13 @@ static uint8_t parseConfig(File fl, deviceNetworkInfo_t *p_tDev, sensorData_t *p
   }
   else
   {
-    log_e("Error parsing TIMEZONE line!");
+    log_e("Missing TIMEZONE in config!");
   }
-  line_cnt++;
-  // fwAutoUpgrade
-  if (command[line_cnt].startsWith("fwAutoUpgrade", 0))
-  {
-    temp = "";
-    temp = command[line_cnt].substring(command[line_cnt].indexOf('=') + 1, command[line_cnt].length());
-    if (temp.startsWith("true", 0))
-      sysStat->fwAutoUpgrade = true;
-    else
-      sysStat->fwAutoUpgrade = false;
-  }
-  else
-  {
-    log_e("Error parsing FWAUTOUPGRADE line. Falling back to default value (false)");
-    sysStat->fwAutoUpgrade = false;
-  }
+
+  // Parse Firmware Auto Upgrade
+  sysStat->fwAutoUpgrade = config[JSON_KEY_FW_AUTO_UPGRADE] | false;
   log_i("fwAutoUpgrade = *%s*", (sysStat->fwAutoUpgrade) ? "true" : "false");
+
   return outcome;
 }
 
@@ -507,40 +470,54 @@ uint8_t checkConfig(const char *configpath, deviceNetworkInfo_t *p_tDev, sensorD
 
     if (cfgfile)
     {
-      // template for default config file
-      String conftemplate =
-          "#ssid=;\n"
-          "#password=;\n"
-          "#device_id=;\n"
-          "#wifi_power=17dBm;\n"
-          "#o3_zero_value=" +
-          String(p_tData->ozoneData.o3ZeroOffset) + ";\n"
-                                                    "#average_measurements=" +
-          String(pDev->avg_measurements) + ";\n"
-                                           "#average_delay(seconds)=" +
-          String(pDev->avg_delay) + ";\n"
-                                    "#sea_level_altitude=" +
-          String(p_tData->gasData.seaLevelAltitude) + ";\n"
-                                                      "#upload_server=;\n"
-                                                      "#mics_calibration_values=RED:" +
-          String(p_tData->pollutionData.data.carbonMonoxide) + ",OX:" + String(p_tData->pollutionData.data.nitrogenDioxide) + ",NH3:" + String(p_tData->pollutionData.data.ammonia) + ";\n"
-                                                                                                                                                                                      "#mics_measurements_offsets=RED:" +
-          String(p_tData->pollutionData.sensingResInAirOffset.redSensor) + ",OX:" + String(p_tData->pollutionData.sensingResInAirOffset.oxSensor) + ",NH3:" + String(p_tData->pollutionData.sensingResInAirOffset.nh3Sensor) + ";\n"
-                                                                                                                                                                                                                               "#compensation_factors=compH:" +
-          String(p_tData->compParams.currentHumidity, 1) + ",compT:" + String(p_tData->compParams.currentTemperature, 3) + ",compP:" + String(p_tData->compParams.currentPressure, 4) + ";\n"
-                                                                                                                                                                                        "#use_modem=" +
-          String(p_tSys->use_modem ? "true" : "false") + ";\n"
-                                                         "#modem_apn=;\n"
-                                                         "#ntp_server=pool.ntp.org;\n"
-                                                         "#timezone=CET-1CEST;\n"
-                                                         "#fwAutoUpgrade=false;\n"
-                                                         "\n"
-                                                         "Accepted wifi_power values are: -1, 2, 5, 7, 8.5, 11, 13, 15, 17, 18.5, 19, 19.5 dBm.\n"
-                                                         "\n"
-                                                         "sea_level_altitude is in meters and it must be changed according to the current location of the device. 122.0 meters is the average altitude in Milan, Italy.\n"
-                                                         "The timezone follows the standard definition in the tz timezone.\n"
-                                                         "More details at https://www.gnu.org/software/libc/manual/html_node/TZ-Variable.html";
-      cfgfile.println(conftemplate);
+      // Create JSON template for default config file
+      JsonDocument doc;
+
+      // Create config section
+      JsonObject config = doc[JSON_CONFIG_SECTION].to<JsonObject>();
+      config[JSON_KEY_SSID] = "";
+      config[JSON_KEY_PASSWORD] = "";
+      config[JSON_KEY_DEVICE_ID] = "";
+      config[JSON_KEY_WIFI_POWER] = "17dBm";
+      config[JSON_KEY_O3_ZERO_VALUE] = p_tData->ozoneData.o3ZeroOffset;
+      config[JSON_KEY_AVERAGE_MEASUREMENTS] = pDev->avg_measurements;
+      config[JSON_KEY_AVERAGE_DELAY_SECONDS] = pDev->avg_delay;
+      config[JSON_KEY_SEA_LEVEL_ALTITUDE] = p_tData->gasData.seaLevelAltitude;
+      config[JSON_KEY_UPLOAD_SERVER] = "";
+
+      // MICS calibration values
+      JsonObject micsCalib = config[JSON_KEY_MICS_CALIBRATION_VALUES].to<JsonObject>();
+      micsCalib[JSON_KEY_MICS_RED] = p_tData->pollutionData.data.carbonMonoxide;
+      micsCalib[JSON_KEY_MICS_OX] = p_tData->pollutionData.data.nitrogenDioxide;
+      micsCalib[JSON_KEY_MICS_NH3] = p_tData->pollutionData.data.ammonia;
+
+      // MICS measurement offsets
+      JsonObject micsOffset = config[JSON_KEY_MICS_MEASUREMENTS_OFFSETS].to<JsonObject>();
+      micsOffset[JSON_KEY_MICS_RED] = p_tData->pollutionData.sensingResInAirOffset.redSensor;
+      micsOffset[JSON_KEY_MICS_OX] = p_tData->pollutionData.sensingResInAirOffset.oxSensor;
+      micsOffset[JSON_KEY_MICS_NH3] = p_tData->pollutionData.sensingResInAirOffset.nh3Sensor;
+
+      // Compensation factors
+      JsonObject compFactors = config[JSON_KEY_COMPENSATION_FACTORS].to<JsonObject>();
+      compFactors[JSON_KEY_COMP_H] = p_tData->compParams.currentHumidity;
+      compFactors[JSON_KEY_COMP_T] = p_tData->compParams.currentTemperature;
+      compFactors[JSON_KEY_COMP_P] = p_tData->compParams.currentPressure;
+
+      config[JSON_KEY_USE_MODEM] = p_tSys->use_modem;
+      config[JSON_KEY_MODEM_APN] = "";
+      config[JSON_KEY_NTP_SERVER] = "pool.ntp.org";
+      config[JSON_KEY_TIMEZONE] = "CET-1CEST";
+      config[JSON_KEY_FW_AUTO_UPGRADE] = false;
+
+      // Create help section
+      JsonObject help = doc[JSON_HELP_SECTION].to<JsonObject>();
+      help[JSON_KEY_WIFI_POWER] = "Accepted values: -1, 2, 5, 7, 8.5, 11, 13, 15, 17, 18.5, 19, 19.5 dBm";
+      help[JSON_KEY_AVERAGE_MEASUREMENTS] = "Accepted values: 1, 2, 3, 4, 5, 6, 10, 12, 15, 20, 30, 60";
+      help[JSON_KEY_SEA_LEVEL_ALTITUDE] = "Value in meters, must be changed according to device location. 122.0 meters is the average altitude in Milan, Italy";
+      help[JSON_KEY_TIMEZONE] = "Standard tz timezone definition. More details at https://www.gnu.org/software/libc/manual/html_node/TZ-Variable.html";
+
+      // Serialize and write JSON to file
+      serializeJsonPretty(doc, cfgfile);
       log_i("New config file with template created!\n");
       cfgfile.close();
       vMsp_sendNetworkDataToDisplay(p_tDev, p_tSys, DISP_EVENT_SD_CARD_CONFIG_INS_DATA);
@@ -765,7 +742,7 @@ void vHalSdcard_readSD(systemStatus_t *p_tSys, deviceNetworkInfo_t *p_tDev, sens
   {
     log_i("SD Card ok! Reading configuration...\n");
     vMsp_sendNetworkDataToDisplay(p_tDev, p_tSys, DISP_EVENT_CONFIG_READ);
-    p_tSys->configuration = checkConfig("/config_v3.txt", p_tDev, p_tData, pDev, p_tSys, p_tSysData);
+    p_tSys->configuration = checkConfig(CONFIG_PATH, p_tDev, p_tData, pDev, p_tSys, p_tSysData);
     if (p_tSys->server_ok)
     {
       log_e("No server URL defined. Can't upload data!\n");
@@ -785,7 +762,7 @@ void vHalSdcard_readSD(systemStatus_t *p_tSys, deviceNetworkInfo_t *p_tDev, sens
 
 /********************************************************
  * @brief periodic SD card presence check
- * 
+ *
  * @param p_tSys system status structure
  * @param p_tDev device network info structure
  * @return uint8_t current SD card presence status
@@ -795,12 +772,13 @@ uint8_t vHalSdcard_periodicCheck(systemStatus_t *p_tSys, deviceNetworkInfo_t *p_
   static uint8_t previousSdStatus = 255; // Use 255 as uninitialized marker
   uint8_t currentSdStatus = false;
   
+
   // Initialize previousSdStatus based on actual system status on first call
   if (previousSdStatus == 255)
   {
     previousSdStatus = p_tSys->sdCard;
   }
-  
+
   // Quick check without lengthy initialization
   uint8_t cardType = SD.cardType();
   if (cardType != CARD_NONE)
@@ -841,7 +819,7 @@ uint8_t vHalSdcard_periodicCheck(systemStatus_t *p_tSys, deviceNetworkInfo_t *p_
       log_v("SD Card periodic check: Not present (no re-init attempted)");
     }
   }
-  
+
   // Update system status and log changes
   if (currentSdStatus != previousSdStatus)
   {
@@ -857,9 +835,10 @@ uint8_t vHalSdcard_periodicCheck(systemStatus_t *p_tSys, deviceNetworkInfo_t *p_
     }
     previousSdStatus = currentSdStatus;
   }
-  
+
   // Update system status
   p_tSys->sdCard = currentSdStatus;
-  
+
+
   return currentSdStatus;
 }

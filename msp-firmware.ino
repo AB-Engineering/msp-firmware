@@ -412,14 +412,6 @@ void setup()
 //*******************************************************************************************************************************
 void loop()
 {
-  // Periodic SD card presence check
-  static unsigned long lastSdCheck = 0;
-  if (millis() - lastSdCheck > 30000)
-  { // Check every 30 seconds
-    lastSdCheck = millis();
-    vHalSdcard_periodicCheck(&sysStat, &devinfo);
-  }
-
   switch (mainStateMachine.current_state) // state machine for the main loop
   {
   case SYS_STATE_WAIT_FOR_NTP_SYNC:
@@ -439,6 +431,7 @@ void loop()
       if (getLocalTime(&timeinfo))
       {
         sysData.ntp_last_sync_day = timeinfo.tm_yday;
+        sysStat.connection = true;
         log_i("NTP sync recorded for day %d", sysData.ntp_last_sync_day);
       }
 
@@ -470,6 +463,14 @@ void loop()
 
   case SYS_STATE_WAIT_FOR_TIMEOUT:
   {
+    // Periodic SD card presence check
+    static unsigned long lastSdCheck = 0;
+    if (millis() - lastSdCheck > 30000)
+    { // Check every 30 seconds
+      lastSdCheck = millis();
+      vHalSdcard_periodicCheck(&sysStat, &devinfo);
+    }
+
     if (getLocalTime(&timeinfo))
     {
       measStat.curr_minutes = timeinfo.tm_min;
@@ -489,13 +490,16 @@ void loop()
       }
 
       // Check for firmware updates at 00:00:00 if fwAutoUpgrade is enabled
+      // and if there is a valid internet connection
       static int last_fw_check_day = -1;
-      if ((timeinfo.tm_hour == 0 && timeinfo.tm_min == 0 && timeinfo.tm_sec == 0) &&
-          (current_day != last_fw_check_day) && sysStat.fwAutoUpgrade)
+      if ((current_day != last_fw_check_day) && sysStat.fwAutoUpgrade)
       {
         log_i("Daily firmware update check triggered");
-        last_fw_check_day = current_day;
-        // vHalFirmware_checkForUpdates(&sysData, &sysStat, &devinfo);  // Temporarily disabled for boot testing
+
+        if (true == bHalFirmware_checkForUpdates(&sysData, &sysStat, &devinfo))
+        {
+          last_fw_check_day = current_day;
+        }
       }
 
       // Calculate if we are exactly at the start of a minute (00 seconds)
@@ -522,12 +526,11 @@ void loop()
           // Find the next boundary
           next_transmission_minute = measStat.curr_minutes + (measStat.avg_measurements - position_in_cycle);
         }
-        if (next_transmission_minute >= 60)
-          next_transmission_minute -= 60;
 
-        // log_i("[TIMING] Current minute: %d, Position in %d-minute cycle: %d",
-        //       measStat.curr_minutes, measStat.avg_measurements, position_in_cycle);
-        // log_i("[TIMING] Next transmission boundary: %02d", next_transmission_minute);
+        if (next_transmission_minute >= 60)
+        {
+          next_transmission_minute -= 60;
+        }
 
         // For proper alignment, we should start measurements when we can complete exactly
         // avg_measurements before the transmission boundary

@@ -54,16 +54,6 @@ static StaticEventGroup_t networkEventGroupBuffer;
 static SemaphoreHandle_t networkStateMutex = NULL;
 static StaticSemaphore_t networkStateMutexBuffer;
 
-// Firmware update structure for network task
-typedef struct
-{
-    systemData_t *sysData;
-    systemStatus_t *sysStatus;
-    deviceNetworkInfo_t *devInfo;
-} pending_fw_update_t;
-
-static pending_fw_update_t pendingFwUpdate = {0};
-
 // Network state variables (protected by mutex)
 static struct
 {
@@ -78,6 +68,7 @@ static struct
     bool taskRunning;
     bool configurationLoaded;
     int ntpSyncExpired; // Counter for NTP sync expiration
+    bool firmwareDownloadInProgress; // Flag to skip connectivity checks during firmware download
 } networkState = {
     .wifiConnected = false,
     .gsmConnected = false,
@@ -89,7 +80,8 @@ static struct
     .nextState = NETWRK_EVT_WAIT,
     .taskRunning = false,
     .configurationLoaded = false,
-    .ntpSyncExpired = NTP_SYNC_TX_COUNT // Initialize with default count
+    .ntpSyncExpired = NTP_SYNC_TX_COUNT, // Initialize with default count
+    .firmwareDownloadInProgress = false
 };
 
 // Global instances (properly managed within task)
@@ -1161,7 +1153,7 @@ static void networkTask(void *pvParameters)
             // Wait for events or periodic maintenance
             EventBits_t events = xEventGroupWaitBits(
                 networkEventGroup,
-                NET_EVT_DATA_READY | NET_EVT_TIME_SYNC_REQ | NET_EVT_CONNECT_REQ | NET_EVT_DISCONNECT_REQ | NET_EVT_CONFIG_UPDATED | NET_EVT_FW_UPDATE_REQ,
+                NET_EVT_DATA_READY | NET_EVT_TIME_SYNC_REQ | NET_EVT_CONNECT_REQ | NET_EVT_DISCONNECT_REQ | NET_EVT_CONFIG_UPDATED,
                 pdFALSE,             // DON'T clear bits on exit - we'll clear manually after processing
                 pdFALSE,             // Wait for any bit
                 pdMS_TO_TICKS(30000) // 30 second timeout for periodic checks
@@ -1210,14 +1202,6 @@ static void networkTask(void *pvParameters)
                 // Clear the processed event bit
                 xEventGroupClearBits(networkEventGroup, NET_EVT_DISCONNECT_REQ);
             }
-            else if (events & NET_EVT_FW_UPDATE_REQ)
-            {
-                log_i("Firmware update request received");
-                updateNetworkState(NETWRK_EVT_FW_UPDATE_CHECK);
-
-                // Clear the processed event bit
-                xEventGroupClearBits(networkEventGroup, NET_EVT_FW_UPDATE_REQ);
-            }
             else
             {
                 // Timeout occurred - perform periodic maintenance
@@ -1228,10 +1212,17 @@ static void networkTask(void *pvParameters)
                 bool gsmConnected = (modem && modem->isGprsConnected());
 
                 // Check internet connectivity (DNS resolution test)
+                // Skip connectivity test if firmware download is in progress to avoid interference
                 bool internetConnected = false;
-                if (wifiConnected || gsmConnected)
+                if ((wifiConnected || gsmConnected) && !networkState.firmwareDownloadInProgress)
                 {
                     internetConnected = testInternetConnectivity();
+                }
+                else if (networkState.firmwareDownloadInProgress)
+                {
+                    // Keep current internet status during download to avoid disruption
+                    internetConnected = networkState.internetConnected;
+                    log_v("Skipping connectivity test - firmware download in progress");
                 }
 
                 if (xSemaphoreTake(networkStateMutex, pdMS_TO_TICKS(100)) == pdTRUE)
@@ -1581,38 +1572,6 @@ static void networkTask(void *pvParameters)
             break;
         }
 
-        case NETWRK_EVT_FW_UPDATE_CHECK:
-        {
-            log_i("Starting firmware update process in network task...");
-
-            // Check if we have the required pointers (stored globally in network task)
-            if (pendingFwUpdate.sysData && pendingFwUpdate.sysStatus && pendingFwUpdate.devInfo)
-            {
-                log_i("Performing force OTA update from network task...");
-
-                // Call the force OTA update function with better stack space
-                bool success = bHalFirmware_forceOTAUpdate(
-                    pendingFwUpdate.sysData,
-                    pendingFwUpdate.sysStatus,
-                    pendingFwUpdate.devInfo);
-
-                if (success == false)
-                {
-                    log_e("OTA update failed");
-                }
-
-                // Clear pending update
-                memset(&pendingFwUpdate, 0, sizeof(pendingFwUpdate));
-            }
-            else
-            {
-                log_e("Missing system data for firmware update");
-            }
-
-            updateNetworkState(NETWRK_EVT_WAIT);
-            break;
-        }
-
         default:
         {
             log_w("Unknown network state: %d, returning to wait state", currentState);
@@ -1672,7 +1631,7 @@ static bool loadNetworkConfiguration(deviceNetworkInfo_t *devInfo, systemStatus_
     }
 
     // Load configuration from SD card
-    bool configLoaded = checkConfig("/config_v3.txt", devInfo, sensorData, measStat, sysStatus, sysData);
+    bool configLoaded = checkConfig(CONFIG_PATH, devInfo, sensorData, measStat, sysStatus, sysData);
 
     if (configLoaded)
     {
@@ -1770,27 +1729,6 @@ void requestTimeSync()
     }
 }
 
-void requestFirmwareUpdate(systemData_t *sysData, systemStatus_t *sysStatus, deviceNetworkInfo_t *devInfo)
-{
-    log_i("Requesting firmware update");
-
-    if (!sysData || !sysStatus || !devInfo)
-    {
-        log_e("Invalid parameters for firmware update request");
-        return;
-    }
-
-    // Store the pointers for the network task to use
-    pendingFwUpdate.sysData = sysData;
-    pendingFwUpdate.sysStatus = sysStatus;
-    pendingFwUpdate.devInfo = devInfo;
-
-    if (networkEventGroup)
-    {
-        xEventGroupSetBits(networkEventGroup, NET_EVT_FW_UPDATE_REQ);
-    }
-}
-
 void updateNetworkConfig()
 {
     log_i("Requesting network configuration update");
@@ -1837,4 +1775,32 @@ void vMspInit_setApiSecSaltAndFwVer(systemData_t *p_tData)
     // Current firmware version
     p_tData->ver = VERSION_STRING;
     log_i("Firmware version set to: %s", p_tData->ver.c_str());
+}
+
+void setFirmwareDownloadInProgress(void)
+{
+    if (xSemaphoreTake(networkStateMutex, pdMS_TO_TICKS(1000)) == pdTRUE)
+    {
+        networkState.firmwareDownloadInProgress = true;
+        log_i("Firmware download started - network connectivity tests disabled");
+        xSemaphoreGive(networkStateMutex);
+    }
+    else
+    {
+        log_e("Failed to acquire network state mutex for firmware download flag");
+    }
+}
+
+void clearFirmwareDownloadInProgress(void)
+{
+    if (xSemaphoreTake(networkStateMutex, pdMS_TO_TICKS(1000)) == pdTRUE)
+    {
+        networkState.firmwareDownloadInProgress = false;
+        log_i("Firmware download completed - network connectivity tests re-enabled");
+        xSemaphoreGive(networkStateMutex);
+    }
+    else
+    {
+        log_e("Failed to acquire network state mutex for firmware download flag");
+    }
 }
