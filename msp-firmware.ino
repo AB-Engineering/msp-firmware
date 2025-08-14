@@ -1316,11 +1316,10 @@ void vMspInit_configureSystemFromSD(systemData_t *sysData, systemStatus_t *sysSt
     // API credentials
     if (sysData->api_secret_salt.length() == 0)
     {
+      sysData->api_secret_salt = __API_SECRET_SALT;
 #ifdef API_SECRET_SALT
-      sysData->api_secret_salt = API_SECRET_SALT;
       log_i("Applied compile-time API secret");
 #else
-      sysData->api_secret_salt = "default_salt";
       log_w("Applied fallback API secret");
 #endif
     }

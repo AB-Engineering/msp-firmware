@@ -1107,13 +1107,9 @@ static void networkTask(void *pvParameters)
         sysData.timezone = TZ_DEFAULT;
 
         // Set compile-time defaults
-#ifdef API_SERVER
-        sysData.server = API_SERVER;
+        sysData.server = __API_SERVER;
         sysStatus.server_ok = true;
-#endif
-#ifdef API_SECRET_SALT
-        sysData.api_secret_salt = API_SECRET_SALT;
-#endif
+        sysData.api_secret_salt = __API_SECRET_SALT;
     }
 
     // Load initial configuration from SD card
@@ -1831,7 +1827,7 @@ bool getNetworkStatus(bool *wifiConnected, bool *gsmConnected, bool *timeSync)
 void vMspInit_setDefaultSslName(systemData_t *p_tData)
 {
     // Default server name for SSL data upload
-    p_tData->server = API_SERVER;
+    p_tData->server = __API_SERVER;
     p_tData->server_ok = true;
     log_i("Network SSL server set to: %s", p_tData->server.c_str());
 }
@@ -1839,7 +1835,7 @@ void vMspInit_setDefaultSslName(systemData_t *p_tData)
 void vMspInit_setApiSecSaltAndFwVer(systemData_t *p_tData)
 {
     // API security salt
-    p_tData->api_secret_salt = API_SECRET_SALT;
+    p_tData->api_secret_salt = __API_SECRET_SALT;
     log_i("API secret salt configured");
 
     // Current firmware version

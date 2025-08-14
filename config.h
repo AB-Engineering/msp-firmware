@@ -15,14 +15,24 @@
 
 // ===== Network Configuration =====
 
+// #define ENABLE_FIRMWARE_UPDATE_TESTS      // Re-enabled: for controlled testing
+// #define DISABLE_AUTOMATIC_FIRMWARE_TESTS  // Critical: no auto-testing
+// #define ENABLE_ACTUAL_OTA_UPDATE_TEST     // Re-enabled: for controlled testing
+// #define ENABLE_FOTA_MODE               // Disabled: missing task implementation causing boot loop
+// #define ENABLE_FORCE_OTA_UPDATE_TEST   // Too risky
+
 // API Server Configuration
 #ifndef API_SERVER
-#define API_SERVER ""
+#define __API_SERVER "server.info"
+#else
+#define __API_SERVER API_SERVER
 #endif
 
 // API Security Configuration
 #ifndef API_SECRET_SALT
-#define API_SECRET_SALT "secret_salt"
+#define __API_SECRET_SALT "secret_salt"
+#else
+#define __API_SECRET_SALT API_SECRET_SALT
 #endif
 
 // ===== Hardware Pin Definitions =====

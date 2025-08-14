@@ -218,7 +218,7 @@ void vHalNetwork_printWiFiMACAddr(systemStatus_t *p_tSys, deviceNetworkInfo_t *p
 
 // Network task configuration
 #ifndef NETWORK_TASK_STACK_SIZE
-#define NETWORK_TASK_STACK_SIZE (6 * 1024)  // Balanced for OTA operations
+#define NETWORK_TASK_STACK_SIZE (12 * 1024)  // Increased for SSL/TLS operations and OTA
 #endif
 
 #ifndef NETWORK_TASK_PRIORITY
