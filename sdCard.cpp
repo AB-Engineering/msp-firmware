@@ -446,6 +446,23 @@ static uint8_t parseConfig(File fl, deviceNetworkInfo_t *p_tDev, sensorData_t *p
   {
     log_e("Error parsing TIMEZONE line!");
   }
+  line_cnt++;
+  // fwAutoUpgrade
+  if (command[line_cnt].startsWith("fwAutoUpgrade", 0))
+  {
+    temp = "";
+    temp = command[line_cnt].substring(command[line_cnt].indexOf('=') + 1, command[line_cnt].length());
+    if (temp.startsWith("true", 0))
+      sysStat->fwAutoUpgrade = true;
+    else
+      sysStat->fwAutoUpgrade = false;
+  }
+  else
+  {
+    log_e("Error parsing FWAUTOUPGRADE line. Falling back to default value (false)");
+    sysStat->fwAutoUpgrade = false;
+  }
+  log_i("fwAutoUpgrade = *%s*", (sysStat->fwAutoUpgrade) ? "true" : "false");
   return outcome;
 }
 
@@ -516,6 +533,7 @@ uint8_t checkConfig(const char *configpath, deviceNetworkInfo_t *p_tDev, sensorD
                                                          "#modem_apn=;\n"
                                                          "#ntp_server=pool.ntp.org;\n"
                                                          "#timezone=CET-1CEST;\n"
+                                                         "#fwAutoUpgrade=false;\n"
                                                          "\n"
                                                          "Accepted wifi_power values are: -1, 2, 5, 7, 8.5, 11, 13, 15, 17, 18.5, 19, 19.5 dBm.\n"
                                                          "\n"

@@ -26,6 +26,7 @@
 #include "sdcard.h"
 #include "sensors.h"
 #include "config.h"
+#include "firmware_update.h"
 
 // -- Network Configuration Constants
 #define TIME_SYNC_MAX_RETRY 5
@@ -38,10 +39,8 @@
 // Hardware serial for GSM
 HardwareSerial gsmSerial(1);
 
-// Task configuration
-#define NETWORK_TASK_STACK_SIZE (8 * 1024)
-#define NETWORK_TASK_PRIORITY 1
-#define SEND_DATA_QUEUE_LENGTH 16
+// Task configuration - public values defined in network.h
+#define SEND_DATA_QUEUE_LENGTH 16 // Internal queue configuration
 
 // Static task variables
 static StaticTask_t networkTaskBuffer;
@@ -55,11 +54,22 @@ static StaticEventGroup_t networkEventGroupBuffer;
 static SemaphoreHandle_t networkStateMutex = NULL;
 static StaticSemaphore_t networkStateMutexBuffer;
 
+// Firmware update structure for network task
+typedef struct
+{
+    systemData_t *sysData;
+    systemStatus_t *sysStatus;
+    deviceNetworkInfo_t *devInfo;
+} pending_fw_update_t;
+
+static pending_fw_update_t pendingFwUpdate = {0};
+
 // Network state variables (protected by mutex)
 static struct
 {
     bool wifiConnected;
     bool gsmConnected;
+    bool internetConnected;
     bool timeSync;
     int connectionRetries;
     unsigned long lastConnectionAttempt;
@@ -71,6 +81,7 @@ static struct
 } networkState = {
     .wifiConnected = false,
     .gsmConnected = false,
+    .internetConnected = false,
     .timeSync = false,
     .connectionRetries = 0,
     .lastConnectionAttempt = 0,
@@ -125,7 +136,7 @@ bool enqueueSendData(const send_data_t &data, TickType_t ticksToWait)
     BaseType_t result = xQueueSend(sendDataQueue, &data, ticksToWait);
     if (result != pdPASS)
     {
-        log_w("Failed to enqueue send data - queue full or error. Spaces: %d, Waiting: %d", 
+        log_w("Failed to enqueue send data - queue full or error. Spaces: %d, Waiting: %d",
               uxQueueSpacesAvailable(sendDataQueue), uxQueueMessagesWaiting(sendDataQueue));
         return false;
     }
@@ -136,7 +147,6 @@ bool enqueueSendData(const send_data_t &data, TickType_t ticksToWait)
     xEventGroupSetBits(networkEventGroup, NET_EVT_DATA_READY);
     return true;
 }
-
 
 bool dequeueSendData(send_data_t *data, TickType_t ticksToWait)
 {
@@ -278,11 +288,6 @@ bool waitForNetworkEvent(net_evt_t event, TickType_t ticksToWait)
     return (result & event) != 0;
 }
 
-SSLClient *tHalNetwork_getGSMClient()
-{
-    return sslClient;
-}
-
 uint8_t vHalNetwork_modemDisconnect()
 {
     if (modem && modem->isGprsConnected())
@@ -321,13 +326,69 @@ static bool isNetworkConnected()
     return (networkState.wifiConnected) || (networkState.gsmConnected);
 }
 
+/**
+ * @brief Test internet connectivity by attempting DNS resolution
+ * @details Tests connectivity to well-known DNS servers and attempts to resolve common domains
+ * @return true if internet connectivity is available, false otherwise
+ */
+static bool testInternetConnectivity()
+{
+    // First check if we have basic network connectivity
+    if (!isNetworkConnected())
+    {
+        log_v("No network connection for internet test");
+        return false;
+    }
+
+    // Test DNS resolution of well-known domains
+    const char *testDomains[] = {
+        "google.com",
+        "cloudflare.com",
+        "microsoft.com"};
+
+    for (int i = 0; i < 3; i++)
+    {
+        IPAddress result;
+        int dnsResult;
+
+        // Use WiFi hostByName for WiFi connections, or try TinyGSM for cellular
+        if (networkState.wifiConnected)
+        {
+            dnsResult = WiFi.hostByName(testDomains[i], result);
+        }
+        else if (networkState.gsmConnected && modem)
+        {
+            // For GSM connections, we can try to resolve through the modem
+            // Note: Some modems support DNS resolution, but this is a simpler check
+            // We'll fall back to trying WiFi's DNS resolver which should work through any interface
+            dnsResult = WiFi.hostByName(testDomains[i], result);
+        }
+        else
+        {
+            continue; // No valid connection method
+        }
+
+        if (dnsResult == 1)
+        {
+            log_v("DNS resolution successful for %s -> %s", testDomains[i], result.toString().c_str());
+            return true;
+        }
+        else
+        {
+            log_v("DNS resolution failed for %s (error: %d)", testDomains[i], dnsResult);
+        }
+    }
+
+    log_w("All DNS resolution tests failed - DNS/Internet connectivity issue detected");
+    return false;
+}
 
 // Initialize network resources
 static bool initializeNetworkResources(bool isUsingModem)
 {
     log_i("Initializing network resources...");
 
-    if(isUsingModem == true)
+    if (isUsingModem == true)
     {
         // Initialize GSM serial
         gsmSerial.begin(9600, SERIAL_8N1, MODEM_RX, MODEM_TX);
@@ -374,7 +435,7 @@ static bool initializeNetworkResources(bool isUsingModem)
     }
     else
     {
-     if (sslClient == NULL)
+        if (sslClient == NULL)
         {
             sslClient = new SSLClient(wifi_base, TAs, (size_t)TAs_NUM, SSL_RAND_PIN, 1, SSLClient::SSL_ERROR);
             if (sslClient == NULL)
@@ -386,7 +447,7 @@ static bool initializeNetworkResources(bool isUsingModem)
                 modem = NULL;
                 return false;
             }
-        }   
+        }
     }
 
     log_i("Network resources initialized successfully");
@@ -443,6 +504,7 @@ static void cleanupNetworkResources()
     {
         networkState.wifiConnected = false;
         networkState.gsmConnected = false;
+        networkState.internetConnected = false;
         networkState.timeSync = false;
         networkState.connectionRetries = 0;
         xSemaphoreGive(networkStateMutex);
@@ -919,9 +981,10 @@ static bool sendDataToServer(send_data_t *dataToSend, deviceNetworkInfo_t *devIn
             return false;
         }
 
-        if (sslClient->connect(sysData->server.c_str(), 443))
+        // Use HTTPS (port 443) with SSL client
+        if (sslClient && sslClient->connect(sysData->server.c_str(), 443))
         {
-            log_i("Connected to server successfully");
+            log_i("Connected to server successfully via HTTPS");
 
             // Build HTTP request
             String httpRequest = "POST /api/v1/records HTTP/1.1\r\n";
@@ -947,7 +1010,7 @@ static bool sendDataToServer(send_data_t *dataToSend, deviceNetworkInfo_t *devIn
             // Read response with proper timeout handling
             String response = "";
             unsigned long responseStart = millis();
-            
+
             // Wait for initial response or timeout
             while (millis() - responseStart < SERVER_RESPONSE_TIMEOUT_MS)
             {
@@ -955,7 +1018,7 @@ static bool sendDataToServer(send_data_t *dataToSend, deviceNetworkInfo_t *devIn
                 {
                     char c = sslClient->read();
                     response += c;
-                    
+
                     // If we've read the HTTP headers (double CRLF), we can analyze the response
                     if (response.indexOf("\r\n\r\n") >= 0)
                     {
@@ -977,7 +1040,7 @@ static bool sendDataToServer(send_data_t *dataToSend, deviceNetworkInfo_t *devIn
             // Check server response - accept both 200 OK and 201 Created as success
             if (response.startsWith("HTTP/1.1 200", 0) || response.startsWith("HTTP/1.1 201", 0))
             {
-                log_i("Server answer ok! Data uploaded successfully! Status: %s", 
+                log_i("Server answer ok! Data uploaded successfully! Status: %s",
                       response.substring(0, response.indexOf('\r')).c_str());
                 sysData->sent_ok = true;
                 sendNetworkEvent(NET_EVENT_DATA_SENT);
@@ -993,7 +1056,7 @@ static bool sendDataToServer(send_data_t *dataToSend, deviceNetworkInfo_t *devIn
         }
         else
         {
-            log_w("Failed to connect to server (attempt %d)", retry + 1);
+            log_w("Failed to connect to server via HTTP (attempt %d)", retry + 1);
         }
 
         if (retry < MAX_CONNECTION_RETRIES - 1)
@@ -1007,7 +1070,6 @@ static bool sendDataToServer(send_data_t *dataToSend, deviceNetworkInfo_t *devIn
     sysData->sent_ok = false;
     return false;
 }
-
 
 // Main network task
 static void networkTask(void *pvParameters)
@@ -1103,7 +1165,7 @@ static void networkTask(void *pvParameters)
             // Wait for events or periodic maintenance
             EventBits_t events = xEventGroupWaitBits(
                 networkEventGroup,
-                NET_EVT_DATA_READY | NET_EVT_TIME_SYNC_REQ | NET_EVT_CONNECT_REQ | NET_EVT_DISCONNECT_REQ | NET_EVT_CONFIG_UPDATED,
+                NET_EVT_DATA_READY | NET_EVT_TIME_SYNC_REQ | NET_EVT_CONNECT_REQ | NET_EVT_DISCONNECT_REQ | NET_EVT_CONFIG_UPDATED | NET_EVT_FW_UPDATE_REQ,
                 pdFALSE,             // DON'T clear bits on exit - we'll clear manually after processing
                 pdFALSE,             // Wait for any bit
                 pdMS_TO_TICKS(30000) // 30 second timeout for periodic checks
@@ -1116,7 +1178,7 @@ static void networkTask(void *pvParameters)
                 sensorData_t sensorData = {};
                 deviceMeasurement_t measStat = {};
                 loadNetworkConfiguration(&devInfo, &sysStatus, &sysData, &sensorData, &measStat);
-                
+
                 // Clear the processed event bit
                 xEventGroupClearBits(networkEventGroup, NET_EVT_CONFIG_UPDATED);
             }
@@ -1124,7 +1186,7 @@ static void networkTask(void *pvParameters)
             {
                 log_i("Connection request received");
                 updateNetworkState(NETWRK_EVT_INIT_CONNECTION);
-                
+
                 // Clear the processed event bit
                 xEventGroupClearBits(networkEventGroup, NET_EVT_CONNECT_REQ);
             }
@@ -1133,7 +1195,7 @@ static void networkTask(void *pvParameters)
                 log_i("Manual time sync request received (redundant - time syncs automatically after connection)");
                 // Time sync now happens automatically after connection, but we'll honor manual requests
                 updateNetworkState(NETWRK_EVT_SYNC_DATETIME);
-                
+
                 // Clear the processed event bit
                 xEventGroupClearBits(networkEventGroup, NET_EVT_TIME_SYNC_REQ);
             }
@@ -1148,9 +1210,17 @@ static void networkTask(void *pvParameters)
             {
                 log_i("Disconnect request received");
                 updateNetworkState(NETWRK_EVT_DEINIT_CONNECTION);
-                
+
                 // Clear the processed event bit
                 xEventGroupClearBits(networkEventGroup, NET_EVT_DISCONNECT_REQ);
+            }
+            else if (events & NET_EVT_FW_UPDATE_REQ)
+            {
+                log_i("Firmware update request received");
+                updateNetworkState(NETWRK_EVT_FW_UPDATE_CHECK);
+
+                // Clear the processed event bit
+                xEventGroupClearBits(networkEventGroup, NET_EVT_FW_UPDATE_REQ);
             }
             else
             {
@@ -1160,6 +1230,13 @@ static void networkTask(void *pvParameters)
                 // Check connection health
                 bool wifiConnected = (WiFi.status() == WL_CONNECTED);
                 bool gsmConnected = (modem && modem->isGprsConnected());
+
+                // Check internet connectivity (DNS resolution test)
+                bool internetConnected = false;
+                if (wifiConnected || gsmConnected)
+                {
+                    internetConnected = testInternetConnectivity();
+                }
 
                 if (xSemaphoreTake(networkStateMutex, pdMS_TO_TICKS(100)) == pdTRUE)
                 {
@@ -1174,6 +1251,18 @@ static void networkTask(void *pvParameters)
                     {
                         networkState.gsmConnected = gsmConnected;
                         log_i("GSM connection status changed: %s", gsmConnected ? "connected" : "disconnected");
+                    }
+
+                    if (networkState.internetConnected != internetConnected)
+                    {
+                        networkState.internetConnected = internetConnected;
+                        log_i("Internet connectivity status changed: %s", internetConnected ? "connected" : "disconnected");
+
+                        // Alert if network is connected but internet is not accessible (DNS issues)
+                        if (!internetConnected && (wifiConnected || gsmConnected))
+                        {
+                            log_w("Network connected but internet not accessible - possible DNS issues");
+                        }
                     }
 
                     xSemaphoreGive(networkStateMutex);
@@ -1336,7 +1425,7 @@ static void networkTask(void *pvParameters)
             log_i("Queue has %d items before processing", uxQueueMessagesWaiting(sendDataQueue));
             while (dequeueSendData(&currentData, 0))
             { // Non-blocking dequeue
-                log_i("Processing queued data item %d (queue now has %d items)", 
+                log_i("Processing queued data item %d (queue now has %d items)",
                       processedCount + 1, uxQueueMessagesWaiting(sendDataQueue));
 
                 // Send data to server if connection and time sync are OK
@@ -1498,16 +1587,36 @@ static void networkTask(void *pvParameters)
 
         case NETWRK_EVT_FW_UPDATE_CHECK:
         {
-            log_i("Checking for firmware updates...");
+            log_i("Starting firmware update process in network task...");
 
-            // TODO: Implement firmware update check logic
-            // This would involve:
-            // 1. Connecting to update server
-            // 2. Checking current firmware version
-            // 3. Downloading and verifying new firmware if available
-            // 4. Initiating OTA update process
+            // Check if we have the required pointers (stored globally in network task)
+            if (pendingFwUpdate.sysData && pendingFwUpdate.sysStatus && pendingFwUpdate.devInfo)
+            {
+                log_i("Performing force OTA update from network task...");
 
-            log_i("Firmware update check completed (not implemented)");
+                // Call the force OTA update function with better stack space
+                bool success = bHalFirmware_forceOTAUpdate(
+                    pendingFwUpdate.sysData,
+                    pendingFwUpdate.sysStatus,
+                    pendingFwUpdate.devInfo);
+
+                if (success)
+                {
+                    log_i("OTA update completed successfully - device will reboot");
+                }
+                else
+                {
+                    log_e("OTA update failed");
+                }
+
+                // Clear pending update
+                memset(&pendingFwUpdate, 0, sizeof(pendingFwUpdate));
+            }
+            else
+            {
+                log_e("Missing system data for firmware update");
+            }
+
             updateNetworkState(NETWRK_EVT_WAIT);
             break;
         }
@@ -1629,6 +1738,19 @@ bool isNetworkTaskRunning()
     return running;
 }
 
+bool isInternetConnected()
+{
+    bool connected = false;
+
+    if (xSemaphoreTake(networkStateMutex, pdMS_TO_TICKS(1000)) == pdTRUE)
+    {
+        connected = networkState.internetConnected;
+        xSemaphoreGive(networkStateMutex);
+    }
+
+    return connected;
+}
+
 void requestNetworkDisconnection()
 {
     log_i("Requesting network disconnection");
@@ -1653,6 +1775,27 @@ void requestTimeSync()
     if (networkEventGroup)
     {
         xEventGroupSetBits(networkEventGroup, NET_EVT_TIME_SYNC_REQ);
+    }
+}
+
+void requestFirmwareUpdate(systemData_t *sysData, systemStatus_t *sysStatus, deviceNetworkInfo_t *devInfo)
+{
+    log_i("Requesting firmware update");
+
+    if (!sysData || !sysStatus || !devInfo)
+    {
+        log_e("Invalid parameters for firmware update request");
+        return;
+    }
+
+    // Store the pointers for the network task to use
+    pendingFwUpdate.sysData = sysData;
+    pendingFwUpdate.sysStatus = sysStatus;
+    pendingFwUpdate.devInfo = devInfo;
+
+    if (networkEventGroup)
+    {
+        xEventGroupSetBits(networkEventGroup, NET_EVT_FW_UPDATE_REQ);
     }
 }
 
@@ -1703,3 +1846,34 @@ void vMspInit_setApiSecSaltAndFwVer(systemData_t *p_tData)
     p_tData->ver = VERSION_STRING;
     log_i("Firmware version set to: %s", p_tData->ver.c_str());
 }
+
+#ifdef ENABLE_FOTA_MODE
+// ===== Task Management for FOTA Mode =====
+
+void vNetwork_suspendTask()
+{
+    if (networkTaskHandle != NULL)
+    {
+        log_i("Suspending network task for FOTA mode");
+        vTaskSuspend(networkTaskHandle);
+    }
+}
+
+void vNetwork_resumeTask()
+{
+    if (networkTaskHandle != NULL)
+    {
+        log_i("Resuming network task after FOTA");
+        vTaskResume(networkTaskHandle);
+    }
+}
+
+bool bNetwork_isTaskRunning()
+{
+    if (networkTaskHandle == NULL)
+    {
+        return false;
+    }
+    return (eTaskGetState(networkTaskHandle) != eSuspended);
+}
+#endif

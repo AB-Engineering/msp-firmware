@@ -14,6 +14,7 @@
 #modem_apn=;
 #ntp_server=pool.ntp.org;
 #timezone=GMT0;
+#fwAutoUpgrade=true;
 
 
 Accepted wifi_power values are: -1, 2, 5, 7, 8.5, 11, 13, 15, 17, 18.5, 19, 19.5 dBm.

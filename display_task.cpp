@@ -22,11 +22,8 @@
 //--------------------------------------------------------------------------------------------------
 
 // -- defines --
-// task stack size and priority
-#define DISPLAY_TASK_STACK_SIZE (8 * 1024)
-#define DISPLAY_TASK_PRIORITY 1
-
-#define DISP_QUEUE_LENGTH 5
+// Task configuration - public values defined in display_task.h
+#define DISP_QUEUE_LENGTH 5  // Internal queue configuration
 #define DISP_QUEUE_ITEM_SIZE sizeof(displayData_t)
 #define DISP_QUEUE_SIZE (DISP_QUEUE_LENGTH * DISP_QUEUE_ITEM_SIZE)
 
@@ -479,3 +476,28 @@ void vTaskDisplay_createTask(void)
       1                        // Core 1
   );
 }
+
+// ===== Task Management for FOTA Mode =====
+#ifdef ENABLE_FOTA_MODE
+void vDisplay_suspendTask() {
+    if (displayTaskHandle != NULL) {
+        log_i("Suspending display task for FOTA mode");
+        vTaskSuspend(displayTaskHandle);
+    }
+}
+
+void vDisplay_resumeTask() {
+    if (displayTaskHandle != NULL) {
+        log_i("Resuming display task after FOTA");
+        vTaskResume(displayTaskHandle);
+    }
+}
+
+bool bDisplay_isTaskRunning() {
+    if (displayTaskHandle != NULL) {
+        eTaskState taskState = eTaskGetState(displayTaskHandle);
+        return (taskState == eRunning || taskState == eReady || taskState == eBlocked);
+    }
+    return false;
+}
+#endif

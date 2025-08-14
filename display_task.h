@@ -128,4 +128,23 @@ BaseType_t tTaskDisplay_sendEvent(displayData_t *data);
  **********************************************************************/
 BaseType_t tTaskDisplay_receiveEvent(displayData_t *data, TickType_t xTicksToWait);
 
+// ===== Configuration Macros =====
+
+// Display task configuration
+#ifndef DISPLAY_TASK_STACK_SIZE
+#define DISPLAY_TASK_STACK_SIZE (8 * 1024)
+#endif
+
+#ifndef DISPLAY_TASK_PRIORITY
+#define DISPLAY_TASK_PRIORITY 1
+#endif
+
+
+// ===== Task Management for FOTA Mode =====
+#ifdef ENABLE_FOTA_MODE
+void vDisplay_suspendTask();
+void vDisplay_resumeTask();
+bool bDisplay_isTaskRunning();
+#endif
+
 #endif

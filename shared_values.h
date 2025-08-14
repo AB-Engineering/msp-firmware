@@ -196,6 +196,7 @@ typedef struct __SYSTEM_STATUS__
   uint8_t use_modem;
   uint8_t datetime;
   uint8_t server_ok;
+  uint8_t fwAutoUpgrade;
 } systemStatus_t;
 
 typedef struct __NETWORK__

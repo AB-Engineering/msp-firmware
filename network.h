@@ -61,6 +61,7 @@ typedef enum {
 typedef struct {
     bool wifiConnected;
     bool gsmConnected;
+    bool internetConnected;
     bool timeSync;
     int connectionRetries;
     unsigned long lastConnectionAttempt;
@@ -148,6 +149,15 @@ void requestNetworkDisconnection(void);
 void requestTimeSync(void);
 
 /**
+ * @brief Request firmware update via OTA
+ * @details Signals the network task to perform OTA firmware update
+ * @param sysData System data structure
+ * @param sysStatus System status structure  
+ * @param devInfo Device network info structure
+ */
+void requestFirmwareUpdate(systemData_t *sysData, systemStatus_t *sysStatus, deviceNetworkInfo_t *devInfo);
+
+/**
  * @brief Update network configuration from SD card
  * @details Signals the network task to reload configuration from SD card
  */
@@ -168,6 +178,13 @@ bool getNetworkStatus(bool *wifiConnected, bool *gsmConnected, bool *timeSync);
  */
 bool isNetworkTaskRunning(void);
 
+/**
+ * @brief Test internet connectivity by attempting DNS resolution
+ * @details Tests connectivity to well-known DNS servers and attempts to resolve common domains
+ * @return true if internet connectivity is available, false otherwise
+ */
+bool isInternetConnected(void);
+
 // ===== Network Configuration Functions =====
 
 /**
@@ -183,12 +200,6 @@ void vMspInit_setDefaultSslName(systemData_t *p_tData);
 void vMspInit_setApiSecSaltAndFwVer(systemData_t *p_tData);
 
 // ===== Hardware Access Functions =====
-
-/**
- * @brief Get the GSM SSL client instance
- * @return Pointer to SSLClient instance, or nullptr if not available
- */
-SSLClient *tHalNetwork_getGSMClient(void);
 
 /**
  * @brief Disconnect from GSM modem
@@ -207,37 +218,17 @@ void vHalNetwork_printWiFiMACAddr(systemStatus_t *p_tSys, deviceNetworkInfo_t *p
 
 // Network task configuration
 #ifndef NETWORK_TASK_STACK_SIZE
-#define NETWORK_TASK_STACK_SIZE (8 * 1024)
+#define NETWORK_TASK_STACK_SIZE (6 * 1024)  // Balanced for OTA operations
 #endif
 
 #ifndef NETWORK_TASK_PRIORITY
-#define NETWORK_TASK_PRIORITY 1
+#define NETWORK_TASK_PRIORITY 5
 #endif
 
-#ifndef SEND_DATA_QUEUE_LENGTH
-#define SEND_DATA_QUEUE_LENGTH 16
-#endif
 
-// Connection timeout configuration
-#ifndef WIFI_CONNECTION_TIMEOUT_MS
-#define WIFI_CONNECTION_TIMEOUT_MS 15000
-#endif
-
-#ifndef GPRS_CONNECTION_TIMEOUT_MS
-#define GPRS_CONNECTION_TIMEOUT_MS 30000
-#endif
-
-#ifndef SERVER_RESPONSE_TIMEOUT_MS
-#define SERVER_RESPONSE_TIMEOUT_MS 10000
-#endif
-
-// Retry configuration
+// Connection timeout and retry configuration - defined in config.h
 #ifndef MAX_CONNECTION_RETRIES
 #define MAX_CONNECTION_RETRIES 3
-#endif
-
-#ifndef NETWORK_RETRY_DELAY_MS
-#define NETWORK_RETRY_DELAY_MS 5000
 #endif
 
 // Debug configuration
@@ -252,6 +243,13 @@ void vHalNetwork_printWiFiMACAddr(systemStatus_t *p_tSys, deviceNetworkInfo_t *p
 #define NETWORK_LIB_VERSION_MINOR 2
 #define NETWORK_LIB_VERSION_PATCH 0
 #define NETWORK_LIB_VERSION "0.2.0"
+
+// ===== Task Management for FOTA Mode =====
+#ifdef ENABLE_FOTA_MODE
+void vNetwork_suspendTask();
+void vNetwork_resumeTask();
+bool bNetwork_isTaskRunning();
+#endif
 
 #endif // NETWORK_H
 

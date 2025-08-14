@@ -57,6 +57,7 @@
 #include "trust_anchor.h"
 #include "display_task.h"
 #include "mspOs.h"
+#include "firmware_update.h"
 
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
@@ -200,6 +201,21 @@ void setup()
 #endif
   //+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
+  // STEP 0: OTA Firmware Validation and Management
+  log_i("=== STEP 0: OTA Firmware Validation ===");
+  vHalFirmware_printOTAInfo();
+  
+  // Validate current firmware after boot
+  if (bHalFirmware_validateCurrentFirmware())
+  {
+    log_i("Current firmware validated successfully");
+  }
+  else
+  {
+    log_e("Current firmware validation failed");
+    // Could implement rollback logic here if needed
+  }
+
   // STEP 1: Single SD Card Configuration Reading
   log_i("=== STEP 1: Loading complete system configuration from SD card ===");
   vHalSdcard_readSD(&sysStat, &devinfo, &sensorData_accumulate, &measStat, &sysData);
@@ -216,6 +232,9 @@ void setup()
   log_i("  Server: %s", sysData.server.c_str());
   log_i("  *** MEASUREMENT CONFIG: avg_measurements=%d, max_measurements=%d ***", measStat.avg_measurements, measStat.max_measurements);
   log_i("  Use Modem: %s", sysStat.use_modem ? "YES" : "NO");
+  log_i("  Firmware Auto-Upgrade: %s", sysStat.fwAutoUpgrade ? "ENABLED" : "DISABLED");
+
+// Firmware update tests will be run after network connection is established
 
   // STEP 3: Start network task with complete configuration
   log_i("=== STEP 3: Starting network task ===");
@@ -393,6 +412,42 @@ void setup()
 //*******************************************************************************************************************************
 void loop()
 {
+#ifdef ENABLE_FIRMWARE_UPDATE_TESTS
+  // Check for OTA trigger file on SD card (safe, no memory issues)
+  static unsigned long lastOtaCheck = 0;
+  if (millis() - lastOtaCheck > 10000) { // Check every 10 seconds
+    lastOtaCheck = millis();
+    
+    if (SD.exists("/ota_test.txt") && sysStat.connection) {
+      log_i("=== OTA Test Trigger File Found ===");
+      
+      // Read the trigger file to see what test to run
+      File triggerFile = SD.open("/ota_test.txt", FILE_READ);
+      if (triggerFile) {
+        String command = triggerFile.readString();
+        triggerFile.close();
+        command.trim();
+        
+        if (command == "TEST") {
+          log_i("Running OTA tests...");
+          vHalFirmware_testConfigParsing(&sysStat);
+          vHalFirmware_testVersionComparison();
+          vHalFirmware_testOTAManagement();
+          vHalFirmware_testGitHubAPI();
+          log_i("OTA tests complete");
+        } else if (command == "UPDATE") {
+          log_i("Triggering firmware update...");
+          requestFirmwareUpdate(&sysData, &sysStat, &devinfo);
+        }
+        
+        // Remove trigger file after processing
+        SD.remove("/ota_test.txt");
+        log_i("=== OTA Trigger File Processed and Removed ===");
+      }
+    }
+  }
+#endif
+
   switch (mainStateMachine.current_state) // state machine for the main loop
   {
   case SYS_STATE_WAIT_FOR_NTP_SYNC:
@@ -414,6 +469,31 @@ void loop()
         sysData.ntp_last_sync_day = timeinfo.tm_yday;
         log_i("NTP sync recorded for day %d", sysData.ntp_last_sync_day);
       }
+
+#ifdef ENABLE_FIRMWARE_UPDATE_TESTS
+#ifndef DISABLE_AUTOMATIC_FIRMWARE_TESTS
+      // Run firmware update tests now that internet connection is established
+      log_i("=== Running Firmware Update Tests (with internet connection) ===");
+      vHalFirmware_testConfigParsing(&sysStat);
+      vHalFirmware_testVersionComparison();
+      vHalFirmware_testOTAManagement();
+      // GitHub API test can now properly test connectivity
+      vHalFirmware_testGitHubAPI();
+#else
+      log_i("=== Firmware Update Tests available but disabled for stability ===");
+#endif
+      
+#ifdef ENABLE_FORCE_OTA_UPDATE_TEST
+      // DANGER: This will immediately perform OTA update and reboot!
+      log_w("FORCE OTA UPDATE TEST IS ENABLED!");
+      log_w("This will download and install latest firmware without version checking!");
+      requestFirmwareUpdate(&sysData, &sysStat, &devinfo);
+      // Device will reboot after this point if successful
+#endif
+      
+      log_i("=== Firmware Update Tests Completed ===");
+#endif
+
       mainStateMachine.next_state = SYS_STATE_WAIT_FOR_TIMEOUT;
       mainStateMachine.isFirstTransition = true;
       mainStateMachine.prev_state = SYS_STATE_WAIT_FOR_NTP_SYNC;
@@ -447,6 +527,16 @@ void loop()
         requestNetworkConnection(); // This will trigger NTP sync
         mainStateMachine.next_state = SYS_STATE_WAIT_FOR_NTP_SYNC;
         break;
+      }
+
+      // Check for firmware updates at 00:00:00 if fwAutoUpgrade is enabled
+      static int last_fw_check_day = -1;
+      if ((timeinfo.tm_hour == 0 && timeinfo.tm_min == 0 && timeinfo.tm_sec == 0) && 
+          (current_day != last_fw_check_day) && sysStat.fwAutoUpgrade)
+      {
+        log_i("Daily firmware update check triggered");
+        last_fw_check_day = current_day;
+        // vHalFirmware_checkForUpdates(&sysData, &sysStat, &devinfo);  // Temporarily disabled for boot testing
       }
 
       // Calculate if we are exactly at the start of a minute (00 seconds)
