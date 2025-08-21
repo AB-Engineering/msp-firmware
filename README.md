@@ -3,6 +3,7 @@
 A&A Milano Smart Park Project
 
 Firmware developed with the Arduino IDE v2 by Norman Mulinacci @ 2023.
+
 Updated for Vs-Code by AB-Engineering @ 2025.
 
 The project runs on Espressif's ESP32-DevkitC with ESP32-WROVER-B module
@@ -95,4 +96,5 @@ Check that the device appearsin macOS System Information, otherwise disconnect a
    If it still doesn't work, try on a different USB port.
 
 6. If it verifies OK, you are done!
+
 
