@@ -2,7 +2,8 @@
 
 A&A Milano Smart Park Project
 
-Firmware developed with the Arduino IDE v2 by Norman Mulinacci @ 2023
+Firmware developed with the Arduino IDE v2 by Norman Mulinacci @ 2023.
+Updated for Vs-Code by AB-Engineering @ 2025.
 
 The project runs on Espressif's ESP32-DevkitC with ESP32-WROVER-B module
 
@@ -22,7 +23,7 @@ Libraries listed below can be installed through the Arduino IDE Library Manager:
 - [BSEC Arduino library](https://github.com/BoschSensortec/BSEC-Arduino-library) version 1.8.1492
 - [PMS Library](https://github.com/fu-hsi/pms) version 1.1.0
 - [TinyGSM Library](https://github.com/vshymanskyy/TinyGSM) version 0.11.7
-- [ArduinoJson] (https://arduinojson.org/?utm_source=meta&utm_medium=library.properties) version 7.4.2
+- [ArduinoJson](https://github.com/bblanchon/ArduinoJson) version 7.4.2
 
 You will also need to install a modified version of [MiCS6814-I2C-MOD-Library](https://github.com/eNBeWe/MiCS6814-I2C-Library/network) which is not available through the Arduino Library Manager and [must be imported manually](https://www.arduino.cc/en/Guide/Libraries#importing-a-zip-library):
 - [MiCS6814-I2C-MOD-Library](https://github.com/A-A-Milano-Smart-Park/MiCS6814-I2C-MOD-Library)
@@ -94,3 +95,4 @@ Check that the device appearsin macOS System Information, otherwise disconnect a
    If it still doesn't work, try on a different USB port.
 
 6. If it verifies OK, you are done!
+
