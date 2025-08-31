@@ -802,37 +802,29 @@ void vHalSdcard_logToSD(send_data_t *data, systemData_t *p_tSysData, systemStatu
   logvalue += FIRST_DATA_COLUMN_SEPARATOR;
   logvalue += String(data->MSP);
 
-  // Use date-based log path instead of old logpath system
-  String oldlogpath = logPath + LOG_FILE_OLD_EXTENSION;
-  String errorpath = monthPath + PATH_SEPARATOR + ERROR_FILE_PREFIX + String(timeFormat) + ERROR_FILE_EXTENSION;
-
-  // Check if log file needs header (first time creation)
+  // Simple append-based logging for date-based files
   bool needsHeader = !SD.exists(logPath);
   
+  File logFile = SD.open(logPath, FILE_APPEND);
+  if (!logFile)
+  {
+    log_e("Failed to open log file for writing: %s", logPath.c_str());
+    vMsp_sendNetworkDataToDisplay(p_tDev, p_tSys, DISP_EVENT_SD_CARD_LOG_ERROR);
+    return;
+  }
+  
+  // Add header if this is a new file
   if (needsHeader)
   {
-    String header = CSV_HEADER;
-    if (addToLog(logPath.c_str(), oldlogpath.c_str(), errorpath.c_str(), &header))
-    {
-      log_i("CSV header added to new log file: %s", logPath.c_str());
-    }
-    else
-    {
-      log_e("Failed to add CSV header to log file!");
-      vMsp_sendNetworkDataToDisplay(p_tDev, p_tSys, DISP_EVENT_SD_CARD_LOG_ERROR);
-      return;
-    }
+    logFile.println(CSV_HEADER);
+    log_i("CSV header added to new log file: %s", logPath.c_str());
   }
-
-  if (addToLog(logPath.c_str(), oldlogpath.c_str(), errorpath.c_str(), &logvalue))
-  {
-    log_i("SD Card log file updated successfully: %s", logPath.c_str());
-  }
-  else
-  {
-    log_e("Error updating SD Card log file: %s", logPath.c_str());
-    vMsp_sendNetworkDataToDisplay(p_tDev, p_tSys, DISP_EVENT_SD_CARD_LOG_ERROR);
-  }
+  
+  // Append the data
+  logFile.println(logvalue);
+  logFile.close();
+  
+  log_i("SD Card log file updated successfully: %s", logPath.c_str());
 }
 
 /******************************************************
