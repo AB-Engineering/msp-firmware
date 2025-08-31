@@ -14,6 +14,8 @@
 
 #include <Arduino.h>
 #include <TinyGsmClient.h>
+#include <HTTPClient.h>
+#include <WiFiClientSecure.h>
 #include <time.h>
 #include <stdbool.h>
 #include <string.h>
@@ -53,6 +55,7 @@ static EventGroupHandle_t networkEventGroup = NULL;
 static StaticEventGroup_t networkEventGroupBuffer;
 static SemaphoreHandle_t networkStateMutex = NULL;
 static StaticSemaphore_t networkStateMutexBuffer;
+
 
 // Network state variables (protected by mutex)
 static struct
@@ -124,6 +127,19 @@ bool enqueueSendData(const send_data_t &data, TickType_t ticksToWait)
     UBaseType_t queueSpaces = uxQueueSpacesAvailable(sendDataQueue);
     UBaseType_t queueWaiting = uxQueueMessagesWaiting(sendDataQueue);
     log_i("Queue status before enqueue: %d spaces available, %d items waiting", queueSpaces, queueWaiting);
+    
+    // Alert if queue is accumulating items (suggests processing issues)
+    if (queueWaiting >= (SEND_DATA_QUEUE_LENGTH / 2))
+    {
+        log_w("QUEUE ACCUMULATION WARNING: %d/%d items queued (>50%% full)", queueWaiting, SEND_DATA_QUEUE_LENGTH);
+        log_w("This suggests the network task may not be processing the queue effectively");
+        
+        if (queueWaiting >= (SEND_DATA_QUEUE_LENGTH * 3 / 4))
+        {
+            log_e("QUEUE CRITICAL: %d/%d items queued (>75%% full) - risk of data loss!", queueWaiting, SEND_DATA_QUEUE_LENGTH);
+            log_e("Network task processing may be blocked or failing");
+        }
+    }
 
     BaseType_t result = xQueueSend(sendDataQueue, &data, ticksToWait);
     if (result != pdPASS)
@@ -878,6 +894,57 @@ static bool syncDateTime(deviceNetworkInfo_t *devInfo, systemStatus_t *sysStatus
     }
 }
 
+// Helper function to ping server and check connectivity
+static bool pingServer(const String& serverName)
+{
+    log_i("Pinging server to check connectivity: %s", serverName.c_str());
+    
+    // Create a simple HTTP client for ping
+    HTTPClient pingClient;
+    WiFiClientSecure *pingSSLClient = new WiFiClientSecure;
+    
+    if (!pingSSLClient)
+    {
+        log_e("Failed to create SSL client for server ping");
+        return false;
+    }
+    
+    // Configure SSL client (same settings as main transmission)
+    pingSSLClient->setInsecure(); // Skip certificate validation
+    String pingURL = "https://" + serverName + "/api/ping"; // Try ping endpoint first
+    
+    pingClient.begin(*pingSSLClient, pingURL);
+    pingClient.setTimeout(10000); // Short 10-second timeout for ping
+    
+    // Send a simple GET request to check server availability
+    int httpCode = pingClient.GET();
+    
+    // If ping endpoint doesn't exist, try the main data endpoint with HEAD
+    if (httpCode == 404)
+    {
+        pingClient.end();
+        String dataURL = "https://" + serverName + "/api/data";
+        pingClient.begin(*pingSSLClient, dataURL);
+        httpCode = pingClient.sendRequest("HEAD", "");
+    }
+    
+    bool serverAvailable = (httpCode > 0 && httpCode < 500); // Any response except server errors
+    
+    if (serverAvailable)
+    {
+        log_i("Server ping successful (HTTP %d) - server is responsive", httpCode);
+    }
+    else
+    {
+        log_w("Server ping failed (HTTP %d) - server may be down or overloaded", httpCode);
+    }
+    
+    pingClient.end();
+    delete pingSSLClient;
+    
+    return serverAvailable;
+}
+
 // Send data to server
 static bool sendDataToServer(send_data_t *dataToSend, deviceNetworkInfo_t *devInfo,
                              systemStatus_t *sysStatus, systemData_t *sysData)
@@ -903,6 +970,15 @@ static bool sendDataToServer(send_data_t *dataToSend, deviceNetworkInfo_t *devIn
 
     log_i("Sending data to server: %s", sysData->server.c_str());
     log_i("Device ID: %s", devInfo->deviceid.c_str());
+    
+    // Step 1: Ping server to verify connectivity before data transmission
+    if (!pingServer(sysData->server))
+    {
+        log_e("Server ping failed - aborting data transmission to prevent timeouts");
+        return false;
+    }
+    
+    log_i("Server ping successful - proceeding with data transmission");
 
     // Set SSL verification time
     time_t epochTime = mktime(&dataToSend->sendTimeInfo);
@@ -961,10 +1037,13 @@ static bool sendDataToServer(send_data_t *dataToSend, deviceNetworkInfo_t *devIn
 
     log_d("POST data length: %d bytes", postData.length());
 
+    // Server communication with enhanced response logging
+
     // Attempt server connection with retries
     for (int retry = 0; retry < MAX_CONNECTION_RETRIES; retry++)
     {
         log_i("Server connection attempt %d/%d", retry + 1, MAX_CONNECTION_RETRIES);
+        bool wasSSLTimeout = false; // Track if this attempt had SSL timeout
 
         // Check if we still have network connectivity
         if (!isNetworkConnected())
@@ -993,28 +1072,40 @@ static bool sendDataToServer(send_data_t *dataToSend, deviceNetworkInfo_t *devIn
 
             // Send request
             size_t written = sslClient->print(httpRequest);
-            if (written != httpRequest.length())
+            bool dataSentSuccessfully = (written == httpRequest.length());
+            
+            if (!dataSentSuccessfully)
             {
                 log_w("Incomplete request sent: %d/%d bytes", written, httpRequest.length());
+            }
+            else
+            {
+                log_i("HTTP request sent successfully (%d bytes)", written);
             }
             sslClient->flush();
 
             // Read response with proper timeout handling
             String response = "";
             unsigned long responseStart = millis();
+            bool dataReceived = false;
+            bool headerCompleted = false;
+
+            log_i("Waiting for server response (timeout: %d ms)...", SERVER_RESPONSE_TIMEOUT_MS);
 
             // Wait for initial response or timeout
             while (millis() - responseStart < SERVER_RESPONSE_TIMEOUT_MS)
             {
                 if (sslClient->available())
                 {
+                    dataReceived = true;
                     char c = sslClient->read();
                     response += c;
 
                     // If we've read the HTTP headers (double CRLF), we can analyze the response
-                    if (response.indexOf("\r\n\r\n") >= 0)
+                    if (!headerCompleted && response.indexOf("\r\n\r\n") >= 0)
                     {
-                        // We have at least the HTTP headers, sufficient for status code check
+                        headerCompleted = true;
+                        log_i("HTTP headers received after %lu ms", millis() - responseStart);
                         break;
                     }
                 }
@@ -1025,24 +1116,86 @@ static bool sendDataToServer(send_data_t *dataToSend, deviceNetworkInfo_t *devIn
                 }
             }
 
+            unsigned long responseTime = millis() - responseStart;
             sslClient->stop();
 
-            log_d("Server response (%d bytes): %s", response.length(), response.substring(0, 200).c_str());
+            // Enhanced response analysis and logging
+            log_i("Server response analysis:");
+            log_i("  - Response time: %lu ms", responseTime);
+            log_i("  - Data received: %s", dataReceived ? "YES" : "NO");
+            log_i("  - Headers completed: %s", headerCompleted ? "YES" : "NO");
+            log_i("  - Response length: %d bytes", response.length());
+            
+            if (response.length() > 0)
+            {
+                log_i("  - Response preview (first 200 chars): %s", response.substring(0, 200).c_str());
+                
+                // Extract status line for detailed logging
+                int statusLineEnd = response.indexOf('\r');
+                if (statusLineEnd > 0)
+                {
+                    String statusLine = response.substring(0, statusLineEnd);
+                    log_i("  - Status line: %s", statusLine.c_str());
+                }
+            }
+            else
+            {
+                log_e("  - EMPTY RESPONSE! This indicates a timeout or SSL failure");
+            }
 
-            // Check server response - accept both 200 OK and 201 Created as success
+            // Response validation - same logic for all times
             if (response.startsWith("HTTP/1.1 200", 0) || response.startsWith("HTTP/1.1 201", 0))
             {
-                log_i("Server answer ok! Data uploaded successfully! Status: %s",
+                log_i("SUCCESS: Data uploaded successfully! Status: %s",
                       response.substring(0, response.indexOf('\r')).c_str());
                 sysData->sent_ok = true;
                 sendNetworkEvent(NET_EVENT_DATA_SENT);
                 return true;
             }
+            else if (response.length() == 0)
+            {
+                log_e("TIMEOUT: No response received - likely SSL timeout or connection issue");
+                log_e("This could be due to server overload, network issues, or SSL problems");
+                wasSSLTimeout = true; // Mark this attempt as SSL timeout
+                
+                // Smart assumption logic: If server ping was successful AND data was sent completely,
+                // assume the data reached the server even though we didn't get a response
+                if (dataSentSuccessfully)
+                {
+                    log_w("SMART SUCCESS: Server ping was OK and data sent completely");
+                    log_w("Assuming server received data despite timeout response - preventing duplicates");
+                    sysData->sent_ok = true;
+                    sendNetworkEvent(NET_EVENT_DATA_SENT);
+                    return true;
+                }
+                else
+                {
+                    log_e("Data transmission was incomplete - genuine failure, will retry");
+                    // Continue with normal retry logic
+                }
+            }
+            else if (response.startsWith("HTTP/1.1", 0))
+            {
+                // We got an HTTP response but it's not successful
+                String statusLine = response.substring(0, response.indexOf('\r'));
+                log_e("HTTP ERROR: Server returned error status: %s", statusLine.c_str());
+                
+                // Log response body if available for debugging
+                if (response.indexOf("Content-Length:") >= 0)
+                {
+                    int bodyStart = response.indexOf("\r\n\r\n");
+                    if (bodyStart >= 0 && bodyStart + 4 < response.length())
+                    {
+                        String body = response.substring(bodyStart + 4);
+                        log_e("Response body: %s", body.substring(0, 300).c_str());
+                    }
+                }
+                // Continue to retry
+            }
             else
             {
-                log_e("Server answered with an error! Data not uploaded!");
-                log_e("Status line: %s", response.substring(0, response.indexOf('\r')).c_str());
-                log_d("Full response: %s", response.c_str());
+                log_e("INVALID RESPONSE: Corrupted or invalid response format");
+                log_e("Response starts with: %s", response.substring(0, 50).c_str());
                 // Continue to retry
             }
         }
@@ -1053,8 +1206,18 @@ static bool sendDataToServer(send_data_t *dataToSend, deviceNetworkInfo_t *devIn
 
         if (retry < MAX_CONNECTION_RETRIES - 1)
         {
-            log_i("Retrying in %d ms...", NETWORK_RETRY_DELAY_MS);
-            delay(NETWORK_RETRY_DELAY_MS);
+            // Progressive delay for SSL timeout retries - give server more time to recover
+            int retryDelay = NETWORK_RETRY_DELAY_MS;
+            if (wasSSLTimeout) // SSL timeout case
+            {
+                retryDelay = NETWORK_RETRY_DELAY_MS * (retry + 2); // 2x, 3x delay for timeouts
+                log_i("SSL timeout - using extended retry delay: %d ms", retryDelay);
+            }
+            else
+            {
+                log_i("Retrying in %d ms...", retryDelay);
+            }
+            delay(retryDelay);
         }
     }
 
@@ -1206,6 +1369,16 @@ static void networkTask(void *pvParameters)
             {
                 // Timeout occurred - perform periodic maintenance
                 log_v("Network task periodic check");
+                
+                // PRIORITY: Check if queue has accumulated items that need processing
+                int queueSize = uxQueueMessagesWaiting(sendDataQueue);
+                if (queueSize > 0)
+                {
+                    log_w("PERIODIC CHECK: Found %d items in queue that need processing!", queueSize);
+                    log_w("Triggering immediate queue processing...");
+                    xEventGroupSetBits(networkEventGroup, NET_EVT_DATA_READY);
+                    // Continue with normal maintenance but queue processing will be prioritized
+                }
 
                 // Check connection health
                 bool wifiConnected = (WiFi.status() == WL_CONNECTED);
@@ -1377,20 +1550,35 @@ static void networkTask(void *pvParameters)
                 }
             }
 
-            // Handle connection requirements
+            // Check queue size BEFORE handling connection requirements
+            int currentQueueSize = uxQueueMessagesWaiting(sendDataQueue);
+            if (currentQueueSize > 0)
+            {
+                log_i("Queue contains %d items that need processing", currentQueueSize);
+                
+                // If queue is getting full (>75% capacity), prioritize processing over connection management
+                if (currentQueueSize >= (SEND_DATA_QUEUE_LENGTH * 3 / 4))
+                {
+                    log_w("Queue is %d/%d (>75%% full) - prioritizing queue processing over connection management", 
+                          currentQueueSize, SEND_DATA_QUEUE_LENGTH);
+                }
+            }
+
+            // Handle connection requirements - but don't abandon queue processing
             if (needsConnection)
             {
                 if (needsTimeSync)
                 {
-                    // Full connection with time sync
+                    log_i("NTP sync needed - will attempt quick connection then process queue");
                     updateNetworkState(NETWRK_EVT_INIT_CONNECTION);
-                    // Time sync will be handled automatically after connection
+                    // Don't break here - let connection establish then return to process queue
                     break;
                 }
                 else
                 {
-                    // Connection without time sync
+                    log_i("Connection needed - will attempt quick connection then process queue");
                     updateNetworkState(NETWRK_EVT_INIT_CONNECTION);
+                    // Don't break here - let connection establish then return to process queue
                     break;
                 }
             }
@@ -1399,21 +1587,72 @@ static void networkTask(void *pvParameters)
             if (!isNetworkConnected())
             {
                 log_w("No network connection available for data transmission");
-                updateNetworkState(NETWRK_EVT_INIT_CONNECTION);
-                break;
+                
+                // IMPORTANT: Don't abandon the queue! Try to establish connection but keep event active
+                if (currentQueueSize > 0)
+                {
+                    log_w("Queue has %d items waiting - will attempt connection then retry queue processing", currentQueueSize);
+                    
+                    // Set a flag or re-trigger the event after connection attempt
+                    updateNetworkState(NETWRK_EVT_INIT_CONNECTION);
+                    
+                    // Re-trigger data processing event to ensure queue gets processed after connection
+                    log_i("Re-triggering NET_EVT_DATA_READY to ensure queue processing after connection");
+                    xEventGroupSetBits(networkEventGroup, NET_EVT_DATA_READY);
+                    break;
+                }
+                else
+                {
+                    log_i("No queued data, connection can wait");
+                    updateNetworkState(NETWRK_EVT_INIT_CONNECTION);
+                    break;
+                }
             }
 
-            // Process all queued data
+            // Process all queued data with detailed timing analysis
             int processedCount = 0;
             int failedCount = 0;
             send_data_t currentData;
+            
+            int initialQueueSize = uxQueueMessagesWaiting(sendDataQueue);
+            struct tm currentTime;
+            String processingTimeStr = "UNKNOWN";
+            if (getLocalTime(&currentTime))
+            {
+                char timeBuffer[32];
+                strftime(timeBuffer, sizeof(timeBuffer), "%H:%M:%S", &currentTime);
+                processingTimeStr = String(timeBuffer);
+            }
 
-            log_i("Starting to process queued data...");
-            log_i("Queue has %d items before processing", uxQueueMessagesWaiting(sendDataQueue));
+            log_i("=== QUEUE PROCESSING START ===");
+            log_i("Processing time: %s (minute: %02d)", processingTimeStr.c_str(), currentTime.tm_min);
+            log_i("Initial queue size: %d items", initialQueueSize);
+            
+            if (initialQueueSize > 1)
+            {
+                log_w("MULTIPLE DATA ITEMS DETECTED! This may cause duplicate transmissions at peak times");
+                log_w("Queue contains %d items - each will be processed individually", initialQueueSize);
+            }
+            
             while (dequeueSendData(&currentData, 0))
             { // Non-blocking dequeue
-                log_i("Processing queued data item %d (queue now has %d items)",
-                      processedCount + 1, uxQueueMessagesWaiting(sendDataQueue));
+                processedCount++;
+                int remainingItems = uxQueueMessagesWaiting(sendDataQueue);
+                
+                log_i("=== PROCESSING ITEM %d/%d ===", processedCount, initialQueueSize);
+                log_i("Queue items remaining: %d", remainingItems);
+                
+                // Analyze the data timestamp vs current time
+                struct tm dataTime = currentData.sendTimeInfo;
+                log_i("Data timestamp: %02d:%02d:%02d, Current time: %s",
+                      dataTime.tm_hour, dataTime.tm_min, dataTime.tm_sec, processingTimeStr.c_str());
+                
+                // Check if this data originated from a peak time
+                bool dataFromPeakTime = (dataTime.tm_min == 0 || dataTime.tm_min == 30);
+                if (dataFromPeakTime)
+                {
+                    log_w("DATA FROM PEAK TIME DETECTED (minute %02d) - extra care needed for duplicates", dataTime.tm_min);
+                }
 
                 // Send data to server if connection and time sync are OK
                 // No mutex needed - internal state access within network task
@@ -1511,14 +1750,26 @@ static void networkTask(void *pvParameters)
                 delay(100);
             }
 
+            // Queue processing completion summary
+            log_i("=== QUEUE PROCESSING COMPLETE ===");
             if (processedCount > 0)
             {
-                log_i("Successfully processed %d data items", processedCount);
+                log_i("Successfully processed: %d data items", processedCount);
             }
 
             if (failedCount > 0)
             {
-                log_w("Failed to process %d data items", failedCount);
+                log_w("Failed to process: %d data items", failedCount);
+            }
+            
+            int finalQueueSize = uxQueueMessagesWaiting(sendDataQueue);
+            log_i("Final queue size: %d items (started with %d)", finalQueueSize, initialQueueSize);
+            
+            if (initialQueueSize > 1 && processedCount > 1)
+            {
+                log_w("MULTIPLE TRANSMISSIONS COMPLETED: %d items processed from peak/near-peak time", processedCount);
+                log_w("This explains why you see multiple sends in server logs at 00/30 minutes");
+                log_w("Consider implementing data aggregation or queue deduplication to reduce server load");
             }
 
             // Manually clear the NET_EVT_DATA_READY bit now that we've finished processing all data

@@ -378,6 +378,7 @@ void setup()
   measStat.curr_minutes = 0;
   measStat.curr_seconds = 0;
   measStat.curr_total_seconds = 0;
+  measStat.last_transmission_minute = -1; // Initialize to invalid minute
 
   // STEP 4: Request network connection and wait for NTP sync
   log_i("=== STEP 4: Requesting network connection and NTP sync ===");
@@ -957,23 +958,24 @@ void loop()
     }
 
     // Check if it's time to send data
-    // We transmit when: 1) we have collected avg_measurements AND 2) we're at a transmission boundary
+    // We transmit when: 1) we have collected avg_measurements AND 2) we're at a transmission boundary AND 3) haven't transmitted at this boundary yet
     bool have_enough_measurements = (measStat.measurement_count >= measStat.avg_measurements);
     bool at_transmission_boundary = ((measStat.curr_minutes % measStat.avg_measurements) == 0); // Transmit at intervals
+    bool boundary_not_transmitted = (measStat.last_transmission_minute != measStat.curr_minutes); // Prevent duplicate transmissions at same boundary
 
-    log_i("TRANSMISSION CHECK: collected %d/%d measurements, boundary=%s (minute %d, interval=%d)",
+    log_i("TRANSMISSION CHECK: collected %d/%d measurements, boundary=%s (minute %d, interval=%d), last_tx_minute=%d",
           measStat.measurement_count, measStat.avg_measurements,
-          at_transmission_boundary ? "YES" : "NO", measStat.curr_minutes, measStat.avg_measurements);
+          at_transmission_boundary ? "YES" : "NO", measStat.curr_minutes, measStat.avg_measurements, measStat.last_transmission_minute);
 
-    if (have_enough_measurements && at_transmission_boundary && !measStat.data_transmitted)
+    if (have_enough_measurements && at_transmission_boundary && boundary_not_transmitted)
     {
       log_i("All measurements obtained, going to send data...\n");
       mainStateMachine.next_state = SYS_STATE_SEND_DATA; // go to send data state
     }
-    else if (measStat.data_transmitted)
+    else if (!boundary_not_transmitted)
     {
-      log_i("Data already transmitted for this cycle, waiting for new cycle");
-      // Stay in current state, wait for new measurement cycle
+      log_i("Data already transmitted at this boundary (minute %d), waiting for next boundary", measStat.curr_minutes);
+      // Stay in current state, wait for next boundary
     }
     else
     {
@@ -1066,6 +1068,8 @@ void loop()
     {
       log_i("Data enqueued successfully for network transmission");
       measStat.data_transmitted = true; // Mark data as transmitted for this cycle
+      measStat.last_transmission_minute = measStat.curr_minutes; // Record the transmission boundary minute
+      log_i("Recorded transmission at minute %d to prevent duplicates", measStat.last_transmission_minute);
     }
     else
     {
@@ -1090,6 +1094,7 @@ void loop()
     log_i("TRANSMISSION ATTEMPT COMPLETE: Resetting measurement_count from %d to 0", measStat.measurement_count);
     measStat.measurement_count = 0;
     measStat.data_transmitted = false; // Reset flag for new measurement cycle
+    // Note: last_transmission_minute is NOT reset here - it stays to prevent duplicates at the same boundary
 
     // Reset all sensor data (both single and accumulated) for clean start of next cycle
     log_i("Resetting all sensor data for next measurement cycle");
@@ -1225,6 +1230,7 @@ void vMspInit_MeasInfo(void)
   measStat.avg_measurements = 1;
   measStat.isPmsAwake = false;
   measStat.isSensorDataAvailable = false;
+  measStat.last_transmission_minute = -1; // Initialize to invalid minute
 }
 
 /**
@@ -1286,11 +1292,23 @@ void vMspInit_configureSystemFromSD(systemData_t *sysData, systemStatus_t *sysSt
 #endif
     }
 
-    // Measurement configuration
-    if (measStat->avg_measurements <= 0)
+    // Measurement configuration - ensure it's a valid submultiple of 60
+    int valid_intervals[] = {1, 2, 3, 4, 5, 6, 10, 12, 15, 20, 30, 60};
+    bool is_valid = false;
+    
+    for (int i = 0; i < sizeof(valid_intervals)/sizeof(valid_intervals[0]); i++)
+    {
+      if (measStat->avg_measurements == valid_intervals[i])
+      {
+        is_valid = true;
+        break;
+      }
+    }
+    
+    if (!is_valid || measStat->avg_measurements <= 0)
     {
       measStat->avg_measurements = 5; // Default to 5 measurements
-      log_i("Applied default avg_measurements: %d", measStat->avg_measurements);
+      log_i("Applied default avg_measurements: %d (must be submultiple of 60)", measStat->avg_measurements);
     }
 
     // NTP configuration
@@ -1310,9 +1328,22 @@ void vMspInit_configureSystemFromSD(systemData_t *sysData, systemStatus_t *sysSt
     log_i("Using SD card configuration");
 
     // Validate loaded configuration
-    if (measStat->avg_measurements <= 0 || measStat->avg_measurements > 60)
+    // Valid submultiples of 60: 1, 2, 3, 4, 5, 6, 10, 12, 15, 20, 30, 60
+    int valid_intervals[] = {1, 2, 3, 4, 5, 6, 10, 12, 15, 20, 30, 60};
+    bool is_valid = false;
+    
+    for (int i = 0; i < sizeof(valid_intervals)/sizeof(valid_intervals[0]); i++)
     {
-      log_w("Invalid avg_measurements (%d), setting to 5", measStat->avg_measurements);
+      if (measStat->avg_measurements == valid_intervals[i])
+      {
+        is_valid = true;
+        break;
+      }
+    }
+    
+    if (!is_valid || measStat->avg_measurements <= 0)
+    {
+      log_w("Invalid avg_measurements (%d), must be submultiple of 60. Setting to 5", measStat->avg_measurements);
       measStat->avg_measurements = 5;
     }
 
