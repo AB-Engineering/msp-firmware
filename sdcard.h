@@ -19,13 +19,7 @@
 // -- includes --
 #include "shared_values.h"
 
-/*********************************************************
- * @brief check log file 
- * 
- * @param p_tDev 
- * @return uint8_t 
- *********************************************************/
-uint8_t uHalSdcard_checkLogFile(deviceNetworkInfo_t *p_tDev);
+// Legacy function removed - now using date-based logging with automatic file creation
 
 /*******************************************************************************
  * @brief log to SD card 
@@ -37,6 +31,22 @@ uint8_t uHalSdcard_checkLogFile(deviceNetworkInfo_t *p_tDev);
  * @param p_tDev 
  ******************************************************************************/
 void vHalSdcard_logToSD(send_data_t *data, systemData_t *p_tSysData, systemStatus_t *p_tSys, sensorData_t *p_tData, deviceNetworkInfo_t *p_tDev);
+
+/**************************************************************
+ * @brief Create date-based log path (YYYY/MM/DD.csv format)
+ * 
+ * @param timeInfo Time structure for the log entry
+ * @return String Complete path for the log file
+ *************************************************************/
+String sHalSdcard_createDateBasedLogPath(const struct tm* timeInfo);
+
+/**************************************************************
+ * @brief Ensure directory path exists, create if necessary
+ * 
+ * @param dirPath Directory path to create
+ * @return bool Success/failure
+ *************************************************************/
+bool bHalSdcard_ensureDirectoryExists(const String& dirPath);
 
 /******************************************************
  * @brief read SD card 

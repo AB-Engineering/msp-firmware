@@ -1703,27 +1703,27 @@ static void networkTask(void *pvParameters)
                           networkState.timeSync, sysStatus.server_ok);
                 }
 
-                // Always log to SD card if available
-                log_i("Writing log to SD card... SD status: %s", sysStatus.sdCard ? "OK" : "FAIL");
+                // Always log to SD card regardless of transmission status
+                log_i("Writing data to SD card (mandatory logging)... SD status: %s", sysStatus.sdCard ? "OK" : "FAIL");
                 if (sysStatus.sdCard)
                 {
-                    if (uHalSdcard_checkLogFile(&devInfo))
-                    {
-                        // Use a local sensor data structure - will be populated by the functions that need it
-                        sensorData_t localSensorData;
-                        memset(&localSensorData, 0, sizeof(sensorData_t));
+                    // Use a local sensor data structure - will be populated by the functions that need it
+                    sensorData_t localSensorData;
+                    memset(&localSensorData, 0, sizeof(sensorData_t));
 
-                        vHalSdcard_logToSD(&currentData, &sysData, &sysStatus, &localSensorData, &devInfo);
-                        log_i("Data logged to SD card successfully");
-                    }
-                    else
-                    {
-                        log_w("SD card log file check failed");
-                    }
+                    // Set default sensor status for logging
+                    // The logging function will handle sensor data based on actual values in currentData
+                    localSensorData.status.BME680Sensor = true; // Assume available if data exists
+                    localSensorData.status.PMS5003Sensor = true;
+                    localSensorData.status.MICS6814Sensor = true;
+                    localSensorData.status.O3Sensor = true;
+
+                    vHalSdcard_logToSD(&currentData, &sysData, &sysStatus, &localSensorData, &devInfo);
+                    log_i("Data logged to SD card successfully with date-based folder structure");
                 }
                 else
                 {
-                    log_w("SD card not available for logging");
+                    log_w("SD card not available for logging - data will be lost!");
                 }
 
                 // Print measurements to serial

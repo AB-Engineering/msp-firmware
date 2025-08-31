@@ -23,6 +23,51 @@
 #include "mspOs.h"
 #include "config.h"
 
+#define FOLDER_NAME_LEN 16
+#define TIMEFORMAT_LEN 30
+
+// File system constants
+#define LOG_FILE_EXTENSION ".csv"
+#define LOG_FILE_OLD_EXTENSION ".old"
+#define ERROR_FILE_PREFIX "logerror_"
+#define ERROR_FILE_EXTENSION ".txt"
+#define PATH_SEPARATOR "/"
+
+// Date/Time format constants
+#define YEAR_FORMAT "%04d"
+#define MONTH_FORMAT "%02d"
+#define DAY_FORMAT "%02d"
+#define DATE_FORMAT "%d/%m/%Y"
+#define TIME_FORMAT "%T"
+#define ISO_DATETIME_FORMAT "%Y-%m-%dT%T.000Z"
+
+// Numeric constants
+#define BASE_YEAR_OFFSET 1900
+#define MONTH_OFFSET 1
+#define FIRST_DATA_COLUMN_SEPARATOR ";"
+
+// CSV Header
+#define CSV_HEADER "recordedAt;date;time;year;month;temp;hum;PM1;PM2_5;PM10;pres;radiation;nox;co;nh3;o3;voc;msp"
+
+// Log file size and rotation constants  
+#define LOG_MAX_SIZE 1000000
+#define RETRY_ATTEMPTS 3
+
+// SD Card initialization constants
+#define SD_INIT_TIMEOUT_RETRIES 4
+#define SD_INIT_DELAY_MS 1000
+#define SD_DETECTION_DELAY_MS 300
+#define BYTES_TO_MB_DIVISOR (1024 * 1024)
+
+// Default configuration constants
+#define DEFAULT_NTP_SERVER "pool.ntp.org"
+#define DEFAULT_TIMEZONE "CET-1CEST"
+#define DEFAULT_WIFI_POWER "17dBm"
+#define UNINITIALIZED_MARKER 255
+
+// Legacy CSV header (for compatibility)
+#define LEGACY_CSV_HEADER "sent_ok?;recordedAt;date;time;temp;hum;PM1;PM2_5;PM10;pres;radiation;nox;co;nh3;o3;voc;msp"
+
 //-------------------------- functions --------------------
 
 static uint8_t parseConfig(File fl, deviceNetworkInfo_t *p_tDev, sensorData_t *p_tData, deviceMeasurement_t *pDev, systemStatus_t *sysStat, systemData_t *p_tSysData);
@@ -64,14 +109,14 @@ uint8_t initializeSD(systemStatus_t *p_tSys, deviceNetworkInfo_t *p_tDev)
   short timeout = 0;
   while (!SD.begin())
   {
-    if (timeout > 4)
+    if (timeout > SD_INIT_TIMEOUT_RETRIES)
     { // errors after 10 seconds
       log_e("No SD Card detected! No internet connection possible!\n");
       vMsp_sendNetworkDataToDisplay(p_tDev, p_tSys, DISP_EVENT_SD_CARD_NOT_PRESENT);
 
       return false;
     }
-    delay(1000); // giving it some time to detect the card properly
+    delay(SD_INIT_DELAY_MS); // giving it some time to detect the card properly
     timeout++;
   }
   uint8_t cardType = SD.cardType();
@@ -93,8 +138,8 @@ uint8_t initializeSD(systemStatus_t *p_tSys, deviceNetworkInfo_t *p_tDev)
     vMsp_sendNetworkDataToDisplay(p_tDev, p_tSys, DISP_EVENT_SD_CARD_FORMAT);
     return false;
   }
-  delay(300);
-  log_v("SD Card size: %lluMB\n", SD.cardSize() / (1024 * 1024));
+  delay(SD_DETECTION_DELAY_MS);
+  log_v("SD Card size: %lluMB\n", SD.cardSize() / BYTES_TO_MB_DIVISOR);
   return true;
 }
 
@@ -113,7 +158,6 @@ static uint8_t parseConfig(File fl, deviceNetworkInfo_t *p_tDev, sensorData_t *p
 { // parses the JSON configuration file on the SD Card
 
   uint8_t outcome = true;
-  uint8_t have_ssid = false;
 
   // Read the entire file into a string
   String jsonString = fl.readString();
@@ -143,7 +187,6 @@ static uint8_t parseConfig(File fl, deviceNetworkInfo_t *p_tDev, sensorData_t *p
     if (p_tDev->ssid.length() > 0)
     {
       log_i("ssid = *%s*", p_tDev->ssid.c_str());
-      have_ssid = true;
     }
     else
     {
@@ -394,13 +437,13 @@ static uint8_t parseConfig(File fl, deviceNetworkInfo_t *p_tDev, sensorData_t *p
     else
     {
       log_e("NTP_SERVER value is empty. Falling back to default value (pool.ntp.org)");
-      p_tSysData->ntp_server = "pool.ntp.org";
+      p_tSysData->ntp_server = DEFAULT_NTP_SERVER;
     }
   }
   else
   {
     log_e("Missing NTP_SERVER in config. Falling back to default value (pool.ntp.org)");
-    p_tSysData->ntp_server = "pool.ntp.org";
+    p_tSysData->ntp_server = DEFAULT_NTP_SERVER;
   }
 
   // Parse Timezone
@@ -478,7 +521,7 @@ uint8_t checkConfig(const char *configpath, deviceNetworkInfo_t *p_tDev, sensorD
       config[JSON_KEY_SSID] = "";
       config[JSON_KEY_PASSWORD] = "";
       config[JSON_KEY_DEVICE_ID] = "";
-      config[JSON_KEY_WIFI_POWER] = "17dBm";
+      config[JSON_KEY_WIFI_POWER] = DEFAULT_WIFI_POWER;
       config[JSON_KEY_O3_ZERO_VALUE] = p_tData->ozoneData.o3ZeroOffset;
       config[JSON_KEY_AVERAGE_MEASUREMENTS] = pDev->avg_measurements;
       config[JSON_KEY_AVERAGE_DELAY_SECONDS] = pDev->avg_delay;
@@ -505,8 +548,8 @@ uint8_t checkConfig(const char *configpath, deviceNetworkInfo_t *p_tDev, sensorD
 
       config[JSON_KEY_USE_MODEM] = p_tSys->use_modem;
       config[JSON_KEY_MODEM_APN] = "";
-      config[JSON_KEY_NTP_SERVER] = "pool.ntp.org";
-      config[JSON_KEY_TIMEZONE] = "CET-1CEST";
+      config[JSON_KEY_NTP_SERVER] = DEFAULT_NTP_SERVER;
+      config[JSON_KEY_TIMEZONE] = DEFAULT_TIMEZONE;
       config[JSON_KEY_FW_AUTO_UPGRADE] = false;
 
       // Create help section
@@ -532,36 +575,7 @@ uint8_t checkConfig(const char *configpath, deviceNetworkInfo_t *p_tDev, sensorD
   }
 }
 
-/*********************************************************
- * @brief check log file
- *
- * @param p_tDev
- * @return uint8_t
- *********************************************************/
-uint8_t uHalSdcard_checkLogFile(deviceNetworkInfo_t *p_tDev)
-{ // verifies the existance of the csv log using the logpath var, creates the file if not found
-
-  if (!SD.exists(p_tDev->logpath))
-  {
-    log_e("Couldn't find log file. Creating a new one...\n");
-    File filecsv = SD.open(p_tDev->logpath, FILE_WRITE);
-
-    if (filecsv)
-    { // Creating logfile and adding header string
-      String heads = "sent_ok?;recordedAt;date;time;temp;hum;PM1;PM2_5;PM10;pres;radiation;nox;co;nh3;o3;voc;msp";
-      filecsv.println(heads);
-      log_i("Log file created!\n");
-      filecsv.close();
-      return true;
-    }
-
-    log_e("Error creating log file!\n");
-    return false;
-  }
-
-  log_i("Log file present!\n");
-  return true;
-}
+// Legacy uHalSdcard_checkLogFile function removed - now using date-based logging with automatic file creation
 
 /****************************************************************************
  * @brief add to log
@@ -627,98 +641,196 @@ uint8_t addToLog(const char *path, const char *oldpath, const char *errpath, Str
  * @param p_tData
  * @param p_tDev
  ******************************************************************************/
+/**************************************************************
+ * @brief Create date-based log path (YYYY/MM/DD.csv format)
+ * Creates folder structure: /YYYY/MM/DD.csv
+ *************************************************************/
+String sHalSdcard_createDateBasedLogPath(const struct tm* timeInfo)
+{
+  char yearStr[FOLDER_NAME_LEN];
+  char monthStr[FOLDER_NAME_LEN];
+  char dayStr[FOLDER_NAME_LEN]; // Generous buffer sizes to avoid any truncation warnings
+  
+  // Format components with leading zeros
+  snprintf(yearStr, sizeof(yearStr), YEAR_FORMAT, timeInfo->tm_year + BASE_YEAR_OFFSET);
+  snprintf(monthStr, sizeof(monthStr), MONTH_FORMAT, timeInfo->tm_mon + MONTH_OFFSET);
+  snprintf(dayStr, sizeof(dayStr), DAY_FORMAT, timeInfo->tm_mday);
+  
+  // Create path: /YYYY/MM/DD.csv
+  String logPath = PATH_SEPARATOR + String(yearStr) + PATH_SEPARATOR + String(monthStr) + PATH_SEPARATOR + String(dayStr) + LOG_FILE_EXTENSION;
+  
+  log_i("Generated log path: %s", logPath.c_str());
+  return logPath;
+}
+
+/**************************************************************
+ * @brief Ensure directory path exists, create if necessary
+ *************************************************************/
+bool bHalSdcard_ensureDirectoryExists(const String& dirPath)
+{
+  if (SD.exists(dirPath))
+  {
+    log_v("Directory already exists: %s", dirPath.c_str());
+    return true;
+  }
+  
+  log_i("Creating directory: %s", dirPath.c_str());
+  if (SD.mkdir(dirPath))
+  {
+    log_i("Directory created successfully: %s", dirPath.c_str());
+    return true;
+  }
+  else
+  {
+    log_e("Failed to create directory: %s", dirPath.c_str());
+    return false;
+  }
+}
+
 void vHalSdcard_logToSD(send_data_t *data, systemData_t *p_tSysData, systemStatus_t *p_tSys, sensorData_t *p_tData, deviceNetworkInfo_t *p_tDev)
-{ // builds a new logfile line and calls addToLog() (using logpath global var) to add it
+{ // builds a new logfile line and calls addToLog() using date-based folder structure
 
-  log_i("Logging data to the .csv on the SD Card...\n");
+  log_i("Logging data to date-based CSV structure on SD Card...");
 
-  strftime(p_tSysData->Date, sizeof(p_tSysData->Date), "%d/%m/%Y", &data->sendTimeInfo); // Formatting date as DD/MM/YYYY
-  strftime(p_tSysData->Time, sizeof(p_tSysData->Time), "%T", &data->sendTimeInfo);       // Formatting time as HH:MM:SS
+  // Create date-based log path
+  String logPath = sHalSdcard_createDateBasedLogPath(&data->sendTimeInfo);
+  
+  // Extract directory path from full file path
+  int lastSlashIndex = logPath.lastIndexOf(*PATH_SEPARATOR);
+  String dirPath = logPath.substring(0, lastSlashIndex);
+  
+  // Ensure year and month directories exist
+  char yearStr[FOLDER_NAME_LEN];
+  char monthStr[FOLDER_NAME_LEN]; // Generous buffer sizes to avoid any truncation warnings
+  snprintf(yearStr, sizeof(yearStr), YEAR_FORMAT, data->sendTimeInfo.tm_year + BASE_YEAR_OFFSET);
+  snprintf(monthStr, sizeof(monthStr), MONTH_FORMAT, data->sendTimeInfo.tm_mon + MONTH_OFFSET);
+  
+  String yearPath = PATH_SEPARATOR + String(yearStr);
+  String monthPath = yearPath + PATH_SEPARATOR + String(monthStr);
+  
+  // Create directories step by step
+  if (!bHalSdcard_ensureDirectoryExists(yearPath))
+  {
+    log_e("Failed to create year directory: %s", yearPath.c_str());
+    return;
+  }
+  
+  if (!bHalSdcard_ensureDirectoryExists(monthPath))
+  {
+    log_e("Failed to create month directory: %s", monthPath.c_str());
+    return;
+  }
+
+  strftime(p_tSysData->Date, sizeof(p_tSysData->Date), DATE_FORMAT, &data->sendTimeInfo); // Formatting date as DD/MM/YYYY
+  strftime(p_tSysData->Time, sizeof(p_tSysData->Time), TIME_FORMAT, &data->sendTimeInfo);       // Formatting time as HH:MM:SS
 
   String logvalue = "";
-  char timeFormat[29] = {0};
+  char timeFormat[TIMEFORMAT_LEN] = {0};
   if (p_tSys->datetime)
-    strftime(timeFormat, sizeof(timeFormat), "%Y-%m-%dT%T.000Z", &data->sendTimeInfo); // formatting date&time in TZ format
+    strftime(timeFormat, sizeof(timeFormat), ISO_DATETIME_FORMAT, &data->sendTimeInfo); // formatting date&time in TZ format
 
   // Data is layed out as follows:
-  // "sent_ok?;recordedAt;date;time;temp;hum;PM1;PM2_5;PM10;pres;radiation;nox;co;nh3;o3;voc;msp"
+  // "recordedAt;date;time;temp;hum;PM1;PM2_5;PM10;pres;radiation;nox;co;nh3;o3;voc;msp"
+  // Note: Removed sent_ok field as data is always logged regardless of transmission status
 
-  logvalue += (p_tSysData->sent_ok) ? "OK" : "ERROR";
-  logvalue += ";";
+  // Always log data regardless of transmission status
   logvalue += String(timeFormat);
-  logvalue += ";";
+  logvalue += FIRST_DATA_COLUMN_SEPARATOR;
   logvalue += String(p_tSysData->Date);
-  logvalue += ";";
+  logvalue += FIRST_DATA_COLUMN_SEPARATOR;
   logvalue += String(p_tSysData->Time);
-  logvalue += ";";
+  logvalue += FIRST_DATA_COLUMN_SEPARATOR;
+  logvalue += String(data->sendTimeInfo.tm_year + BASE_YEAR_OFFSET); // Add year
+  logvalue += FIRST_DATA_COLUMN_SEPARATOR;
+  logvalue += String(data->sendTimeInfo.tm_mon + MONTH_OFFSET); // Add month (1-12)
+  logvalue += FIRST_DATA_COLUMN_SEPARATOR;
   if (p_tData->status.BME680Sensor)
   {
     logvalue += vGeneric_floatToComma(data->temp);
   }
-  logvalue += ";";
+  logvalue += FIRST_DATA_COLUMN_SEPARATOR;
   if (p_tData->status.BME680Sensor)
   {
     logvalue += vGeneric_floatToComma(data->hum);
   }
-  logvalue += ";";
+  logvalue += FIRST_DATA_COLUMN_SEPARATOR;
   if (p_tData->status.PMS5003Sensor)
   {
     logvalue += String(data->PM1);
   }
-  logvalue += ";";
+  logvalue += FIRST_DATA_COLUMN_SEPARATOR;
   if (p_tData->status.PMS5003Sensor)
   {
     logvalue += String(data->PM25);
   }
-  logvalue += ";";
+  logvalue += FIRST_DATA_COLUMN_SEPARATOR;
   if (p_tData->status.PMS5003Sensor)
   {
     logvalue += String(data->PM10);
   }
-  logvalue += ";";
+  logvalue += FIRST_DATA_COLUMN_SEPARATOR;
   if (p_tData->status.BME680Sensor)
   {
     logvalue += vGeneric_floatToComma(data->pre);
   }
-  logvalue += ";";
-  logvalue += ";"; // for "radiation"
+  logvalue += FIRST_DATA_COLUMN_SEPARATOR;
+  logvalue += FIRST_DATA_COLUMN_SEPARATOR; // for "radiation"
   if (p_tData->status.MICS6814Sensor)
   {
     logvalue += vGeneric_floatToComma(data->MICS_NO2);
   }
-  logvalue += ";";
+  logvalue += FIRST_DATA_COLUMN_SEPARATOR;
   if (p_tData->status.MICS6814Sensor)
   {
     logvalue += vGeneric_floatToComma(data->MICS_CO);
   }
-  logvalue += ";";
+  logvalue += FIRST_DATA_COLUMN_SEPARATOR;
   if (p_tData->status.MICS6814Sensor)
   {
     logvalue += vGeneric_floatToComma(data->MICS_NH3);
   }
-  logvalue += ";";
+  logvalue += FIRST_DATA_COLUMN_SEPARATOR;
   if (p_tData->status.O3Sensor)
   {
     logvalue += vGeneric_floatToComma(data->ozone);
   }
-  logvalue += ";";
+  logvalue += FIRST_DATA_COLUMN_SEPARATOR;
   if (p_tData->status.BME680Sensor)
   {
     logvalue += vGeneric_floatToComma(data->VOC);
   }
-  logvalue += ";";
+  logvalue += FIRST_DATA_COLUMN_SEPARATOR;
   logvalue += String(data->MSP);
 
-  String oldlogpath = p_tDev->logpath + ".old";
-  String errorpath = "logerror_" + String(timeFormat) + ".txt";
+  // Use date-based log path instead of old logpath system
+  String oldlogpath = logPath + LOG_FILE_OLD_EXTENSION;
+  String errorpath = monthPath + PATH_SEPARATOR + ERROR_FILE_PREFIX + String(timeFormat) + ERROR_FILE_EXTENSION;
 
-  if (addToLog(p_tDev->logpath.c_str(), oldlogpath.c_str(), errorpath.c_str(), &logvalue))
+  // Check if log file needs header (first time creation)
+  bool needsHeader = !SD.exists(logPath);
+  
+  if (needsHeader)
   {
-    log_i("SD Card log file updated successfully!\n");
+    String header = CSV_HEADER;
+    if (addToLog(logPath.c_str(), oldlogpath.c_str(), errorpath.c_str(), &header))
+    {
+      log_i("CSV header added to new log file: %s", logPath.c_str());
+    }
+    else
+    {
+      log_e("Failed to add CSV header to log file!");
+      vMsp_sendNetworkDataToDisplay(p_tDev, p_tSys, DISP_EVENT_SD_CARD_LOG_ERROR);
+      return;
+    }
+  }
+
+  if (addToLog(logPath.c_str(), oldlogpath.c_str(), errorpath.c_str(), &logvalue))
+  {
+    log_i("SD Card log file updated successfully: %s", logPath.c_str());
   }
   else
   {
-    log_e("Error updating SD Card log file!\n");
+    log_e("Error updating SD Card log file: %s", logPath.c_str());
     vMsp_sendNetworkDataToDisplay(p_tDev, p_tSys, DISP_EVENT_SD_CARD_LOG_ERROR);
   }
 }
@@ -753,10 +865,7 @@ void vHalSdcard_readSD(systemStatus_t *p_tSys, deviceNetworkInfo_t *p_tDev, sens
     //   vHalDisplay_drawTwoLines("AVG_DELAY less than 50!", "Setting to 50...", 5);
     //   avg_delay = 50; // must be at least 45 for PMS5003 compensation routine, 5 seconds extra for reading cycle messages
     // }
-    // setting the logpath variable
-    p_tDev->logpath = "/log_" + p_tDev->deviceid + "_" + p_tSysData->ver + ".csv";
-    // checking logfile existance
-    uHalSdcard_checkLogFile(p_tDev);
+    // Legacy logpath system removed - now using date-based logging
   }
 }
 
@@ -769,12 +878,12 @@ void vHalSdcard_readSD(systemStatus_t *p_tSys, deviceNetworkInfo_t *p_tDev, sens
  ********************************************************/
 uint8_t vHalSdcard_periodicCheck(systemStatus_t *p_tSys, deviceNetworkInfo_t *p_tDev)
 {
-  static uint8_t previousSdStatus = 255; // Use 255 as uninitialized marker
+  static uint8_t previousSdStatus = UNINITIALIZED_MARKER; // Use as uninitialized marker
   uint8_t currentSdStatus = false;
   
 
   // Initialize previousSdStatus based on actual system status on first call
-  if (previousSdStatus == 255)
+  if (previousSdStatus == UNINITIALIZED_MARKER)
   {
     previousSdStatus = p_tSys->sdCard;
   }

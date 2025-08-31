@@ -205,7 +205,7 @@ typedef struct __NETWORK__
   String passw;
   String apn;
   String deviceid;
-  String logpath;
+  // String logpath; // Removed - now using date-based logging
   wifi_power_t wifipow;
   char baseMacChr[18] = {0};
   String remain;
