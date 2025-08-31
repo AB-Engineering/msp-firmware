@@ -183,7 +183,8 @@ void setup()
 
   // BOOT STRINGS ++++++++++++++++++++++++++++++++++++++++++++++++++++++
   log_i("\nMILANO SMART PARK");
-  log_i("FIRMWARE %s by Norman Mulinacci", sysData.ver.c_str());
+  log_i("FIRMWARE %s", sysData.ver.c_str());
+  log_i("First project by Norman Mulinacci");
   log_i("Refactor and optimization by AB-Engineering - https://ab-engineering.it");
   log_i("Compiled %s %s\n", __DATE__, __TIME__);
 
