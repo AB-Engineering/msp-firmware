@@ -24,10 +24,6 @@
 #include <freertos/event_groups.h>
 #include <freertos/semphr.h>
 
-// Default configuration values
-#define NTP_SERVER_DEFAULT "pool.ntp.org"
-#define TZ_DEFAULT "GMT0"
-
 // Network internal event bits for task management (different from public events)
 #define NET_EVT_CONNECT_REQ      (1 << 5)
 #define NET_EVT_DISCONNECT_REQ   (1 << 6)
@@ -228,9 +224,7 @@ void vHalNetwork_printWiFiMACAddr(systemStatus_t *p_tSys, deviceNetworkInfo_t *p
 
 
 // Connection timeout and retry configuration - defined in config.h
-#ifndef MAX_CONNECTION_RETRIES
-#define MAX_CONNECTION_RETRIES 3
-#endif
+// MAX_CONNECTION_RETRIES defined in config.h
 
 // Debug configuration
 #ifdef NETWORK_DEBUG

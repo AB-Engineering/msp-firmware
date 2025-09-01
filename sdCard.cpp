@@ -28,9 +28,6 @@
 
 // File system constants
 #define LOG_FILE_EXTENSION ".csv"
-#define LOG_FILE_OLD_EXTENSION ".old"
-#define ERROR_FILE_PREFIX "logerror_"
-#define ERROR_FILE_EXTENSION ".txt"
 #define PATH_SEPARATOR "/"
 
 // Date/Time format constants

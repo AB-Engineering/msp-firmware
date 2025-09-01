@@ -27,8 +27,6 @@
 #define DISP_QUEUE_ITEM_SIZE sizeof(displayData_t)
 #define DISP_QUEUE_SIZE (DISP_QUEUE_LENGTH * DISP_QUEUE_ITEM_SIZE)
 
-#define PMS_PREHEAT_TIME_IN_SEC 20 /*!<PMS5003 preheat time in seconds, defaults to 45 seconds */
-
 // Static task variables
 StackType_t displayTaskStack[DISPLAY_TASK_STACK_SIZE];
 StaticTask_t displayTaskBuffer;

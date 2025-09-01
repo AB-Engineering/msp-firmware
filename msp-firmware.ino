@@ -5,16 +5,7 @@
           This code is usable under the terms and conditions of the
              GNU GENERAL PUBLIC LICENSE Version 3, 29 June 2007
  */
-
-// PMS5003 serial pins
-// with WROVER module don't use UART 2 mode on pins 16 and 17: it crashes!
-#define PMSERIAL_RX 14
-#define PMSERIAL_TX 12
-
-// Serial modem pins
-#define MODEM_RST 4
-
-// Select modem type
+// Select modem type - required before TinyGsmClient.h include
 #define TINY_GSM_MODEM_SIM800
 
 // Basic system libraries
