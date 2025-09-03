@@ -173,11 +173,11 @@ void setup()
   vTaskDisplay_createTask();
 
   // BOOT STRINGS ++++++++++++++++++++++++++++++++++++++++++++++++++++++
-  log_i("\nMILANO SMART PARK");
-  log_i("FIRMWARE %s", sysData.ver.c_str());
-  log_i("First project by Norman Mulinacci");
-  log_i("Refactor and optimization by AB-Engineering - https://ab-engineering.it");
-  log_i("Compiled %s %s\n", __DATE__, __TIME__);
+  printf("\nMILANO SMART PARK\n");
+  printf("FIRMWARE %s\n", sysData.ver.c_str());
+  printf("First project by Norman Mulinacci\n");
+  printf("Refactor and optimization by AB-Engineering - https://ab-engineering.it\n");
+  printf("Compiled %s %s\n", __DATE__, __TIME__);
 
   vMsp_updateDataAndSendEvent(DISP_EVENT_DEVICE_BOOT, &sensorData_accumulate, &devinfo, &measStat, &sysData, &sysStat);
 
@@ -211,6 +211,16 @@ void setup()
   // STEP 1: Single SD Card Configuration Reading
   log_i("=== STEP 1: Loading complete system configuration from SD card ===");
   vHalSdcard_readSD(&sysStat, &devinfo, &sensorData_accumulate, &measStat, &sysData);
+
+  // Clean up any leftover firmware files from previous downloads on reboot
+  if (SD.exists("/firmware.bin")) {
+    log_i("Cleaning up leftover firmware file from previous session");
+    if (SD.remove("/firmware.bin")) {
+      log_i("Successfully removed leftover firmware.bin file");
+    } else {
+      log_w("Failed to remove leftover firmware.bin file");
+    }
+  }
 
   // STEP 2: Fill system configuration with SD data or defaults
   log_i("=== STEP 2: Configuring system with loaded data or defaults ===");
