@@ -22,6 +22,7 @@
 #include "network.h"
 #include "mspOs.h"
 #include "config.h"
+#include "sensors.h"
 
 #define FOLDER_NAME_LEN 16
 #define TIMEFORMAT_LEN 30
@@ -352,33 +353,33 @@ static uint8_t parseConfig(File fl, deviceNetworkInfo_t *p_tDev, sensorData_t *p
   if (!config[JSON_KEY_MICS_CALIBRATION_VALUES].isNull())
   {
     JsonObject micsCalib = config[JSON_KEY_MICS_CALIBRATION_VALUES];
-    p_tData->pollutionData.data.carbonMonoxide = micsCalib[JSON_KEY_MICS_RED] | 955.0f;
-    p_tData->pollutionData.data.nitrogenDioxide = micsCalib[JSON_KEY_MICS_OX] | 900.0f;
-    p_tData->pollutionData.data.ammonia = micsCalib[JSON_KEY_MICS_NH3] | 163.0f;
+    p_tData->pollutionData.sensingResInAir.redSensor = micsCalib[JSON_KEY_MICS_RED] | R0_RED_SENSOR;
+    p_tData->pollutionData.sensingResInAir.oxSensor = micsCalib[JSON_KEY_MICS_OX] | R0_OX_SENSOR;
+    p_tData->pollutionData.sensingResInAir.nh3Sensor = micsCalib[JSON_KEY_MICS_NH3] | R0_NH3_SENSOR;
   }
   else
   {
     log_e("Missing MICS_CALIBRATION_VALUES in config. Using defaults");
-    p_tData->pollutionData.data.carbonMonoxide = 955;
-    p_tData->pollutionData.data.nitrogenDioxide = 900;
-    p_tData->pollutionData.data.ammonia = 163;
+    p_tData->pollutionData.sensingResInAir.redSensor = R0_RED_SENSOR;
+    p_tData->pollutionData.sensingResInAir.oxSensor = R0_OX_SENSOR;
+    p_tData->pollutionData.sensingResInAir.nh3Sensor = R0_NH3_SENSOR;
   }
-  log_i("MICSCal[] = *%.1f*, *%.1f*, *%.1f*", p_tData->pollutionData.data.carbonMonoxide, p_tData->pollutionData.data.nitrogenDioxide, p_tData->pollutionData.data.ammonia);
+  log_i("MICS R0[] = *%d*, *%d*, *%d*", p_tData->pollutionData.sensingResInAir.redSensor, p_tData->pollutionData.sensingResInAir.oxSensor, p_tData->pollutionData.sensingResInAir.nh3Sensor);
 
   // Parse MICS Measurement Offsets
   if (!config[JSON_KEY_MICS_MEASUREMENTS_OFFSETS].isNull())
   {
     JsonObject micsOffset = config[JSON_KEY_MICS_MEASUREMENTS_OFFSETS];
-    p_tData->pollutionData.sensingResInAirOffset.redSensor = (int16_t)(micsOffset[JSON_KEY_MICS_RED] | 0);
-    p_tData->pollutionData.sensingResInAirOffset.oxSensor = (int16_t)(micsOffset[JSON_KEY_MICS_OX] | 0);
-    p_tData->pollutionData.sensingResInAirOffset.nh3Sensor = (int16_t)(micsOffset[JSON_KEY_MICS_NH3] | 0);
+    p_tData->pollutionData.sensingResInAirOffset.redSensor = (int16_t)(micsOffset[JSON_KEY_MICS_RED] | DEFAULT_SENSOR_OFFSET);
+    p_tData->pollutionData.sensingResInAirOffset.oxSensor = (int16_t)(micsOffset[JSON_KEY_MICS_OX] | DEFAULT_SENSOR_OFFSET);
+    p_tData->pollutionData.sensingResInAirOffset.nh3Sensor = (int16_t)(micsOffset[JSON_KEY_MICS_NH3] | DEFAULT_SENSOR_OFFSET);
   }
   else
   {
     log_e("Missing MICS_MEASUREMENTS_OFFSETS in config. Using defaults");
-    p_tData->pollutionData.sensingResInAirOffset.redSensor = 0;
-    p_tData->pollutionData.sensingResInAirOffset.oxSensor = 0;
-    p_tData->pollutionData.sensingResInAirOffset.nh3Sensor = 0;
+    p_tData->pollutionData.sensingResInAirOffset.redSensor = DEFAULT_SENSOR_OFFSET;
+    p_tData->pollutionData.sensingResInAirOffset.oxSensor = DEFAULT_SENSOR_OFFSET;
+    p_tData->pollutionData.sensingResInAirOffset.nh3Sensor = DEFAULT_SENSOR_OFFSET;
   }
   log_i("MICSoffset[] = *%d*, *%d*, *%d*", p_tData->pollutionData.sensingResInAirOffset.redSensor, p_tData->pollutionData.sensingResInAirOffset.oxSensor, p_tData->pollutionData.sensingResInAirOffset.nh3Sensor);
 
@@ -386,22 +387,22 @@ static uint8_t parseConfig(File fl, deviceNetworkInfo_t *p_tDev, sensorData_t *p
   if (!config[JSON_KEY_COMPENSATION_FACTORS].isNull())
   {
     JsonObject compFactors = config[JSON_KEY_COMPENSATION_FACTORS];
-    p_tData->compParams.currentHumidity = compFactors[JSON_KEY_COMP_H] | 0.6f;
-    p_tData->compParams.currentTemperature = compFactors[JSON_KEY_COMP_T] | 1.352f;
-    p_tData->compParams.currentPressure = compFactors[JSON_KEY_COMP_P] | 0.0132f;
+    p_tData->compParams.currentHumidity = compFactors[JSON_KEY_COMP_H] | HUMIDITY_COMP_PARAM;
+    p_tData->compParams.currentTemperature = compFactors[JSON_KEY_COMP_T] | TEMP_COMP_PARAM;
+    p_tData->compParams.currentPressure = compFactors[JSON_KEY_COMP_P] | PRESS_COMP_PARAM;
   }
   else
   {
     log_e("Missing COMPENSATION_FACTORS in config. Using defaults");
-    p_tData->compParams.currentHumidity = 0.6f;
-    p_tData->compParams.currentTemperature = 1.352f;
-    p_tData->compParams.currentPressure = 0.0132f;
+    p_tData->compParams.currentHumidity = HUMIDITY_COMP_PARAM;
+    p_tData->compParams.currentTemperature = TEMP_COMP_PARAM;
+    p_tData->compParams.currentPressure = PRESS_COMP_PARAM;
   }
   log_i("compensation[] = *%.3f*, *%.3f*, *%.6f*", p_tData->compParams.currentHumidity, p_tData->compParams.currentTemperature, p_tData->compParams.currentPressure);
 
   // Parse Use Modem
   sysStat->use_modem = config[JSON_KEY_USE_MODEM] | false;
-  log_i("useModem = *%s*", (sysStat->use_modem) ? "true" : "false");
+  log_i("useModem = *%s*", (sysStat->use_modem) ? STR_TRUE : STR_FALSE);
 
   // Parse Modem APN
   if (!config[JSON_KEY_MODEM_APN].isNull())
@@ -464,7 +465,7 @@ static uint8_t parseConfig(File fl, deviceNetworkInfo_t *p_tDev, sensorData_t *p
 
   // Parse Firmware Auto Upgrade
   sysStat->fwAutoUpgrade = config[JSON_KEY_FW_AUTO_UPGRADE] | false;
-  log_i("fwAutoUpgrade = *%s*", (sysStat->fwAutoUpgrade) ? "true" : "false");
+  log_i("fwAutoUpgrade = *%s*", (sysStat->fwAutoUpgrade) ? STR_TRUE : STR_FALSE);
 
   return outcome;
 }

@@ -22,7 +22,7 @@
 #define SEA_LEVEL_ALTITUDE_IN_M     122.0f /*!<sea level altitude in meters, defaults to Milan, Italy */
 
 #define REFERENCE_TEMP_C            25.0f             // Standard temperature in Celsius
-#define GAS_CONSTANT                83.1446261815324f  // Ideal gas constant in L·hPa/(mol·K)
+#define GAS_CONSTANT                8.314f             // Ideal gas constant in J/(mol·K)
 #define REFERENCE_PRESSURE_HPA      1013.25f           // Standard pressure in hPa
 #define HUMIDITY_OFFSET             50.0f              // humidity offset 
 #define PERCENT_DIVISOR             100.0f           // percent divisor
@@ -45,12 +45,32 @@
 #define TEMP_COMP_PARAM     (1.352f)
 #define PRESS_COMP_PARAM    (0.0132f)
 
+#define DEFAULT_SENSOR_OFFSET (0)
+
 #define MSP_DEFAULT_DATA ((int8_t) -1)
 
 /*!< ozone sensor ADC zero default offset is 1489, -1 to disable it (0.4V to 1.1V range in 12bit resolution at 0dB attenuation) */
 #define O3_SENS_DISABLE_ZERO_OFFSET (-1)
 
 #define PMS_PREHEAT_TIME_IN_SEC 20 /*!<PMS5003 preheat time in seconds, defaults to 45 seconds */
+
+// PPM to µg/m³ conversion constants
+#define MOLAR_VOLUME_STP            24.45f             // Molar volume at STP (L/mol)
+#define PPM_TO_UGM3_FACTOR          1000.0f            // Conversion factor for PPM to µg/m³
+
+// Ozone sensor calculation constants  
+#define O3_CALC_FACTOR_1            2.03552924f        // Ozone calculation factor 1
+#define O3_CALC_FACTOR_2            12.187f            // Ozone calculation factor 2
+#define O3_CALC_FACTOR_3            48.0f              // Ozone calculation factor 3
+
+// Sensor reading retry constants
+#define MAX_SENSOR_RETRIES          3                  // Maximum number of retry attempts
+#define ROUNDING_THRESHOLD          0.5f               // Threshold for rounding operations
+
+// Default calibration values as floats
+#define R0_RED_SENSOR_F             955.0f             // Default R0 for red sensor (CO)
+#define R0_OX_SENSOR_F              900.0f             // Default R0 for OX sensor (NO2) 
+#define R0_NH3_SENSOR_F             163.0f             // Default R0 for NH3 sensor
 
 /***************************************************
  * @brief checks BME680 status

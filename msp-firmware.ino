@@ -661,17 +661,17 @@ void loop()
     {
       log_i("Sampling BME680 sensor...");
       err.count = 0;
-      // Attempt to read BME680 sensor with maximum 3 retries
+      // Attempt to read BME680 sensor with maximum retries
       bool sensor_read_success = false;
-      for (int retry = 0; retry < 3; retry++)
+      for (int retry = 0; retry < MAX_SENSOR_RETRIES; retry++)
       {
         if (!tHalSensor_checkBMESensor(&bme680))
         {
           err.count++;
-          log_w("BME680 sensor check failed, attempt %d/3", retry + 1);
-          if (retry == 2) // Last attempt failed
+          log_w("BME680 sensor check failed, attempt %d/%d", retry + 1, MAX_SENSOR_RETRIES);
+          if (retry == (MAX_SENSOR_RETRIES - 1)) // Last attempt failed
           {
-            log_e("Error while sampling BME680 sensor after 3 attempts!");
+            log_e("Error while sampling BME680 sensor after %d attempts!", MAX_SENSOR_RETRIES);
             err.BMEfails++;
             break;
           }
@@ -688,10 +688,10 @@ void loop()
 
         if (!bme680.run())
         {
-          log_v("BME680 sensor not ready, waiting... (attempt %d/3)", retry + 1);
-          if (retry == 2) // Last attempt and still not ready
+          log_v("BME680 sensor not ready, waiting... (attempt %d/%d)", retry + 1, MAX_SENSOR_RETRIES);
+          if (retry == (MAX_SENSOR_RETRIES - 1)) // Last attempt and still not ready
           {
-            log_w("BME680 sensor not ready after 3 attempts - measurement #%d will be excluded from averaging", measStat.measurement_count + 1);
+            log_w("BME680 sensor not ready after %d attempts - measurement #%d will be excluded from averaging", MAX_SENSOR_RETRIES, measStat.measurement_count + 1);
             err.BMEfails++;
           }
           // Increase delay for BME680 gas measurement to complete (datasheet: 150-350ms)
@@ -742,9 +742,9 @@ void loop()
     {
       log_i("Sampling MICS6814 sensor...");
       err.count = 0;
-      // Attempt to read MICS6814 sensor with maximum 3 retries
+      // Attempt to read MICS6814 sensor with maximum retries
       bool mics_read_success = false;
-      for (int retry = 0; retry < 3; retry++)
+      for (int retry = 0; retry < MAX_SENSOR_RETRIES; retry++)
       {
         MICS6814SensorReading_t micsLocData;
 
@@ -755,10 +755,10 @@ void loop()
         if ((micsLocData.carbonMonoxide < 0) || (micsLocData.nitrogenDioxide < 0) || (micsLocData.ammonia < 0))
         {
           err.count++;
-          log_w("MICS6814 sensor reading failed, attempt %d/3", retry + 1);
-          if (retry == 2) // Last attempt failed
+          log_w("MICS6814 sensor reading failed, attempt %d/%d", retry + 1, MAX_SENSOR_RETRIES);
+          if (retry == (MAX_SENSOR_RETRIES - 1)) // Last attempt failed
           {
-            log_e("Error while sampling MICS6814 sensor after 3 attempts!");
+            log_e("Error while sampling MICS6814 sensor after %d attempts!", MAX_SENSOR_RETRIES);
             err.MICSfails++;
             break;
           }
@@ -802,17 +802,17 @@ void loop()
       ze25Data_t o3Data;
       log_i("Sampling O3 sensor...");
       err.count = 0;
-      // Attempt to read O3 sensor with maximum 3 retries
+      // Attempt to read O3 sensor with maximum retries
       bool o3_read_success = false;
-      for (int retry = 0; retry < 3; retry++)
+      for (int retry = 0; retry < MAX_SENSOR_RETRIES; retry++)
       {
         if (!tHalSensor_isAnalogO3Connected())
         {
           err.count++;
-          log_w("O3 sensor connection check failed, attempt %d/3", retry + 1);
-          if (retry == 2) // Last attempt failed
+          log_w("O3 sensor connection check failed, attempt %d/%d", retry + 1, MAX_SENSOR_RETRIES);
+          if (retry == (MAX_SENSOR_RETRIES - 1)) // Last attempt failed
           {
-            log_e("Error while sampling O3 sensor after 3 attempts!");
+            log_e("Error while sampling O3 sensor after %d attempts!", MAX_SENSOR_RETRIES);
             err.O3fails++;
             break;
           }
@@ -841,9 +841,9 @@ void loop()
     {
       log_i("Sampling PMS5003 sensor...");
       err.count = 0;
-      // Attempt to read PMS5003 sensor with maximum 3 retries
+      // Attempt to read PMS5003 sensor with maximum retries
       bool pms_read_success = false;
-      for (int retry = 0; retry < 3; retry++)
+      for (int retry = 0; retry < MAX_SENSOR_RETRIES; retry++)
       {
         // Clear serial buffer
         while (pmsSerial.available())
@@ -854,10 +854,10 @@ void loop()
         if (!pms.readUntil(data))
         {
           err.count++;
-          log_w("PMS5003 sensor reading failed, attempt %d/3", retry + 1);
-          if (retry == 2) // Last attempt failed
+          log_w("PMS5003 sensor reading failed, attempt %d/%d", retry + 1, MAX_SENSOR_RETRIES);
+          if (retry == (MAX_SENSOR_RETRIES - 1)) // Last attempt failed
           {
-            log_e("Error while sampling PMS5003 sensor after 3 attempts!");
+            log_e("Error while sampling PMS5003 sensor after %d attempts!", MAX_SENSOR_RETRIES);
             err.PMSfails++;
             break;
           }

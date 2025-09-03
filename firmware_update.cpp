@@ -1493,8 +1493,8 @@ void vHalFirmware_testOTAManagement()
     log_i("Test 5: Complete FOTA Process Test");
 
     // Test URL - try to get actual latest release URL first, fallback to fixed URL for testing
-    String testFirmwareUrl = "https://github.com/AB-Engineering/msp-firmware/releases/download/v4.0.0/update_v4.0.0.bin";
-    String testFirmwarePath = "/update_v4.0.0.bin";
+    String testFirmwareUrl = "https://github.com/A-A-Milano-Smart-Park/msp-firmware/releases/download/v4.1.0/update_v4.1.0.bin";
+    String testFirmwarePath = "/update_v4.1.0.bin";
 
     // Alternative: Try to get latest release URL from GitHub API (but simpler for now)
     log_i("Attempting to download test firmware from: %s", testFirmwareUrl.c_str());
@@ -1604,7 +1604,7 @@ void vHalFirmware_testForceOTAUpdate(systemData_t *sysData, systemStatus_t *sysS
     log_i("Requesting force OTA update via network task for proper stack management...");
 
     // Use network task for consistent stack management
-    requestFirmwareUpdate(sysData, sysStatus, devInfo);
+    bHalFirmware_checkForUpdates(sysData, sysStatus, devInfo);
 }
 
 #endif

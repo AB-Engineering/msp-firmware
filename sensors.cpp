@@ -12,6 +12,7 @@
 // -- includes
 #include <stdint.h>
 #include <stdio.h>
+#include "config.h"
 #include "generic_functions.h"
 #include <MiCS6814-I2C.h>
 #include "sensors.h"
@@ -163,7 +164,7 @@ float fHalSensor_analogUgM3O3Read(float *intemp, sensorData_t *p_tData)
   points -= p_tData->ozoneData.o3ZeroOffset;
   if (points <= 0)
     return 0.0;
-  return (((points * 2.03552924) * 12.187 * 48) / (CELIUS_TO_KELVIN + currTemp)); // temperature compensated
+  return (((points * O3_CALC_FACTOR_1) * O3_CALC_FACTOR_2 * O3_CALC_FACTOR_3) / (CELIUS_TO_KELVIN + currTemp)); // temperature compensated
 }
 
 /******************************************************************************
@@ -248,7 +249,7 @@ void vHalSensor_performAverages(errorVars_t *p_tErr, sensorData_t *p_tData, devi
 
     pmValue = p_tData->airQualityData.particleMicron1 / runs;
 
-    if ((pmValue - (int32_t) pmValue) >= 0.5f)
+    if ((pmValue - (int32_t) pmValue) >= ROUNDING_THRESHOLD)
     {
       p_tData->airQualityData.particleMicron1 = (int32_t) pmValue + 1;
     }
@@ -259,7 +260,7 @@ void vHalSensor_performAverages(errorVars_t *p_tErr, sensorData_t *p_tData, devi
 
     pmValue = p_tData->airQualityData.particleMicron25 / runs;
 
-    if ((pmValue - (int32_t) pmValue) >= 0.5f)
+    if ((pmValue - (int32_t) pmValue) >= ROUNDING_THRESHOLD)
     {
       p_tData->airQualityData.particleMicron25 = (int32_t) pmValue + 1;
     }
@@ -269,7 +270,7 @@ void vHalSensor_performAverages(errorVars_t *p_tErr, sensorData_t *p_tData, devi
     }
 
     pmValue = p_tData->airQualityData.particleMicron10 / runs;
-    if ((pmValue - (int32_t) pmValue) >= 0.5f)
+    if ((pmValue - (int32_t) pmValue) >= ROUNDING_THRESHOLD)
     {
       p_tData->airQualityData.particleMicron10 = (int32_t) pmValue + 1;
     }
