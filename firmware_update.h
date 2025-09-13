@@ -28,6 +28,7 @@ bool bHalFirmware_validateCurrentFirmware();
 bool bHalFirmware_markFirmwareValid();
 bool bHalFirmware_rollbackFirmware();
 bool bHalFirmware_isRollbackAvailable();
+bool bHalFirmware_checkAndApplyPendingUpdate(const char* firmwarePath);
 
 #ifdef ENABLE_ENHANCED_SECURITY
 // Enhanced Security functions (only available when ENABLE_ENHANCED_SECURITY is defined)

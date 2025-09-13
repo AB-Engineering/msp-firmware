@@ -212,13 +212,19 @@ void setup()
   log_i("=== STEP 1: Loading complete system configuration from SD card ===");
   vHalSdcard_readSD(&sysStat, &devinfo, &sensorData_accumulate, &measStat, &sysData);
 
-  // Clean up any leftover firmware files from previous downloads on reboot
+  // Phase 2: Check for downloaded firmware and apply update if newer
   if (SD.exists("/firmware.bin")) {
-    log_i("Cleaning up leftover firmware file from previous session");
-    if (SD.remove("/firmware.bin")) {
-      log_i("Successfully removed leftover firmware.bin file");
+    log_i("Downloaded firmware file found - checking for update");
+    if (bHalFirmware_checkAndApplyPendingUpdate("/firmware.bin")) {
+      log_i("Firmware update applied successfully");
     } else {
-      log_w("Failed to remove leftover firmware.bin file");
+      log_w("No firmware update needed or update failed - cleaning up file");
+    }
+    // Always remove firmware file after processing
+    if (SD.remove("/firmware.bin")) {
+      log_i("Firmware file cleaned up successfully");
+    } else {
+      log_w("Failed to remove firmware.bin file");
     }
   }
 

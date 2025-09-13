@@ -1045,7 +1045,13 @@ static bool downloadFile(const String &url, const String &filepath)
     
     // Re-enable network connectivity tests
     clearFirmwareDownloadInProgress();
-    return true;
+    
+    // Phase 1 complete: Download successful, restart to apply update
+    log_i("Download successful - restarting to apply firmware update with clean heap");
+    delay(1000); // Brief delay to ensure logs are written
+    esp_restart();
+    
+    return true; // Will never reach here due to restart
 }
 
 // ESP-IDF OTA management functions implementation
@@ -1790,3 +1796,112 @@ void vHalFirmware_testForceOTAUpdate(systemData_t *sysData, systemStatus_t *sysS
 }
 
 #endif
+
+/**
+ * @brief Check and apply pending firmware update from downloaded file
+ * @param firmwarePath Path to downloaded firmware file on SD card
+ * @return true if update was applied, false if no update needed or failed
+ */
+bool bHalFirmware_checkAndApplyPendingUpdate(const char* firmwarePath)
+{
+    log_i("=== Phase 2: Checking Downloaded Firmware ===");
+    
+    if (!SD.exists(firmwarePath)) {
+        log_w("No firmware file found at: %s", firmwarePath);
+        return false;
+    }
+    
+    // Open firmware file
+    File firmwareFile = SD.open(firmwarePath, FILE_READ);
+    if (!firmwareFile) {
+        log_e("Failed to open firmware file for reading");
+        return false;
+    }
+    
+    size_t fileSize = firmwareFile.size();
+    log_i("Found firmware file: %s (size: %d bytes)", firmwarePath, fileSize);
+    
+    // Get next OTA partition
+    const esp_partition_t* update_partition = esp_ota_get_next_update_partition(NULL);
+    if (!update_partition) {
+        log_e("No OTA partition available");
+        firmwareFile.close();
+        return false;
+    }
+    
+    log_i("OTA partition: %s (size: %d bytes)", update_partition->label, update_partition->size);
+    
+    // Check if firmware fits in partition
+    if (fileSize > update_partition->size) {
+        log_e("Firmware size (%d bytes) exceeds partition size (%d bytes)", 
+              fileSize, update_partition->size);
+        firmwareFile.close();
+        return false;
+    }
+    
+    // Begin OTA update
+    esp_ota_handle_t ota_handle = 0;
+    esp_err_t err = esp_ota_begin(update_partition, fileSize, &ota_handle);
+    if (err != ESP_OK) {
+        log_e("Failed to begin OTA update: %s", esp_err_to_name(err));
+        firmwareFile.close();
+        return false;
+    }
+    
+    log_i("OTA update started successfully");
+    
+    // Write firmware in chunks
+    uint8_t buffer[1024];
+    size_t totalWritten = 0;
+    bool updateSuccess = true;
+    
+    log_i("Writing firmware data...");
+    while (firmwareFile.available() && updateSuccess) {
+        size_t bytesRead = firmwareFile.readBytes((char*)buffer, sizeof(buffer));
+        if (bytesRead > 0) {
+            err = esp_ota_write(ota_handle, buffer, bytesRead);
+            if (err != ESP_OK) {
+                log_e("Failed to write OTA data at offset %d: %s", 
+                      totalWritten, esp_err_to_name(err));
+                updateSuccess = false;
+                break;
+            }
+            totalWritten += bytesRead;
+            
+            // Log progress every 100KB
+            if (totalWritten % (100 * 1024) == 0) {
+                log_i("Written: %d / %d bytes (%.1f%%)", 
+                      totalWritten, fileSize, (totalWritten * 100.0f) / fileSize);
+            }
+        }
+    }
+    
+    firmwareFile.close();
+    
+    if (updateSuccess && totalWritten == fileSize) {
+        log_i("Firmware write completed: %d bytes", totalWritten);
+        
+        // Finalize OTA update
+        err = esp_ota_end(ota_handle);
+        if (err != ESP_OK) {
+            log_e("Failed to finalize OTA update: %s", esp_err_to_name(err));
+            return false;
+        }
+        
+        // Set boot partition
+        err = esp_ota_set_boot_partition(update_partition);
+        if (err != ESP_OK) {
+            log_e("Failed to set boot partition: %s", esp_err_to_name(err));
+            return false;
+        }
+        
+        log_i("OTA update successful - device will restart with new firmware");
+        delay(1000);
+        esp_restart(); // This will boot into new firmware
+        return true; // Never reached
+    } else {
+        log_e("Firmware write failed: written %d, expected %d", totalWritten, fileSize);
+        esp_ota_end(ota_handle); // End OTA even on failure
+        return false;
+    }
+}
