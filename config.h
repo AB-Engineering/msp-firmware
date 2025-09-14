@@ -13,6 +13,10 @@
 #ifndef CONFIG_H
 #define CONFIG_H
 
+// ===== String Constants =====
+#define STR_TRUE  "true"
+#define STR_FALSE "false"
+
 // ===== Network Configuration =====
 
 // #define ENABLE_FIRMWARE_UPDATE_TESTS      // enable for FOTA controlled testing

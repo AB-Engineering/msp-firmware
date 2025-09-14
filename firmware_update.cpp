@@ -134,7 +134,7 @@ bool bHalFirmware_checkForUpdates(systemData_t *sysData, systemStatus_t *sysStat
         return true;
     }
 
-    log_i("Current version: %s", sysData->ver.c_str());
+    log_i("Current version: %s\n", sysData->ver.c_str());
     log_i("Latest version: %s", latestVersion.c_str());
     log_i("Download URL: %s", downloadUrl.c_str());
 
@@ -274,7 +274,22 @@ bool bHalFirmware_downloadBinaryFirmware(const String &downloadUrl, systemData_t
     if (!firmwareFile)
     {
         log_e("Failed to open downloaded firmware file");
-        return false;
+        log_e("Firmware download may have failed - performing controlled reboot...");
+        
+        // Remove potentially corrupted firmware file
+        if (SD.exists(firmwarePath.c_str()))
+        {
+            SD.remove(firmwarePath.c_str());
+            log_i("Removed inaccessible firmware file: %s", firmwarePath.c_str());
+        }
+        
+        // Brief delay before reboot to ensure logs are written
+        delay(2000);
+        
+        // Perform controlled reboot instead of returning false
+        esp_restart();
+        
+        return false; // Will never reach here due to restart
     }
 
     size_t fileSize = firmwareFile.size();
@@ -294,8 +309,16 @@ bool bHalFirmware_downloadBinaryFirmware(const String &downloadUrl, systemData_t
     {
         firmwareFile.close();
         log_e("Firmware file too small to be valid ESP32 firmware");
+        log_e("Invalid firmware size detected - performing controlled reboot...");
         SD.remove(firmwarePath.c_str());
-        return false;
+        
+        // Brief delay before reboot to ensure logs are written
+        delay(2000);
+        
+        // Perform controlled reboot instead of returning false
+        esp_restart();
+        
+        return false; // Will never reach here due to restart
     }
 
 #ifdef ENABLE_ENHANCED_SECURITY
@@ -432,8 +455,19 @@ bool bHalFirmware_performOTAUpdate(const String &firmwarePath)
     if (update_partition == NULL)
     {
         log_e("Failed to get next update partition");
+        log_e("OTA partition unavailable - performing controlled reboot...");
         firmwareFile.close();
-        return false;
+        
+        // Remove firmware file since we can't process it
+        SD.remove(firmwarePath.c_str());
+        
+        // Brief delay before reboot to ensure logs are written
+        delay(2000);
+        
+        // Perform controlled reboot instead of returning false
+        esp_restart();
+        
+        return false; // Will never reach here due to restart
     }
 
     log_i("Update partition: %s at offset 0x%08x (size: %d bytes)",
@@ -443,8 +477,19 @@ bool bHalFirmware_performOTAUpdate(const String &firmwarePath)
     if (firmwareSize > update_partition->size)
     {
         log_e("Firmware size (%d) exceeds partition size (%d)", firmwareSize, update_partition->size);
+        log_e("Firmware too large for partition - performing controlled reboot...");
         firmwareFile.close();
-        return false;
+        
+        // Remove oversized firmware file
+        SD.remove(firmwarePath.c_str());
+        
+        // Brief delay before reboot to ensure logs are written
+        delay(2000);
+        
+        // Perform controlled reboot instead of returning false
+        esp_restart();
+        
+        return false; // Will never reach here due to restart
     }
 
     // Begin OTA update process
@@ -611,7 +656,7 @@ static bool downloadFile(const String &url, const String &filepath)
         }
 
         secureClient->setInsecure();              // Accept all certificates for simplicity
-        secureClient->setTimeout(30000);          // 30 second timeout
+        secureClient->setTimeout(60000);          // 60 second timeout for large downloads
         secureClient->setHandshakeTimeout(30000); // 30 second handshake timeout
 
         if (!http.begin(*secureClient, url))
@@ -754,8 +799,10 @@ static bool downloadFile(const String &url, const String &filepath)
     log_i("Download successful after %d redirects", redirectCount);
 
     int totalLength = http.getSize();
+    int originalFileSize = totalLength; // Store original size for validation
     log_i("Starting download, file size: %d bytes", totalLength);
 
+    log_i("Attempting to open SD card file: %s", filepath.c_str());
     File file = SD.open(filepath.c_str(), FILE_WRITE);
     if (!file)
     {
@@ -775,46 +822,91 @@ static bool downloadFile(const String &url, const String &filepath)
         }
         return false;
     }
+    log_i("SD card file opened successfully");
 
+    log_i("Getting HTTP stream pointer...");
     WiFiClient *stream = http.getStreamPtr();
+    log_i("Stream pointer obtained: %s", stream ? "valid" : "null");
     static uint8_t buffer[DOWNLOAD_BUFFER_SIZE]; // Static to avoid stack allocation
     int bytesWritten = 0;
     int loopCount = 0;
+    unsigned long lastDataTime = millis();
+    unsigned long noDataTimeout = 30000; // 30 second timeout for no data
+    int consecutiveNoDataCount = 0;
+    const int maxNoDataRetries = 100; // Maximum retries when no data available
+
+    log_i("Starting download loop - expecting %d bytes total", totalLength);
 
     while (http.connected() && (totalLength > 0 || totalLength == -1))
     {
         size_t availableBytes = stream->available();
-        if (availableBytes > 0)
+        
+        // Try to read data even if available() reports 0, as this can be unreliable
+        if (availableBytes > 0 || consecutiveNoDataCount < 10)
         {
-            int bytesToRead = min(availableBytes, sizeof(buffer));
+            int bytesToRead = (availableBytes > 0) ? min(availableBytes, sizeof(buffer)) : sizeof(buffer);
             int bytesRead = stream->readBytes(buffer, bytesToRead);
             
-            // Check if SD write succeeds to prevent corruption
-            size_t bytesWrittenToFile = file.write(buffer, bytesRead);
-            if (bytesWrittenToFile != bytesRead)
+            if (bytesRead > 0) 
             {
-                log_e("SD card write failed: wrote %d of %d bytes", bytesWrittenToFile, bytesRead);
-                file.close();
-                http.end();
-                clearFirmwareDownloadInProgress();
-                return false;
-            }
-            
-            bytesWritten += bytesRead;
-
-            if (totalLength > 0)
-            {
-                totalLength -= bytesRead;
-
-                // Simplified progress logging to avoid HTTP client calls during download
-                if (bytesWritten % (32 * 1024) == 0)
+                // Reset timeout and retry counters when data is actually received
+                lastDataTime = millis();
+                consecutiveNoDataCount = 0;
+                // Check if SD write succeeds to prevent corruption
+                size_t bytesWrittenToFile = file.write(buffer, bytesRead);
+                if (bytesWrittenToFile != bytesRead)
                 {
-                    log_i("Download progress: %d bytes", bytesWritten);
+                    log_e("SD card write failed: wrote %d of %d bytes", bytesWrittenToFile, bytesRead);
+                    file.close();
+                    http.end();
+                    clearFirmwareDownloadInProgress();
+                    return false;
+                }
+                
+                bytesWritten += bytesRead;
+
+                if (totalLength > 0)
+                {
+                    totalLength -= bytesRead;
+
+                    // Enhanced progress logging with connection status and more frequent flushing
+                    if (bytesWritten % (16 * 1024) == 0) // Reduced from 32KB to 16KB for more frequent updates
+                    {
+                        float progress = ((float)(bytesWritten) / (float)(bytesWritten + totalLength)) * 100.0;
+                        log_i("Download progress: %d bytes (%.1f%%) - connection: %s", 
+                              bytesWritten, progress, http.connected() ? "OK" : "LOST");
+                        
+                        // Force file flush more frequently
+                        file.flush();
+                        
+                        // Additional SD card health check
+                        if (!SD.exists(filepath.c_str())) 
+                        {
+                            log_e("SD card file disappeared during download!");
+                            break;
+                        }
+                    }
+                }
+                
+                // Flush every 64KB to prevent SD card buffer issues
+                if (bytesWritten % (64 * 1024) == 0)
+                {
+                    file.flush();
+                    log_d("Periodic flush completed at %d bytes", bytesWritten);
+                }
+            }
+            else
+            {
+                // No data was read
+                if (availableBytes > 0) {
+                    log_w("Stream readBytes returned 0 despite available data: %d", availableBytes);
+                } else {
+                    log_d("No data available and no data read, attempt: %d", consecutiveNoDataCount);
                 }
             }
 
             // Yield more frequently to prevent stack overflow
-            if (++loopCount % 10 == 0)
+            if (++loopCount % 5 == 0) // Increased frequency
             {
                 yield();  // Give other tasks a chance
                 delay(1); // Small delay to prevent watchdog reset
@@ -822,10 +914,61 @@ static bool downloadFile(const String &url, const String &filepath)
         }
         else
         {
+            // No data available - implement timeout and retry logic
+            consecutiveNoDataCount++;
+            
+            // Check for timeout
+            if ((millis() - lastDataTime) > noDataTimeout)
+            {
+                log_e("Download timeout: no data received for %lu ms", millis() - lastDataTime);
+                log_e("Connection status: %s, Total downloaded: %d bytes", 
+                      http.connected() ? "connected" : "disconnected", bytesWritten);
+                break;
+            }
+            
+            // Check for too many consecutive no-data attempts (reduced threshold)
+            if (consecutiveNoDataCount > 50) // Reduced from 100 to 50 for faster failure detection
+            {
+                log_e("Too many consecutive no-data attempts (%d), connection may be stalled", consecutiveNoDataCount);
+                log_e("Possible causes: SD card issues, network congestion, or server problems");
+                
+                // Final SD card check before giving up
+                if (!SD.exists(filepath.c_str())) 
+                {
+                    log_e("Downloaded file is missing - SD card failure detected!");
+                } else {
+                    log_i("Downloaded file still exists, likely network/server issue");
+                }
+                break;
+            }
+            
+            // Log periodic status when waiting for data (more frequent for better debugging)
+            if (consecutiveNoDataCount % 25 == 0)
+            {
+                log_d("Waiting for data... attempts: %d, connected: %s, downloaded: %d bytes", 
+                      consecutiveNoDataCount, http.connected() ? "yes" : "no", bytesWritten);
+                      
+                // Periodic SD card health check during long waits
+                if (!SD.exists("/"))
+                {
+                    log_w("SD card root directory check failed during wait");
+                }
+            }
+            
             delay(10);
             yield(); // Yield when waiting
         }
+        
+        // Additional safety check - if connection is lost, break
+        if (!http.connected())
+        {
+            log_w("HTTP connection lost during download at %d bytes", bytesWritten);
+            break;
+        }
     }
+    
+    log_i("Download loop completed - downloaded %d bytes, connection: %s", 
+          bytesWritten, http.connected() ? "connected" : "disconnected");
 
     // Ensure file is properly flushed and closed
     file.flush();
@@ -840,16 +983,8 @@ static bool downloadFile(const String &url, const String &filepath)
     {
         if (usedSpiram)
         {
-            // Verify pointer is still valid before cleanup
-            if (heap_caps_get_allocated_size(secureClient) > 0)
-            {
-                secureClient->~WiFiClientSecure();
-                heap_caps_free(secureClient);
-            }
-            else
-            {
-                log_w("SPIRAM WiFiClientSecure pointer appears invalid, skipping cleanup");
-            }
+            secureClient->~WiFiClientSecure();
+            heap_caps_free(secureClient);
         }
         else
         {
@@ -858,12 +993,65 @@ static bool downloadFile(const String &url, const String &filepath)
         secureClient = nullptr;
     }
 
-    // Use safer logging with saved value
-    log_i("Download completed: %d bytes written to /firmware.bin", finalBytesWritten);
+    // Check if download was successful - require exact file size match for FOTA safety
+    bool downloadSuccessful = false;
+    
+    if (originalFileSize > 0)
+    {
+        // We know the expected size - require exact match for firmware safety
+        downloadSuccessful = (finalBytesWritten == originalFileSize);
+        log_i("Download validation: %d bytes written, expected: %d bytes, match: %s", 
+              finalBytesWritten, originalFileSize, downloadSuccessful ? "EXACT" : "FAILED");
+        
+        if (!downloadSuccessful)
+        {
+            log_e("CRITICAL: Incomplete firmware download detected!");
+            log_e("Expected: %d bytes, Got: %d bytes, Missing: %d bytes", 
+                  originalFileSize, finalBytesWritten, originalFileSize - finalBytesWritten);
+            log_e("FOTA update will be aborted to prevent device corruption");
+        }
+    }
+    else
+    {
+        // Unknown size, assume success if we got reasonable amount of data
+        downloadSuccessful = (finalBytesWritten > 100000); // At least 100KB
+        log_w("Download validation: %d bytes written (unknown expected size), success: %s", 
+              finalBytesWritten, downloadSuccessful ? "ASSUMED" : "FAILED");
+    }
+    
+    log_i("Download completed: %d bytes written to %s", finalBytesWritten, filepath.c_str());
+    
+    if (!downloadSuccessful)
+    {
+        log_e("Download appears to be incomplete or failed");
+        log_e("Performing controlled reboot to prevent system instability...");
+        clearFirmwareDownloadInProgress();
+        
+        // Remove potentially corrupted firmware file
+        if (SD.exists(filepath.c_str()))
+        {
+            SD.remove(filepath.c_str());
+            log_i("Removed corrupted firmware file: %s", filepath.c_str());
+        }
+        
+        // Brief delay before reboot to ensure logs are written
+        delay(2000);
+        
+        // Perform controlled reboot instead of returning false
+        esp_restart();
+        
+        return false; // Will never reach here due to restart
+    }
     
     // Re-enable network connectivity tests
     clearFirmwareDownloadInProgress();
-    return true;
+    
+    // Phase 1 complete: Download successful, restart to apply update
+    log_i("Download successful - restarting to apply firmware update with clean heap");
+    delay(1000); // Brief delay to ensure logs are written
+    esp_restart();
+    
+    return true; // Will never reach here due to restart
 }
 
 // ESP-IDF OTA management functions implementation
@@ -1493,8 +1681,8 @@ void vHalFirmware_testOTAManagement()
     log_i("Test 5: Complete FOTA Process Test");
 
     // Test URL - try to get actual latest release URL first, fallback to fixed URL for testing
-    String testFirmwareUrl = "https://github.com/AB-Engineering/msp-firmware/releases/download/v4.0.0/update_v4.0.0.bin";
-    String testFirmwarePath = "/update_v4.0.0.bin";
+    String testFirmwareUrl = "https://github.com/A-A-Milano-Smart-Park/msp-firmware/releases/download/v4.1.0/update_v4.1.0.bin";
+    String testFirmwarePath = "/update_v4.1.0.bin";
 
     // Alternative: Try to get latest release URL from GitHub API (but simpler for now)
     log_i("Attempting to download test firmware from: %s", testFirmwareUrl.c_str());
@@ -1604,7 +1792,116 @@ void vHalFirmware_testForceOTAUpdate(systemData_t *sysData, systemStatus_t *sysS
     log_i("Requesting force OTA update via network task for proper stack management...");
 
     // Use network task for consistent stack management
-    requestFirmwareUpdate(sysData, sysStatus, devInfo);
+    bHalFirmware_checkForUpdates(sysData, sysStatus, devInfo);
 }
 
 #endif
+
+/**
+ * @brief Check and apply pending firmware update from downloaded file
+ * @param firmwarePath Path to downloaded firmware file on SD card
+ * @return true if update was applied, false if no update needed or failed
+ */
+bool bHalFirmware_checkAndApplyPendingUpdate(const char* firmwarePath)
+{
+    log_i("=== Phase 2: Checking Downloaded Firmware ===");
+    
+    if (!SD.exists(firmwarePath)) {
+        log_w("No firmware file found at: %s", firmwarePath);
+        return false;
+    }
+    
+    // Open firmware file
+    File firmwareFile = SD.open(firmwarePath, FILE_READ);
+    if (!firmwareFile) {
+        log_e("Failed to open firmware file for reading");
+        return false;
+    }
+    
+    size_t fileSize = firmwareFile.size();
+    log_i("Found firmware file: %s (size: %d bytes)", firmwarePath, fileSize);
+    
+    // Get next OTA partition
+    const esp_partition_t* update_partition = esp_ota_get_next_update_partition(NULL);
+    if (!update_partition) {
+        log_e("No OTA partition available");
+        firmwareFile.close();
+        return false;
+    }
+    
+    log_i("OTA partition: %s (size: %d bytes)", update_partition->label, update_partition->size);
+    
+    // Check if firmware fits in partition
+    if (fileSize > update_partition->size) {
+        log_e("Firmware size (%d bytes) exceeds partition size (%d bytes)", 
+              fileSize, update_partition->size);
+        firmwareFile.close();
+        return false;
+    }
+    
+    // Begin OTA update
+    esp_ota_handle_t ota_handle = 0;
+    esp_err_t err = esp_ota_begin(update_partition, fileSize, &ota_handle);
+    if (err != ESP_OK) {
+        log_e("Failed to begin OTA update: %s", esp_err_to_name(err));
+        firmwareFile.close();
+        return false;
+    }
+    
+    log_i("OTA update started successfully");
+    
+    // Write firmware in chunks
+    uint8_t buffer[1024];
+    size_t totalWritten = 0;
+    bool updateSuccess = true;
+    
+    log_i("Writing firmware data...");
+    while (firmwareFile.available() && updateSuccess) {
+        size_t bytesRead = firmwareFile.readBytes((char*)buffer, sizeof(buffer));
+        if (bytesRead > 0) {
+            err = esp_ota_write(ota_handle, buffer, bytesRead);
+            if (err != ESP_OK) {
+                log_e("Failed to write OTA data at offset %d: %s", 
+                      totalWritten, esp_err_to_name(err));
+                updateSuccess = false;
+                break;
+            }
+            totalWritten += bytesRead;
+            
+            // Log progress every 100KB
+            if (totalWritten % (100 * 1024) == 0) {
+                log_i("Written: %d / %d bytes (%.1f%%)", 
+                      totalWritten, fileSize, (totalWritten * 100.0f) / fileSize);
+            }
+        }
+    }
+    
+    firmwareFile.close();
+    
+    if (updateSuccess && totalWritten == fileSize) {
+        log_i("Firmware write completed: %d bytes", totalWritten);
+        
+        // Finalize OTA update
+        err = esp_ota_end(ota_handle);
+        if (err != ESP_OK) {
+            log_e("Failed to finalize OTA update: %s", esp_err_to_name(err));
+            return false;
+        }
+        
+        // Set boot partition
+        err = esp_ota_set_boot_partition(update_partition);
+        if (err != ESP_OK) {
+            log_e("Failed to set boot partition: %s", esp_err_to_name(err));
+            return false;
+        }
+        
+        log_i("OTA update successful - device will restart with new firmware");
+        delay(1000);
+        esp_restart(); // This will boot into new firmware
+        return true; // Never reached
+    } else {
+        log_e("Firmware write failed: written %d, expected %d", totalWritten, fileSize);
+        esp_ota_end(ota_handle); // End OTA even on failure
+        return false;
+    }
+}

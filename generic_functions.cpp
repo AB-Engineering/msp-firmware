@@ -61,9 +61,6 @@ String vGeneric_floatToComma(float value)
  ***********************************************************/
 float vGeneric_convertPpmToUgM3(float ppm, float mm)
 {
-  float temperatureK = (REFERENCE_TEMP_C) + (CELIUS_TO_KELVIN);
-
-  float molarVolume = (GAS_CONSTANT * temperatureK) / REFERENCE_PRESSURE_HPA;
-  
-  return (ppm * (MICROGRAMS_PER_GRAM)) * (mm / molarVolume);
+  // Standard conversion: µg/m³ = ppm × (molecular_weight / molar_volume_at_STP) × conversion_factor
+  return ppm * mm * PPM_TO_UGM3_FACTOR / MOLAR_VOLUME_STP;
 }

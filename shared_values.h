@@ -205,7 +205,7 @@ typedef struct __NETWORK__
   String passw;
   String apn;
   String deviceid;
-  String logpath;
+  // String logpath; // Removed - now using date-based logging
   wifi_power_t wifipow;
   char baseMacChr[18] = {0};
   String remain;
@@ -220,6 +220,7 @@ typedef struct __MEASUREMENT__
   int32_t max_measurements;
   int32_t measurement_count; /*!< Number of measurements in the current cycle */
   bool data_transmitted; /*!< Flag to prevent duplicate transmissions in the same cycle */
+  int32_t last_transmission_minute; /*!< Last minute when data was transmitted to prevent duplicates */
   int32_t curr_minutes;
   int32_t curr_seconds;
   int32_t curr_total_seconds;

@@ -25,7 +25,7 @@
 #define XMB__MSPICON_H    64   
 
 #define XBM_X_POS_SDICON  72
-#define XBM_Y_POS_SDICO   0
+#define XBM_Y_POS_SDICON  0
 #define XBM_SDICON_W      16
 #define XMB_SDICON_H      16
 
@@ -40,7 +40,7 @@
 #define XMB_MOBICON_H      16
 
 #define XBM_X_POS_WIFIICON  112
-#define XBM_Y_POS_WIFICON   0
+#define XBM_Y_POS_WIFIICON 0
 #define XBM_WIFIICON_W      16
 #define XMB_WIFIICON_H      16
 
@@ -150,7 +150,7 @@ static void vHal_displayDrawScrHead(systemStatus_t *statPtr, deviceNetworkInfo_t
 
   if (statPtr->sdCard) 
   {
-    u8g2.drawXBMP(XBM_X_POS_SDICON, XBM_Y_POS_SDICO, XBM_SDICON_W, XMB_SDICON_H, icons.sd_icon16x16);
+    u8g2.drawXBMP(XBM_X_POS_SDICON, XBM_Y_POS_SDICON, XBM_SDICON_W, XMB_SDICON_H, icons.sd_icon16x16);
   }
   if (statPtr->datetime) 
   {
@@ -164,7 +164,7 @@ static void vHal_displayDrawScrHead(systemStatus_t *statPtr, deviceNetworkInfo_t
     } 
     else 
     {
-     u8g2.drawXBMP(XBM_X_POS_WIFIICON, XBM_Y_POS_WIFICON, XBM_WIFIICON_W, XMB_WIFIICON_H, icons.wifi1_icon16x16);
+     u8g2.drawXBMP(XBM_X_POS_WIFIICON, XBM_Y_POS_WIFIICON, XBM_WIFIICON_W, XMB_WIFIICON_H, icons.wifi1_icon16x16);
     }
   }
   else 
